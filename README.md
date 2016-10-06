@@ -1,2 +1,2 @@
 # FCDR_AVHRR
-FCDR AVHRR python code
+Development code for AVHRR FCDR Uncertainties
