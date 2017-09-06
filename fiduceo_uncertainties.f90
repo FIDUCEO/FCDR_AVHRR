@@ -196,7 +196,7 @@ CONTAINS
     command_fcdr ='python2.7 write_easy_fcdr_from_netcdf.py '//TRIM(temp_file)//' '//TRIM(filename_nc)
     call SYSTEM(TRIM(command_fcdr))
     command_fcdr = 'rm -f '//TRIM(temp_file)
-!    call SYSTEM(TRIM(command_fcdr))
+    call SYSTEM(TRIM(command_fcdr))
 !    print*, "remplissage"
 !    ! Which is French for "filling"
 !    call fill_netcdf(filename_nc,AVHRR,FCDR)
@@ -306,7 +306,7 @@ CONTAINS
     stat = NF90_DEF_VAR_FILL(ncid, day_varid, 0, -1)
     call check(stat)
 
-    stat = NF90_DEF_VAR(ncid,'hours',NF90_INT,dims1,hours_varid)
+    stat = NF90_DEF_VAR(ncid,'hours',NF90_FLOAT,dims1,hours_varid)
     call check(stat)
     stat = NF90_DEF_VAR_DEFLATE(ncid, hours_varid, 1, 1, 9)
     call check(stat)
@@ -480,100 +480,128 @@ CONTAINS
     !
     ! Now write data
     !
+!    WRITE(*,*)'Latitude writing'
     stat = NF90_PUT_VAR(ncid, latitude_varid, AVHRR%Lat)
     call check(stat)
 
+!    WRITE(*,*)'Longitude writing'
     stat = NF90_PUT_VAR(ncid, longitude_varid, AVHRR%Lon)
     call check(stat)
 
+!    WRITE(*,*)'Time writing'
     stat = NF90_PUT_VAR(ncid, time_varid, AVHRR%time)
     call check(stat)
 
+!    WRITE(*,*)'year writing'
     stat = NF90_PUT_VAR(ncid, year_varid, AVHRR%year)
     call check(stat)
 
+!    WRITE(*,*)'Month writing'
     stat = NF90_PUT_VAR(ncid, month_varid, AVHRR%month)
     call check(stat)
 
+!    WRITE(*,*)'Day writing'
     stat = NF90_PUT_VAR(ncid, day_varid, AVHRR%day)
     call check(stat)
 
+!    WRITE(*,*)'Hours writing'
     stat = NF90_PUT_VAR(ncid, hours_varid, AVHRR%hours)
     call check(stat)
 
+!    WRITE(*,*)'Satza writing'
     stat = NF90_PUT_VAR(ncid, satza_varid, AVHRR%satza)
     call check(stat)
 
+!    WRITE(*,*)'Solza writing'
     stat = NF90_PUT_VAR(ncid, solza_varid, AVHRR%solza)
     call check(stat)
 
     IF( ALLOCATED(AVHRR%relaz) )THEN
+!       WRITE(*,*)'Relaz writing'
        stat = NF90_PUT_VAR(ncid, relaz_varid, AVHRR%relaz)
        call check(stat)
     ENDIF
 
+!    WRITE(*,*)'Ch1 writing'
     stat = NF90_PUT_VAR(ncid, ch1_varid, AVHRR%new_array1)
     call check(stat)
 
+!    WRITE(*,*)'Ch2 writing'
     stat = NF90_PUT_VAR(ncid, ch2_varid, AVHRR%new_array2)
     call check(stat)
 
     IF( ALLOCATED(AVHRR%new_array3a) )THEN
+!       WRITE(*,*)'Ch3a writing'
        stat = NF90_PUT_VAR(ncid, ch3a_varid, AVHRR%new_array3a)
        call check(stat)
     ENDIF
 
+!    WRITE(*,*)'Ch3b writing'
     stat = NF90_PUT_VAR(ncid, ch3b_varid, FCDR%btf3)
     call check(stat)
 
+!    WRITE(*,*)'Ch4 writing'
     stat = NF90_PUT_VAR(ncid, ch4_varid, FCDR%btf4)
     call check(stat)
 
     IF( twelve_micron_there )THEN
+!       WRITE(*,*)'Ch5 writing'
        stat = NF90_PUT_VAR(ncid, ch5_varid, FCDR%btf5)
        call check(stat)
     ENDIF
 
+!    WRITE(*,*)'Ch1 (Rand) writing'
     stat = NF90_PUT_VAR(ncid, ch1_random_varid, AVHRR%new_array1_error)
     call check(stat)
 
+!    WRITE(*,*)'Ch2 (Rand) writing'
     stat = NF90_PUT_VAR(ncid, ch2_random_varid, AVHRR%new_array2_error)
     call check(stat)
 
     IF( ALLOCATED(AVHRR%new_array3a) )THEN
+!       WRITE(*,*)'Ch3a (Rand) writing'
        stat = NF90_PUT_VAR(ncid, ch3a_random_varid, AVHRR%new_array3a_error)
        call check(stat)
     ENDIF
 
+!    WRITE(*,*)'Ch3b (Rand) writing'
     stat = NF90_PUT_VAR(ncid, ch3b_random_varid, FCDR%ur3)
     call check(stat)
 
+!    WRITE(*,*)'Ch4 (Rand) writing'
     stat = NF90_PUT_VAR(ncid, ch4_random_varid, FCDR%ur4)
     call check(stat)
 
     IF( twelve_micron_there )THEN
+!       WRITE(*,*)'Ch5 (Rand) writing'
        stat = NF90_PUT_VAR(ncid, ch5_random_varid, FCDR%ur5)
        call check(stat)
     ENDIF
 
+!    WRITE(*,*)'Ch1 (Non-Rand) writing'
     stat = NF90_PUT_VAR(ncid, ch1_non_random_varid, 0.03*AVHRR%new_array1)
     call check(stat)
 
+!    WRITE(*,*)'Ch2 (Non-Rand) writing'
     stat = NF90_PUT_VAR(ncid, ch2_non_random_varid, 0.05*AVHRR%new_array2)
     call check(stat)
 
     IF( ALLOCATED(AVHRR%new_array3a) )THEN
+!       WRITE(*,*)'Ch3a (Non-Rand) writing'
        stat = NF90_PUT_VAR(ncid, ch3a_non_random_varid, 0.05*AVHRR%new_array3a)
        call check(stat)
     ENDIF
 
+!    WRITE(*,*)'Ch3b (Non-Rand) writing'
     stat = NF90_PUT_VAR(ncid, ch3b_non_random_varid, FCDR%us3)
     call check(stat)
 
+!    WRITE(*,*)'Ch4 (Non-Rand) writing'
     stat = NF90_PUT_VAR(ncid, ch4_non_random_varid, FCDR%us4)
     call check(stat)
 
     IF( twelve_micron_there )THEN
+!       WRITE(*,*)'Ch5 (Non-Rand) writing'
        stat = NF90_PUT_VAR(ncid, ch5_non_random_varid, FCDR%us5)
        call check(stat)
     ENDIF
@@ -1326,17 +1354,25 @@ CONTAINS
              trmin3=convertBT(nrmin3,coefs1(5,1), coefs1(6,1), coefs1(7,1))
              FCDR%ur3(j,i)=(trmax3-trmin3)/2.
           else
-             FCDR%ur3(j,i) = trmax3-FCDR%btf3(j,i)
+!             FCDR%ur3(j,i) = trmax3-FCDR%btf3(j,i)
+             ! Set data to bad as no 1 sigma detection available
+             FCDR%ur3(j,i) = NAN_R
+             FCDR%us3(j,i) = NAN_R
+             FCDR%btf3(j,i) = NAN_R
           endif
 
           nsmax3=outData%new_array3B(j,i)+us3
           nsmin3=outData%new_array3B(j,i)-us3
           tsmax3=convertBT(nsmax3,coefs1(5,1), coefs1(6,1), coefs1(7,1))
-          if( nsmin3 .gt. 0. )then
+          if( nsmin3 .gt. 0. .and. NAN_R .ne. FCDR%ur3(j,i) )then
              tsmin3=convertBT(nsmin3,coefs1(5,1), coefs1(6,1), coefs1(7,1))
              FCDR%us3(j,i)=(tsmax3-tsmin3)/2.
           else
-             FCDR%us3(j,i) = tsmax3-FCDR%btf3(j,i)
+!             FCDR%us3(j,i) = tsmax3-FCDR%btf3(j,i)
+             ! Set data to bad as no 1 sigma detection available
+             FCDR%ur3(j,i) = NAN_R
+             FCDR%us3(j,i) = NAN_R
+             FCDR%btf3(j,i) = NAN_R
           endif
        end if
 
@@ -1350,16 +1386,24 @@ CONTAINS
              trmin4=convertBT(nrmin4,coefs2(5,1), coefs2(6,1), coefs2(7,1))
              FCDR%ur4(j,i)=(trmax4-trmin4)/2.
           else
-             FCDR%ur4(j,i)=trmax4-FCDR%btf4(j,i)
+!             FCDR%ur4(j,i)=trmax4-FCDR%btf4(j,i)
+             ! Set data to bad as no 1 sigma detection available
+             FCDR%ur4(j,i) = NAN_R
+             FCDR%us4(j,i) = NAN_R
+             FCDR%btf4(j,i) = NAN_R
           endif
           nsmax4=outdata%new_array4(j,i)+us4
           tsmax4=convertBT(nsmax4,coefs2(5,1), coefs2(6,1), coefs2(7,1))
           nsmin4=outdata%new_array4(j,i)-us4
-          if( nsmin4 .gt. 0 )then
+          if( nsmin4 .gt. 0  .and. NAN_R .ne. FCDR%ur4(j,i) )then
              tsmin4=convertBT(nsmin4,coefs2(5,1), coefs2(6,1), coefs2(7,1))
              FCDR%us4(j,i)=(tsmax4-tsmin4)/2.
           else
-             FCDR%us4(j,i)=tsmax4-FCDR%btf4(j,i)
+!             FCDR%us4(j,i)=tsmax4-FCDR%btf4(j,i)
+             ! Set data to bad as no 1 sigma detection available
+             FCDR%ur4(j,i) = NAN_R
+             FCDR%us4(j,i) = NAN_R
+             FCDR%btf4(j,i) = NAN_R
           endif
        end if
 
@@ -1375,16 +1419,24 @@ CONTAINS
                 trmin5=convertBT(nrmin5,coefs3(5,1), coefs3(6,1), coefs3(7,1))
                 FCDR%ur5(j,i)=(trmax5-trmin5)/2.
              else
-                FCDR%ur5(j,i)=trmax5-FCDR%btf5(j,i)
+!                FCDR%ur5(j,i)=trmax5-FCDR%btf5(j,i)
+                ! Set data to bad as no 1 sigma detection available
+                FCDR%ur5(j,i) = NAN_R
+                FCDR%us5(j,i) = NAN_R
+                FCDR%btf5(j,i) = NAN_R
              endif
              nsmax5=outdata%new_array5(j,i)+us5
              tsmax5=convertBT(nsmax5,coefs3(5,1), coefs3(6,1), coefs3(7,1))
              nsmin5=outdata%new_array5(j,i)-us5
-             if( nsmin5 .gt. 0 )then
+             if( nsmin5 .gt. 0  .and. NAN_R .ne. FCDR%ur5(j,i) )then
                 tsmin5=convertBT(nsmin5,coefs3(5,1), coefs3(6,1), coefs3(7,1))
                 FCDR%us5(j,i)=(tsmax5-tsmin5)/2.
              else
-                FCDR%us5(j,i)=tsmax5-FCDR%btf5(j,i)
+!                FCDR%us5(j,i)=tsmax5-FCDR%btf5(j,i)
+                ! Set data to bad as no 1 sigma detection available
+                FCDR%ur5(j,i) = NAN_R
+                FCDR%us5(j,i) = NAN_R
+                FCDR%btf5(j,i) = NAN_R
              endif
           end if
        ENDIF
