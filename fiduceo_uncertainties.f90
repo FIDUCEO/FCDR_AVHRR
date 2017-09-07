@@ -1,21 +1,3 @@
-! * Copyright (C) 2017 J.Mittaz University of Reading
-! * This code was developed for the EC project “Fidelity and Uncertainty in   
-! * Climate Data Records from Earth Observations (FIDUCEO)”. 
-! * Grant Agreement: 638822
-! *
-! * This program is free software; you can redistribute it and/or modify it
-! * under the terms of the GNU General Public License as published by the Free
-! * Software Foundation; either version 3 of the License, or (at your option)
-! * any later version.
-! * This program is distributed in the hope that it will be useful, but WITHOUT
-! * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-! * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-! * more details.
-! * 
-! * A copy of the GNU General Public License should have been supplied along
-! * with this program; if not, see http://www.gnu.org/licenses/
-!
-
 !
 ! This code is a simple rewrite of Marines original code to split out
 ! the FIDUCEO uncertainties and sensitivities into a different structure
@@ -127,7 +109,7 @@ MODULE fiduceo_uncertainties
      REAL :: ucs3
      REAL :: ucs4
      REAL :: ucs5
-     
+     INTEGER, ALLOCATABLE :: flag_no_detection(:,:)
   END TYPE FIDUCEO_Data
 
   ! Constants
@@ -1148,6 +1130,12 @@ CONTAINS
 
   END SUBROUTINE Get_Sensitivities
 
+  !
+  ! Get radiance uncertainties
+  !
+  ! Note that only 2 sigma detections for flux are kept
+  ! If fainter than 2 sigma then pixel set to NAN_R
+  !
   SUBROUTINE radiance_uncertainties(i,outData,coefs1,coefs2,coefs3,FCDR,&
        twelve_micron_there)
 
@@ -1172,7 +1160,8 @@ CONTAINS
          nsmax3,us3, nsmin3, tsmin3, tsmax3, &
          nrmax4,ur4, nrmin4, trmin4, trmax4, &
          nsmax4,us4, nsmin4, tsmin4, tsmax4
- 
+    REAL :: two_sigma
+
     !
     ! Allocate arrays
     !
@@ -1192,6 +1181,7 @@ CONTAINS
             FCDR%uce3(outData%nelem,outData%arraySize),&
             FCDR%uce4(outData%nelem,outData%arraySize),&
             FCDR%uce5(outData%nelem,outData%arraySize),&
+            FCDR%flag_no_detection(6,outData%arraySize),&
        STAT=STAT)
        IF( 0 .ne. STAT )THEN
           CALL Gbcs_Critical(.TRUE.,'Cannot allocate arrays',&
@@ -1350,7 +1340,8 @@ CONTAINS
           nrmax3=outData%new_array3B(j,i)+ur3
           trmax3=convertBT(nrmax3,coefs1(5,1), coefs1(6,1), coefs1(7,1))
           nrmin3=outData%new_array3B(j,i)-ur3
-          if( nrmin3 .gt. 0. )then
+          two_sigma = outData%new_array3B(j,i)-2*ur3
+          if( two_sigma .gt. 0. )then
              trmin3=convertBT(nrmin3,coefs1(5,1), coefs1(6,1), coefs1(7,1))
              FCDR%ur3(j,i)=(trmax3-trmin3)/2.
           else
@@ -1363,8 +1354,9 @@ CONTAINS
 
           nsmax3=outData%new_array3B(j,i)+us3
           nsmin3=outData%new_array3B(j,i)-us3
+          two_sigma = outData%new_array3B(j,i)-2*us3
           tsmax3=convertBT(nsmax3,coefs1(5,1), coefs1(6,1), coefs1(7,1))
-          if( nsmin3 .gt. 0. .and. NAN_R .ne. FCDR%ur3(j,i) )then
+          if( two_sigma .gt. 0. .and. NAN_R .ne. FCDR%ur3(j,i) )then
              tsmin3=convertBT(nsmin3,coefs1(5,1), coefs1(6,1), coefs1(7,1))
              FCDR%us3(j,i)=(tsmax3-tsmin3)/2.
           else
@@ -1382,7 +1374,8 @@ CONTAINS
           nrmax4=outdata%new_array4(j,i)+ur4 
           trmax4=convertBT(nrmax4,coefs2(5,1), coefs2(6,1), coefs2(7,1))
           nrmin4=outdata%new_array4(j,i)-ur4
-          if( nrmin4 .gt. 0 )then
+          two_sigma = outdata%new_array4(j,i)-2*ur4
+          if( two_sigma .gt. 0 )then
              trmin4=convertBT(nrmin4,coefs2(5,1), coefs2(6,1), coefs2(7,1))
              FCDR%ur4(j,i)=(trmax4-trmin4)/2.
           else
@@ -1395,7 +1388,8 @@ CONTAINS
           nsmax4=outdata%new_array4(j,i)+us4
           tsmax4=convertBT(nsmax4,coefs2(5,1), coefs2(6,1), coefs2(7,1))
           nsmin4=outdata%new_array4(j,i)-us4
-          if( nsmin4 .gt. 0  .and. NAN_R .ne. FCDR%ur4(j,i) )then
+          two_sigma = outdata%new_array4(j,i)-2*us4
+          if( two_sigma .gt. 0  .and. NAN_R .ne. FCDR%ur4(j,i) )then
              tsmin4=convertBT(nsmin4,coefs2(5,1), coefs2(6,1), coefs2(7,1))
              FCDR%us4(j,i)=(tsmax4-tsmin4)/2.
           else
@@ -1415,7 +1409,8 @@ CONTAINS
              trmax5=convertBT(nrmax5,coefs3(5,1), coefs3(6,1), coefs3(7,1))
              nrmin5=outdata%new_array5(j,i)-ur5
              trmin5=convertBT(nrmin5,coefs3(5,1), coefs3(6,1), coefs3(7,1))
-             if( nrmin5 .gt. 0 )then
+             two_sigma = outdata%new_array5(j,i)-2*ur5
+             if( two_sigma .gt. 0 )then
                 trmin5=convertBT(nrmin5,coefs3(5,1), coefs3(6,1), coefs3(7,1))
                 FCDR%ur5(j,i)=(trmax5-trmin5)/2.
              else
@@ -1428,7 +1423,8 @@ CONTAINS
              nsmax5=outdata%new_array5(j,i)+us5
              tsmax5=convertBT(nsmax5,coefs3(5,1), coefs3(6,1), coefs3(7,1))
              nsmin5=outdata%new_array5(j,i)-us5
-             if( nsmin5 .gt. 0  .and. NAN_R .ne. FCDR%ur5(j,i) )then
+             two_sigma = outdata%new_array5(j,i)-2*us5
+             if( two_sigma .gt. 0  .and. NAN_R .ne. FCDR%ur5(j,i) )then
                 tsmin5=convertBT(nsmin5,coefs3(5,1), coefs3(6,1), coefs3(7,1))
                 FCDR%us5(j,i)=(tsmax5-tsmin5)/2.
              else
