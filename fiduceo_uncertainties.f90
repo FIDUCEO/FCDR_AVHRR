@@ -226,10 +226,12 @@ CONTAINS
     INTEGER :: ch3b_non_random_varid
     INTEGER :: ch4_non_random_varid
     INTEGER :: ch5_non_random_varid
+    INTEGER :: flag_no_detection_varid
     INTEGER :: stat
 
     INTEGER :: dimid_nx
     INTEGER :: dimid_ny
+    INTEGER :: dimid_ir
     INTEGER :: dims1(1)
     INTEGER :: dims2(2)
     
@@ -240,6 +242,9 @@ CONTAINS
     call check(stat)
 
     stat = NF90_DEF_DIM(ncid,'ny',AVHRR%arraySize,dimid_ny)
+    call check(stat)
+
+    stat = NF90_DEF_DIM(ncid,'nir',3,dimid_ir)
     call check(stat)
 
     dims1(1) = dimid_ny
@@ -456,6 +461,14 @@ CONTAINS
        call check(stat)
     ENDIF
 
+    dims2(1) = dimid_ir
+    dims2(2) = dimid_ny
+    stat = NF90_DEF_VAR(ncid,'flag_no_detection',NF90_INT,dims2,&
+         flag_no_detection_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, flag_no_detection_varid, 1, 1, 9)
+    call check(stat)
+    
     stat = NF90_ENDDEF(ncid)
     call check(stat)
 
@@ -587,6 +600,9 @@ CONTAINS
        stat = NF90_PUT_VAR(ncid, ch5_non_random_varid, FCDR%us5)
        call check(stat)
     ENDIF
+
+    stat = NF90_PUT_VAR(ncid, flag_no_detection_varid, FCDR%flag_no_detection)
+    call check(stat)
 
     stat = NF90_CLOSE(ncid)
     call check(stat)
@@ -1181,7 +1197,7 @@ CONTAINS
             FCDR%uce3(outData%nelem,outData%arraySize),&
             FCDR%uce4(outData%nelem,outData%arraySize),&
             FCDR%uce5(outData%nelem,outData%arraySize),&
-            FCDR%flag_no_detection(6,outData%arraySize),&
+            FCDR%flag_no_detection(3,outData%arraySize),&
        STAT=STAT)
        IF( 0 .ne. STAT )THEN
           CALL Gbcs_Critical(.TRUE.,'Cannot allocate arrays',&
@@ -1205,6 +1221,7 @@ CONTAINS
        FCDR%ucict3 = NAN_R
        FCDR%ucict4 = NAN_R
        FCDR%ucict5 = NAN_R
+       FCDR%flag_no_detection = 0
     ENDIF
 
     !
@@ -1347,6 +1364,7 @@ CONTAINS
           else
 !             FCDR%ur3(j,i) = trmax3-FCDR%btf3(j,i)
              ! Set data to bad as no 1 sigma detection available
+             FCDR%flag_no_detection(1,i) = 1
              FCDR%ur3(j,i) = NAN_R
              FCDR%us3(j,i) = NAN_R
              FCDR%btf3(j,i) = NAN_R
@@ -1362,6 +1380,7 @@ CONTAINS
           else
 !             FCDR%us3(j,i) = tsmax3-FCDR%btf3(j,i)
              ! Set data to bad as no 1 sigma detection available
+             FCDR%flag_no_detection(1,i) = 1
              FCDR%ur3(j,i) = NAN_R
              FCDR%us3(j,i) = NAN_R
              FCDR%btf3(j,i) = NAN_R
@@ -1381,6 +1400,7 @@ CONTAINS
           else
 !             FCDR%ur4(j,i)=trmax4-FCDR%btf4(j,i)
              ! Set data to bad as no 1 sigma detection available
+             FCDR%flag_no_detection(2,i) = 1
              FCDR%ur4(j,i) = NAN_R
              FCDR%us4(j,i) = NAN_R
              FCDR%btf4(j,i) = NAN_R
@@ -1395,6 +1415,7 @@ CONTAINS
           else
 !             FCDR%us4(j,i)=tsmax4-FCDR%btf4(j,i)
              ! Set data to bad as no 1 sigma detection available
+             FCDR%flag_no_detection(2,i) = 1
              FCDR%ur4(j,i) = NAN_R
              FCDR%us4(j,i) = NAN_R
              FCDR%btf4(j,i) = NAN_R
@@ -1416,6 +1437,7 @@ CONTAINS
              else
 !                FCDR%ur5(j,i)=trmax5-FCDR%btf5(j,i)
                 ! Set data to bad as no 1 sigma detection available
+                FCDR%flag_no_detection(3,i) = 1
                 FCDR%ur5(j,i) = NAN_R
                 FCDR%us5(j,i) = NAN_R
                 FCDR%btf5(j,i) = NAN_R
@@ -1430,6 +1452,7 @@ CONTAINS
              else
 !                FCDR%us5(j,i)=tsmax5-FCDR%btf5(j,i)
                 ! Set data to bad as no 1 sigma detection available
+                FCDR%flag_no_detection(3,i) = 1
                 FCDR%ur5(j,i) = NAN_R
                 FCDR%us5(j,i) = NAN_R
                 FCDR%btf5(j,i) = NAN_R
