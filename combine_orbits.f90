@@ -1,6 +1,6 @@
 ! * Copyright (C) 2017 J.Mittaz University of Reading
-! * This code was developed for the EC project “Fidelity and Uncertainty in   
-! * Climate Data Records from Earth Observations (FIDUCEO)”. 
+! * This code was developed for the EC project Fidelity and Uncertainty in
+! * Climate Data Records from Earth Observations (FIDUCEO).
 ! * Grant Agreement: 638822
 ! *
 ! * This program is free software; you can redistribute it and/or modify it
@@ -11,10 +11,9 @@
 ! * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 ! * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
 ! * more details.
-! * 
+! *
 ! * A copy of the GNU General Public License should have been supplied along
 ! * with this program; if not, see http://www.gnu.org/licenses/
-!
 
 !
 ! Module to combine three AVHRR orbits to create one 'good' orbit
