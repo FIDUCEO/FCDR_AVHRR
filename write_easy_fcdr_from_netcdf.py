@@ -1,20 +1,3 @@
-# * Copyright (C) 2017 J.Mittaz University of Reading
-# * This code was developed for the EC project “Fidelity and Uncertainty in   
-# * Climate Data Records from Earth Observations (FIDUCEO)”. 
-# * Grant Agreement: 638822
-# *
-# * This program is free software; you can redistribute it and/or modify it
-# * under the terms of the GNU General Public License as published by the Free
-# * Software Foundation; either version 3 of the License, or (at your option)
-# * any later version.
-# * This program is distributed in the hope that it will be useful, but WITHOUT
-# * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-# * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-# * more details.
-# * 
-# * A copy of the GNU General Public License should have been supplied along
-# * with this program; if not, see http://www.gnu.org/licenses/
-
 from fiduceo.fcdr.writer.fcdr_writer import FCDRWriter
 from fiduceo.fcdr.writer.templates import avhrr
 import sys
@@ -29,9 +12,7 @@ class read_netcdf(object):
         ncid = netCDF4.Dataset(filename,'r')
 
         self.lat = ncid.variables['latitude'][:,:]
-        self.lat = (self.lat*1000+0.5).astype(np.int32)/1000.
         self.lon = ncid.variables['longitude'][:,:]
-        self.lon = (self.lon*1000+0.5).astype(np.int32)/1000.
         year = ncid.variables['year'][:]
         month = ncid.variables['month'][:]
         day = ncid.variables['day'][:]
@@ -93,36 +74,36 @@ class read_netcdf(object):
 
         ncid.close()
 
-        self.lat = np.ma.filled(self.lat,float('nan'))
-        self.lon = np.ma.filled(self.lon,float('nan'))
-        self.time = np.ma.filled(self.time,float('nan'))
-        self.satza = np.ma.filled(self.satza,float('nan'))
-        self.solza = np.ma.filled(self.solza,float('nan'))
-        self.relaz = np.ma.filled(self.relaz,float('nan'))
-        self.ch1 = np.ma.filled(self.ch1,float('nan'))
-        self.ch2 = np.ma.filled(self.ch2,float('nan'))
+        self.lat = np.ma.filled(self.lat,np.NaN)
+        self.lon = np.ma.filled(self.lon,np.NaN)
+        self.time = np.ma.filled(self.time,np.NaN)
+        self.satza = np.ma.filled(self.satza,np.NaN)
+        self.solza = np.ma.filled(self.solza,np.NaN)
+        self.relaz = np.ma.filled(self.relaz,np.NaN)
+        self.ch1 = np.ma.filled(self.ch1,np.NaN)
+        self.ch2 = np.ma.filled(self.ch2,np.NaN)
         if self.ch3a_there:
-            self.ch3a = np.ma.filled(self.ch3a,float('nan'))
-        self.ch3b = np.ma.filled(self.ch3b,float('nan'))
-        self.ch4 = np.ma.filled(self.ch4,float('nan'))
+            self.ch3a = np.ma.filled(self.ch3a,np.NaN)
+        self.ch3b = np.ma.filled(self.ch3b,np.NaN)
+        self.ch4 = np.ma.filled(self.ch4,np.NaN)
         if self.ch5_there:
-            self.ch5 = np.ma.filled(self.ch5,float('nan'))
-        self.u_random_ch1 = np.ma.filled(self.u_random_ch1,float('nan'))
-        self.u_random_ch2 = np.ma.filled(self.u_random_ch2,float('nan'))
+            self.ch5 = np.ma.filled(self.ch5,np.NaN)
+        self.u_random_ch1 = np.ma.filled(self.u_random_ch1,np.NaN)
+        self.u_random_ch2 = np.ma.filled(self.u_random_ch2,np.NaN)
         if self.ch3a_there:
-            self.u_random_ch3a = np.ma.filled(self.u_random_ch3a,float('nan'))
-        self.u_random_ch3b = np.ma.filled(self.u_random_ch3b,float('nan'))
-        self.u_random_ch4 = np.ma.filled(self.u_random_ch4,float('nan'))
+            self.u_random_ch3a = np.ma.filled(self.u_random_ch3a,np.NaN)
+        self.u_random_ch3b = np.ma.filled(self.u_random_ch3b,np.NaN)
+        self.u_random_ch4 = np.ma.filled(self.u_random_ch4,np.NaN)
         if self.ch5_there:
-            self.u_random_ch5 = np.ma.filled(self.u_random_ch5,float('nan'))
-        self.u_non_random_ch1 = np.ma.filled(self.u_non_random_ch1,float('nan'))
-        self.u_non_random_ch2 = np.ma.filled(self.u_non_random_ch2,float('nan'))
+            self.u_random_ch5 = np.ma.filled(self.u_random_ch5,np.NaN)
+        self.u_non_random_ch1 = np.ma.filled(self.u_non_random_ch1,np.NaN)
+        self.u_non_random_ch2 = np.ma.filled(self.u_non_random_ch2,np.NaN)
         if self.ch3a_there:
-            self.u_non_random_ch3a = np.ma.filled(self.u_non_random_ch3a,float('nan'))
-        self.u_non_random_ch3b = np.ma.filled(self.u_non_random_ch3b,float('nan'))
-        self.u_non_random_ch4 = np.ma.filled(self.u_non_random_ch4,float('nan'))
+            self.u_non_random_ch3a = np.ma.filled(self.u_non_random_ch3a,np.NaN)
+        self.u_non_random_ch3b = np.ma.filled(self.u_non_random_ch3b,np.NaN)
+        self.u_non_random_ch4 = np.ma.filled(self.u_non_random_ch4,np.NaN)
         if self.ch5_there:
-            self.u_non_random_ch5 = np.ma.filled(self.u_non_random_ch5,float('nan'))
+            self.u_non_random_ch5 = np.ma.filled(self.u_non_random_ch5,np.NaN)
 
 
     def __init__(self,filename):
@@ -148,64 +129,40 @@ def main(file_in,file_out):
     print "File created"
     # write real data to the variables. All variables initially contain "_FillValue".
     # Not writing to the whole array is completely OK
-    gd = np.isfinite(data.lat)
-    dataset.variables["latitude"].data[gd] = data.lat[gd]
-    gd = np.isfinite(data.lon)
-    dataset.variables["longitude"].data[gd] = data.lon[gd]
-    gd = np.isfinite(data.time)
-    dataset.variables["Time"].data[gd] = data.time[gd]
+    dataset.variables["latitude"].data = data.lat
+    dataset.variables["longitude"].data = data.lon
+    dataset.variables["Time"].data = data.time
     
-    gd = np.isfinite(data.satza)
-    dataset.variables["satellite_zenith_angle"].data[gd] = data.satza[gd]
-    gd = np.isfinite(data.solza)
-    dataset.variables["solar_zenith_angle"].data[gd] = data.solza[gd]
-    gd = np.isfinite(data.relaz)
-    dataset.variables["relative_azimuth_angle"].data[gd] = data.relaz[gd]
+    dataset.variables["satellite_zenith_angle"].data = data.satza
+    dataset.variables["solar_zenith_angle"].data = data.solza
+    dataset.variables["relative_azimuth_angle"].data = data.relaz
 
-    gd = np.isfinite(data.ch1)
-    dataset.variables["Ch1_Ref"].data[gd] = data.ch1[gd]
-    gd = np.isfinite(data.ch2)
-    dataset.variables["Ch2_Ref"].data[gd] = data.ch2[gd]
+    dataset.variables["Ch1_Ref"].data = data.ch1
+    dataset.variables["Ch2_Ref"].data = data.ch2
     if data.ch3a_there:
-        gd = np.isfinite(data.ch3a)
-        dataset.variables["Ch3a_Ref"].data[gd] = data.ch3a[gd]
-    gd = np.isfinite(data.ch3b)
-    dataset.variables["Ch3b_Bt"].data[gd] = data.ch3b[gd]
-    gd = np.isfinite(data.ch4)
-    dataset.variables["Ch4_Bt"].data[gd] = data.ch4[gd]
+        dataset.variables["Ch3a_Ref"].data = data.ch3a
+    dataset.variables["Ch3b_Bt"].data = data.ch3b
+    dataset.variables["Ch4_Bt"].data = data.ch4
     if data.ch5_there:
-        gd = np.isfinite(data.ch5)
-        dataset.variables["Ch5_Bt"].data[gd] = data.ch5[gd]
+        dataset.variables["Ch5_Bt"].data = data.ch5
 
-    gd = np.isfinite(data.u_random_ch1)
-    dataset.variables["u_random_Ch1"].data[gd] = data.u_random_ch1[gd]
-    gd = np.isfinite(data.u_random_ch2)
-    dataset.variables["u_random_Ch2"].data[gd] = data.u_random_ch2[gd]
+    dataset.variables["u_random_Ch1"].data = data.u_random_ch1
+    dataset.variables["u_random_Ch2"].data = data.u_random_ch2
     if data.ch3a_there:
-        gd = np.isfinite(data.u_random_ch3a)
-        dataset.variables["u_random_Ch3a"].data[gd] = data.u_random_ch3a[gd]
-    gd = np.isfinite(data.u_random_ch3b)
-    dataset.variables["u_random_Ch3b"].data[gd] = data.u_random_ch3b[gd]
-    gd = np.isfinite(data.u_random_ch4)
-    dataset.variables["u_random_Ch4"].data[gd] = data.u_random_ch4[gd]
+        dataset.variables["u_random_Ch3a"].data = data.u_random_ch3a
+    dataset.variables["u_random_Ch3b"].data = data.u_random_ch3b
+    dataset.variables["u_random_Ch4"].data = data.u_random_ch4
     if data.ch5_there:
-        gd = np.isfinite(data.u_random_ch5)
-        dataset.variables["u_random_Ch5"].data[gd] = data.u_random_ch5[gd]
+        dataset.variables["u_random_Ch5"].data = data.u_random_ch5
    
-    gd = np.isfinite(data.u_non_random_ch1)
-    dataset.variables["u_non_random_Ch1"].data[gd] = data.u_non_random_ch1[gd]
-    gd = np.isfinite(data.u_non_random_ch2)
-    dataset.variables["u_non_random_Ch2"].data[gd] = data.u_non_random_ch2[gd]
+    dataset.variables["u_non_random_Ch1"].data = data.u_non_random_ch1
+    dataset.variables["u_non_random_Ch2"].data = data.u_non_random_ch2
     if data.ch3a_there:
-        gd = np.isfinite(data.u_non_random_ch3a)
-        dataset.variables["u_non_random_Ch3a"].data[gd] = data.u_non_random_ch3a[gd]
-    gd = np.isfinite(data.u_non_random_ch3b)
-    dataset.variables["u_non_random_Ch3b"].data[gd] = data.u_non_random_ch3b[gd]
-    gd = np.isfinite(data.u_non_random_ch4)
-    dataset.variables["u_non_random_Ch4"].data[gd] = data.u_non_random_ch4[gd]
+        dataset.variables["u_non_random_Ch3a"].data = data.u_non_random_ch3a
+    dataset.variables["u_non_random_Ch3b"].data = data.u_non_random_ch3b
+    dataset.variables["u_non_random_Ch4"].data = data.u_non_random_ch4
     if data.ch5_there:
-        gd = np.isfinite(data.u_non_random_ch5)
-        dataset.variables["u_non_random_Ch5"].data[gd] = data.u_non_random_ch5[gd]
+        dataset.variables["u_non_random_Ch5"].data = data.u_non_random_ch5
    
     #avhrr.AVHRR._create_channel_refl_variable(12835, "Channel 6 Reflectance") 
     # dump it to disk, netcdf4, medium compression
