@@ -1,6 +1,6 @@
 ! * Copyright (C) 2017 J.Mittaz University of Reading
-! * This code was developed for the EC project “Fidelity and Uncertainty in   
-! * Climate Data Records from Earth Observations (FIDUCEO)”. 
+! * This code was developed for the EC project Fidelity and Uncertainty in
+! * Climate Data Records from Earth Observations (FIDUCEO).
 ! * Grant Agreement: 638822
 ! *
 ! * This program is free software; you can redistribute it and/or modify it
@@ -11,14 +11,10 @@
 ! * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 ! * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
 ! * more details.
-! * 
+! *
 ! * A copy of the GNU General Public License should have been supplied along
 ! * with this program; if not, see http://www.gnu.org/licenses/
-!
 
-!
-! Top level code to write FIDUCEO easy pre-beta FCDR
-!
 PROGRAM Extract_L1b_Data
 
   USE GbcsErrorHandler
@@ -248,10 +244,11 @@ CONTAINS
     ENDIF
 !FIDUCEO_FCDR_L1C_AVHRR1_NOAA08_19840106013100_19840106E03200_EASY_v0.1_fv0.1.nc
     IF( new_filename )THEN
-       WRITE(ofile,'(''FIDUCEO_FCDR_L1C_'',a,''_'',i4.4,i2.2,i2.2,i2.2,i2.2,&
-            &i2.2,''_'',i4.4,i2.2,i2.2,i2.2,i2.2,i2.2,''_EASY_v0.1_fv01.nc'')')&
-            TRIM(instr_str),year1,month1,day1,hour1,minute1,0,&
-            year2,month2,day2,hour2,minute2,0
+!       WRITE(ofile,'(''FIDUCEO_FCDR_L1C_'',a,''_'',i4.4,i2.2,i2.2,i2.2,i2.2,&
+!            &i2.2,''_'',i4.4,i2.2,i2.2,i2.2,i2.2,i2.2,''_EASY_v0.1_fv01.nc'')')&
+!            TRIM(instr_str),year1,month1,day1,hour1,minute1,0,&
+!            year2,month2,day2,hour2,minute2,0
+       ofile = 'None'
     ENDIF
     CALL read_all_data(nfiles,file1,file2,file3,file4,file5,uuid_in,&
          AVHRR,year1,month1,day1,hour1,minute1,year2,month2,day2,hour2,&
