@@ -1,3 +1,20 @@
+! * Copyright (C) 2017 J.Mittaz University of Reading
+! * This code was developed for the EC project Fidelity and Uncertainty in
+! * Climate Data Records from Earth Observations (FIDUCEO).
+! * Grant Agreement: 638822
+! *
+! * This program is free software; you can redistribute it and/or modify it
+! * under the terms of the GNU General Public License as published by the Free
+! * Software Foundation; either version 3 of the License, or (at your option)
+! * any later version.
+! * This program is distributed in the hope that it will be useful, but WITHOUT
+! * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+! * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+! * more details.
+! *
+! * A copy of the GNU General Public License should have been supplied along
+! * with this program; if not, see http://www.gnu.org/licenses/
+
 !
 ! This code is a simple rewrite of Marines original code to split out
 ! the FIDUCEO uncertainties and sensitivities into a different structure
@@ -116,6 +133,11 @@ MODULE fiduceo_uncertainties
   REAL, PARAMETER :: c1 = 1.1910427E-5
   REAL, PARAMETER :: c2 = 1.4387752
   REAL, PARAMETER :: eta_ict = 0.985140
+
+  !
+  ! This is where the FIDUCEO software version number is defined
+  !
+  CHARACTER(LEN=3) :: software_version = '0.1'
   
   PRIVATE
   PUBLIC :: FIDUCEO_Data
@@ -175,7 +197,11 @@ CONTAINS
     CALL Write_Temp_NETCDF(temp_file,AVHRR,FCDR,twelve_micron_there)
 !    CALL Rescale(AVHRR,FCDR)
 !    write(height,'(i5)') AVHRR%arraysize
-    command_fcdr ='python2.7 write_easy_fcdr_from_netcdf.py '//TRIM(temp_file)//' '//TRIM(filename_nc)
+    IF( 'None' .eq. filename_nc )THEN
+       command_fcdr ='python2.7 write_easy_fcdr_from_netcdf.py '//TRIM(temp_file)
+    ELSE
+       command_fcdr ='python2.7 write_easy_fcdr_from_netcdf.py '//TRIM(temp_file)//' '//TRIM(filename_nc)
+    ENDIF
     call SYSTEM(TRIM(command_fcdr))
     command_fcdr = 'rm -f '//TRIM(temp_file)
     call SYSTEM(TRIM(command_fcdr))
@@ -234,6 +260,8 @@ CONTAINS
     INTEGER :: dimid_ir
     INTEGER :: dims1(1)
     INTEGER :: dims2(2)
+
+    CHARACTER(LEN=20) :: noaa_string
     
     stat = NF90_CREATE(temp_file,IOR(NF90_HDF5,NF90_CLOBBER),ncid)
     call check(stat)
@@ -468,7 +496,51 @@ CONTAINS
     call check(stat)
     stat = NF90_DEF_VAR_DEFLATE(ncid, flag_no_detection_varid, 1, 1, 9)
     call check(stat)
-    
+
+    !
+    ! Define two global attributes
+    !
+    IF( AVHRR%AVHRR_No .eq. 1 )THEN
+       noaa_string = 'TIROSN'
+    ELSE IF( AVHRR%AVHRR_No .eq. 6 )THEN
+       noaa_string = 'NOAA06'
+    ELSE IF( AVHRR%AVHRR_No .eq. 7 )THEN
+       noaa_string = 'NOAA07'
+    ELSE IF( AVHRR%AVHRR_No .eq. 8 )THEN
+       noaa_string = 'NOAA08'
+    ELSE IF( AVHRR%AVHRR_No .eq. 9 )THEN
+       noaa_string = 'NOAA09'
+    ELSE IF( AVHRR%AVHRR_No .eq. 10 )THEN
+       noaa_string = 'NOAA10'
+    ELSE IF( AVHRR%AVHRR_No .eq. 11 )THEN
+       noaa_string = 'NOAA11'
+    ELSE IF( AVHRR%AVHRR_No .eq. 12 )THEN
+       noaa_string = 'NOAA12'
+    ELSE IF( AVHRR%AVHRR_No .eq. 14 )THEN
+       noaa_string = 'NOAA14'
+    ELSE IF( AVHRR%AVHRR_No .eq. 15 )THEN
+       noaa_string = 'NOAA15'
+    ELSE IF( AVHRR%AVHRR_No .eq. 16 )THEN
+       noaa_string = 'NOAA16'
+    ELSE IF( AVHRR%AVHRR_No .eq. 17 )THEN
+       noaa_string = 'NOAA17'
+    ELSE IF( AVHRR%AVHRR_No .eq. 18 )THEN
+       noaa_string = 'NOAA18'
+    ELSE IF( AVHRR%AVHRR_No .eq. 19 )THEN
+       noaa_string = 'NOAA19'
+    ELSE IF( AVHRR%AVHRR_No .eq. -1 )THEN
+       noaa_string = 'METOPA'
+    ELSE IF( AVHRR%AVHRR_No .eq. -2 )THEN
+       noaa_string = 'METOPB'
+    ELSE IF( AVHRR%AVHRR_No .eq. -3 )THEN
+       noaa_string = 'METOPC'
+    ENDIF
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'noaa_string',TRIM(noaa_string))
+    call check(stat)    
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'version',TRIM(software_version))
+    call check(stat)    
+
     stat = NF90_ENDDEF(ncid)
     call check(stat)
 
