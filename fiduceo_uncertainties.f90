@@ -1367,9 +1367,17 @@ CONTAINS
             .and. (FCDR%dre_over_dcs3(j,i) .ne. NAN_R) & 
             .and. (FCDR%dre_over_dcict3(j,i) .ne. NAN_R) &
             .and. (FCDR%urict3_s(i) .ge. 0) )then 
-          us3=sqrt((FCDR%dre_over_drict3(j,i)**2*FCDR%urict3_s(i)**2) &
-               +(FCDR%dre_over_dcs3(j,i)**2*FCDR%ucs3**2) &
-               +(FCDR%dre_over_dcict3(j,i)**2*FCDR%ucict3**2)) 
+          IF( outData%walton_bias_correction )THEN
+             ! Add in Walton bias correct uncertainty as well
+             us3=sqrt((FCDR%dre_over_drict3(j,i)**2*FCDR%urict3_s(i)**2) &
+                  +(FCDR%dre_over_dcs3(j,i)**2*FCDR%ucs3**2) &
+                  +(FCDR%dre_over_dcict3(j,i)**2*FCDR%ucict3**2) &
+                  +(outData%walton_bias_corr_uncert(1)**2)) 
+          ELSE
+             us3=sqrt((FCDR%dre_over_drict3(j,i)**2*FCDR%urict3_s(i)**2) &
+                  +(FCDR%dre_over_dcs3(j,i)**2*FCDR%ucs3**2) &
+                  +(FCDR%dre_over_dcict3(j,i)**2*FCDR%ucict3**2)) 
+          ENDIF
        end if
 
        !---Ch 4
@@ -1391,9 +1399,16 @@ CONTAINS
             .and. (FCDR%dre_over_dcs4(j,i) .ne. NAN_R) & 
             .and. (FCDR%dre_over_dcict4(j,i) .ne. NAN_R) &
             .and. (FCDR%urict4_s(i) .ge. 0) )then 
-          us4=sqrt((FCDR%dre_over_drict4(j,i)**2*FCDR%urict4_s(i)**2) &
-               +(FCDR%dre_over_dcs4(j,i)**2*FCDR%ucs4**2) &
-               +(FCDR%dre_over_dcict4(j,i)**2*FCDR%ucict4**2)) 
+          IF( outData%walton_bias_correction )THEN
+             us4=sqrt((FCDR%dre_over_drict4(j,i)**2*FCDR%urict4_s(i)**2) &
+                  +(FCDR%dre_over_dcs4(j,i)**2*FCDR%ucs4**2) &
+                  +(FCDR%dre_over_dcict4(j,i)**2*FCDR%ucict4**2) & 
+                  +(outData%walton_bias_corr_uncert(2)**2)) 
+          ELSE
+             us4=sqrt((FCDR%dre_over_drict4(j,i)**2*FCDR%urict4_s(i)**2) &
+                  +(FCDR%dre_over_dcs4(j,i)**2*FCDR%ucs4**2) &
+                  +(FCDR%dre_over_dcict4(j,i)**2*FCDR%ucict4**2)) 
+          ENDIF
        end if
 
        IF( twelve_micron_there )THEN
@@ -1416,9 +1431,16 @@ CONTAINS
                .and. (FCDR%dre_over_dcs5(j,i) .ne. NAN_R) & 
                .and. (FCDR%dre_over_dcict5(j,i) .ne. NAN_R) &
                .and. (FCDR%urict5_s(i) .ge. 0) )then 
-             us5=sqrt((FCDR%dre_over_drict5(j,i)**2*FCDR%urict5_s(i)**2) &
-                  +(FCDR%dre_over_dcs5(j,i)**2*FCDR%ucs5**2) &
-                  +(FCDR%dre_over_dcict5(j,i)**2*FCDR%ucict5**2)) 
+             IF( outData%walton_bias_correction )THEN
+                us5=sqrt((FCDR%dre_over_drict5(j,i)**2*FCDR%urict5_s(i)**2) &
+                     +(FCDR%dre_over_dcs5(j,i)**2*FCDR%ucs5**2) &
+                     +(FCDR%dre_over_dcict5(j,i)**2*FCDR%ucict5**2) & 
+                     +(outData%walton_bias_corr_uncert(3)**2)) 
+             ELSE
+                us5=sqrt((FCDR%dre_over_drict5(j,i)**2*FCDR%urict5_s(i)**2) &
+                     +(FCDR%dre_over_dcs5(j,i)**2*FCDR%ucs5**2) &
+                     +(FCDR%dre_over_dcict5(j,i)**2*FCDR%ucict5**2)) 
+             ENDIF
           end if
        ENDIF
 
