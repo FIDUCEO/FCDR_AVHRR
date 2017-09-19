@@ -532,8 +532,10 @@ CONTAINS
        ENDIF
     END DO FindFirst
     IF( -1 .eq. first_position )THEN
-       CALL Gbcs_Critical(.TRUE.,'Cannot find first position',&
-            'Merge_AVHRR','extract_l1b_data.f90')
+       !
+       ! Gap so just add first of new one as new line
+       !
+       first_position = 1
     ENDIF
 
     !
@@ -1008,7 +1010,7 @@ CONTAINS
 
   SUBROUTINE read_all_data(nFile,file1,file2,file3,file4,file5,uuid_in,&
        AVHRRout,year1,month1,day1,hour1,minute1,year2,month2,day2,&
-       hour2,minute2,output_filename)
+       hour2,minute2,output_filename,walton_cal)
 
     INTEGER, INTENT(IN) :: nFile
     CHARACTER(LEN=*), INTENT(IN) :: file1
@@ -1029,8 +1031,10 @@ CONTAINS
     INTEGER, INTENT(IN) :: hour2
     INTEGER, INTENT(IN) :: minute2
     CHARACTER(LEN=*), INTENT(IN) :: output_filename
+    LOGICAL, INTENT(IN) :: walton_cal
 
     ! Local variables
+    TYPE(Imagery) :: IMG
     TYPE(AVHRR_Data), TARGET :: AVHRR
     TYPE(AVHRR_Data) :: AVHRR_Total
     TYPE(AVHRR_Instrument_Coefs) :: instr_coefs
@@ -1041,6 +1045,12 @@ CONTAINS
     INTEGER :: trim_low
     INTEGER :: trim_high
     INTEGER :: I
+    TYPE(Walton_Struct) :: walton_str
+
+    !
+    ! Setup GbcsDataPath
+    !
+    IMG%GbcsDataPath = '/group_workspaces/cems/nceo_uor/users/jmittaz/AVHRR/code/git/gbcs_new_calibration/dat_cci/'
 
     AVHRR%newCalibration_there = .FALSE.
     AVHRR_Total%newCalibration_there = .FALSE.
@@ -1146,11 +1156,15 @@ CONTAINS
     ! Make sure radiances are output as Marines code expects this
     !
     pAVHRR => AVHRR
-    CALL Recalibrate_AVHRR(instr_coefs,pAVHRR,out_radiances=.TRUE.,&
+    CALL Recalibrate_AVHRR(IMG,instr_coefs,pAVHRR,out_radiances=.TRUE.,&
          moon_events=.TRUE.,&
          correct_solar_simple=.TRUE.,new_vis_cal=.TRUE.,&
          noise_orbit=.TRUE.,filter_counts=.TRUE.,filter_prt=.TRUE.,&
          dig_noise=.TRUE.,all_noise=.TRUE.)
+    
+    IF( walton_cal )THEN
+       CALL Calibration_Walton(IMG,AVHRR,.TRUE.,1.,walton_str,walton_cal)
+    ENDIF
 
     IF( nfile .gt. 1 )THEN
        !
@@ -1172,6 +1186,74 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE read_all_data
+
+  LOGICAL FUNCTION get_equ_cross_type(AVHRR)RESULT(ascending)
+
+    TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
+
+    ascending = .TRUE.
+    IF( AVHRR%AVHRR_No .eq. 1 )THEN
+       ascending = .TRUE.
+    ELSE IF( AVHRR%AVHRR_No .eq. 6 )THEN
+       ascending = .FALSE.
+    ELSE IF( AVHRR%AVHRR_No .eq. 7 )THEN
+       ascending = .TRUE.
+    ELSE IF( AVHRR%AVHRR_No .eq. 8 )THEN
+       ascending = .FALSE.
+    ELSE IF( AVHRR%AVHRR_No .eq. 9 )THEN
+       ascending = .TRUE.
+    ELSE IF( AVHRR%AVHRR_No .eq. 10 )THEN
+       ascending = .FALSE.
+    ELSE IF( AVHRR%AVHRR_No .eq. 11 )THEN
+       ascending = .TRUE.
+    ELSE IF( AVHRR%AVHRR_No .eq. 12 )THEN
+       ascending = .FALSE.
+    ELSE IF( AVHRR%AVHRR_No .eq. 14 )THEN
+       ascending = .TRUE.
+    ELSE IF( AVHRR%AVHRR_No .eq. 15 )THEN
+       ascending = .FALSE.
+    ELSE IF( AVHRR%AVHRR_No .eq. 16 )THEN
+       ascending = .TRUE.
+    ELSE IF( AVHRR%AVHRR_No .eq. 17 )THEN
+       ascending = .FALSE.
+    ELSE IF( AVHRR%AVHRR_No .eq. 18 )THEN
+       ascending = .TRUE.
+    ELSE IF( AVHRR%AVHRR_No .eq. 19 )THEN
+       ascending = .TRUE.
+    ELSE IF( AVHRR%AVHRR_No .eq. -1 )THEN
+       ascending = .FALSE.
+    ELSE
+       CALL Gbcs_Critical(.TRUE.,'Cannot match AVHRR No',&
+            'get_equ_cross_type','NOAA_LoadAVHRRLevel1B.f90')
+    ENDIF
+
+    IF( ascending )THEN
+       WRITE(*,*)'Equator crossing type (daytime) : ascending'
+    ELSE
+       WRITE(*,*)'Equator crossing type (daytime) : descending'
+    ENDIF
+    RETURN
+
+  END FUNCTION get_equ_cross_type
+
+  LOGICAL FUNCTION equator_crossing_test(lat1,lat2,ascending_type)RESULT(ok)
+
+    REAL, INTENT(IN) :: lat1
+    REAL, INTENT(IN) :: lat2
+    LOGICAL, INTENT(IN) :: ascending_type
+
+    ok = .FALSE.
+    IF( ascending_type )THEN
+       IF( lat1 .le. 0. .and. lat2 .ge. 0. )THEN
+          ok = .TRUE.
+       ENDIF
+    ELSE
+       IF( lat1 .ge. 0. .and. lat2 .le. 0. )THEN
+          ok = .TRUE.
+       ENDIF
+    ENDIF
+
+  END FUNCTION equator_crossing_test
 
   SUBROUTINE Resize_Orbit_Equator(AVHRR,AVHRRout,&
        out_start_pos,out_stop_pos,&
@@ -1217,12 +1299,18 @@ CONTAINS
     INTEGER :: diff
     LOGICAL :: make_orbit1
     LOGICAL :: make_orbit2
+    LOGICAL :: ascending_type
 
     IF( PRESENT(nosmooth) )THEN
        no_smooth = nosmooth
     ELSE
        no_smooth = .FALSE.
     ENDIF
+
+    !
+    ! From Satellite No work out if need ascending or descending
+    !
+    ascending_type = get_equ_cross_type(AVHRR)
 
     ! Get times of predicted equation crossing times
     dayno = Day_Of_Year(year1,month1,day1)
@@ -1242,8 +1330,10 @@ CONTAINS
     Loop2: DO I=1,AVHRR%arraySize
        IF( 120. .gt. ABS(AVHRR%time(I)-time1) )THEN
           Loop1: DO J=I,AVHRR%arraySize
-             IF( AVHRR%lat(centre,I-1) .le. 0. .and. &
-                  AVHRR%lat(centre,I) .ge. 0. )THEN
+             IF( equator_crossing_test(AVHRR%lat(centre,I-1),&
+                  AVHRR%lat(centre,I),ascending_type) )THEN
+!             IF( AVHRR%lat(centre,I-1) .le. 0. .and. &
+!                  AVHRR%lat(centre,I) .ge. 0. )THEN
                 first_equ=I
                 upwards = .TRUE.
                 EXIT Loop2
@@ -1273,8 +1363,10 @@ CONTAINS
     !
     Loop3: DO I=first_equ+1,AVHRR%arraySize
        IF( 120. .gt. ABS(AVHRR%time(I)-time2) )THEN
-          IF( AVHRR%lat(centre,I-1) .le. 0. .and. &
-               AVHRR%lat(centre,I) .ge. 0. )THEN
+          IF( equator_crossing_test(AVHRR%lat(centre,I-1),&
+               AVHRR%lat(centre,I),ascending_type) )THEN
+!          IF( AVHRR%lat(centre,I-1) .le. 0. .and. &
+!               AVHRR%lat(centre,I) .ge. 0. )THEN
              last_equ=I-1
              EXIT Loop3
           ENDIF
@@ -1446,7 +1538,7 @@ CONTAINS
     IF( PRESENT(all) )THEN
        alldata = all
     ELSE
-       alldata = .FALSE.
+       alldata = .TRUE.
     ENDIF
 
     !
@@ -1514,6 +1606,16 @@ CONTAINS
        IF( 0 .ne. STAT )THEN
           CALL Gbcs_Critical(.TRUE.,'Allocating outputData (recal)',&
                'Resize_Orbits','combine_orbits.f90')
+       ENDIF
+       IF( AVHRR%walton_there )THEN
+          ALLOCATE(AVHRRout%array3B_error(AVHRR%nelem,AVHRRout%arraySize),&
+               AVHRRout%array4_error(AVHRR%nelem,AVHRRout%arraySize),&
+               AVHRRout%array5_error(AVHRR%nelem,AVHRRout%arraySize),STAT=STAT)
+
+          IF( 0 .ne. STAT )THEN
+             CALL Gbcs_Critical(.TRUE.,'Allocating outputData (walton)',&
+                  'Resize_Orbits','combine_orbits.f90')
+          ENDIF
        ENDIF
     ENDIF
 
