@@ -49,41 +49,64 @@ class read_netcdf(object):
         for i in range(len(hour)):
             self.date_time.append(datetime.datetime(yr[i],mn[i],dy[i],hour[i],minute[i],second[i],microsec[i]))
         self.time = netCDF4.date2num(self.date_time,'seconds since 1970-01-01')
-        self.lat = ncid.variables['latitude'][gd,:]
-        self.lon = ncid.variables['longitude'][gd,:]
-        self.satza = ncid.variables['satza'][gd,:]
-        self.solza = ncid.variables['solza'][gd,:]
-        self.relaz = ncid.variables['relaz'][gd,:]
-        self.ch1 = ncid.variables['ch1'][gd,:]
-        self.ch2 = ncid.variables['ch2'][gd,:]
+        lat = ncid.variables['latitude'][:,:]
+        self.lat = lat[gd,:]
+        lon = ncid.variables['longitude'][:,:]
+        self.lon = lon[gd,:]
+        satza = ncid.variables['satza'][:,:]
+        self.satza = satza[gd,:]
+        solza = ncid.variables['solza'][:,:]
+        self.solza = solza[gd,:]
+        relaz = ncid.variables['relaz'][:,:]
+        self.relaz = relaz[gd,:]
+        ch1 = ncid.variables['ch1'][:,:]
+        self.ch1 = ch1[gd,:]
+        ch2 = ncid.variables['ch2'][:,:]
+        self.ch2 = ch2[gd,:]
         try:
-            self.ch3a = ncid.variables['ch3a'][gd,:]
+            ch3a = ncid.variables['ch3a'][:,:]
+            self.ch3a = ch3a[gd,:]
             self.ch3a_there = True
         except:
             self.ch3a_there = False
-        self.ch3b = ncid.variables['ch3b'][gd,:]
-        self.ch4 = ncid.variables['ch4'][gd,:]
+        ch3b = ncid.variables['ch3b'][:,:]
+        self.ch3b = ch3b[gd,:]
+        ch4 = ncid.variables['ch4'][:,:]
+        self.ch4 = ch4[gd,:]
         try:
-            self.ch5 = ncid.variables['ch5'][gd,:]
+            ch5 = ncid.variables['ch5'][:,:]
+            self.ch5 = ch5[gd,:]
             self.ch5_there = True
         except:
             self.ch5_there = False
-        self.u_random_ch1 = ncid.variables['ch1_random'][gd,:]
-        self.u_random_ch2 = ncid.variables['ch2_random'][gd,:]
+        u_random_ch1 = ncid.variables['ch1_random'][:,:]
+        self.u_random_ch1 = u_random_ch1[gd,:]
+        u_random_ch2 = ncid.variables['ch2_random'][:,:]
+        self.u_random_ch2 = u_random_ch2[gd,:]
         if self.ch3a_there:
-            self.u_random_ch3a = ncid.variables['ch3a_random'][gd,:]
-        self.u_random_ch3b = ncid.variables['ch3b_random'][gd,:]
-        self.u_random_ch4 = ncid.variables['ch4_random'][gd,:]
+            u_random_ch3a = ncid.variables['ch3a_random'][:,:]
+            self.u_random_ch3a = u_random_ch3a[gd,:]
+        u_random_ch3b = ncid.variables['ch3b_random'][:,:]
+        self.u_random_ch3b = u_random_ch3b[gd,:]
+        u_random_ch4 = ncid.variables['ch4_random'][:,:]
+        self.u_random_ch4 = u_random_ch4[gd,:]
         if self.ch5_there:
-            self.u_random_ch5 = ncid.variables['ch5_random'][gd,:]
-        self.u_non_random_ch1 = ncid.variables['ch1_non_random'][gd,:]
-        self.u_non_random_ch2 = ncid.variables['ch2_non_random'][gd,:]
+            u_random_ch5 = ncid.variables['ch5_random'][:,:]
+            self.u_random_ch5 = u_random_ch5[gd,:]
+        u_non_random_ch1 = ncid.variables['ch1_non_random'][:,:]
+        self.u_non_random_ch1 = u_non_random_ch1[gd,:]
+        u_non_random_ch2 = ncid.variables['ch2_non_random'][:,:]
+        self.u_non_random_ch2 = u_non_random_ch2[gd,:]
         if self.ch3a_there:
-            self.u_non_random_ch3a = ncid.variables['ch3a_non_random'][gd,:]
-        self.u_non_random_ch3b = ncid.variables['ch3b_non_random'][gd,:]
-        self.u_non_random_ch4 = ncid.variables['ch4_non_random'][gd,:]
+            u_non_random_ch3a = ncid.variables['ch3a_non_random'][:,:]
+            self.u_non_random_ch3a = u_non_random_ch3a[gd,:]
+        u_non_random_ch3b = ncid.variables['ch3b_non_random'][:,:]
+        self.u_non_random_ch3b = u_non_random_ch3b[gd,:]
+        u_non_random_ch4 = ncid.variables['ch4_non_random'][:,:]
+        self.u_non_random_ch4 = u_non_random_ch4[gd,:]
         if self.ch5_there:
-            self.u_non_random_ch5 = ncid.variables['ch5_non_random'][gd,:]
+            u_non_random_ch5 = ncid.variables['ch5_non_random'][:,:]
+            self.u_non_random_ch5 = u_non_random_ch5[gd,:]
 
         self.nx = self.lat.shape[1]
         self.ny = self.lat.shape[0]
