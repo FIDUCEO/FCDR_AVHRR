@@ -1,6 +1,6 @@
 # * Copyright (C) 2017 J.Mittaz University of Reading
-# * This code was developed for the EC project “Fidelity and Uncertainty in   
-# * Climate Data Records from Earth Observations (FIDUCEO)”. 
+# * This code was developed for the EC project "Fidelity and Uncertainty in
+# * Climate Data Records from Earth Observations (FIDUCEO).
 # * Grant Agreement: 638822
 # *
 # * This program is free software; you can redistribute it and/or modify it
@@ -354,6 +354,45 @@ class tle_data(object):
 
         return stored_line1,stored_line2
 
+    def get_ascending_descending_type(self):
+
+        if 'TIROSN' == self.name:
+            ascending=True
+        elif 'NOAA06' == self.name:
+            ascending=False
+        elif 'NOAA07' == self.name:
+            ascending=True
+        elif 'NOAA08' == self.name:
+            ascending=False
+        elif 'NOAA09' == self.name:
+            ascending=True
+        elif 'NOAA10' == self.name:
+            ascending=False
+        elif 'NOAA11' == self.name:
+            ascending=True
+        elif 'NOAA12' == self.name:
+            ascending=False
+        elif 'NOAA14' == self.name:
+            ascending=True
+        elif 'NOAA15' == self.name:
+            ascending=False
+        elif 'NOAA16' == self.name:
+            ascending=True
+        elif 'NOAA17' == self.name:
+            ascending=False
+        elif 'NOAA18' == self.name:
+            ascending=True
+        elif 'NOAA19' == self.name:
+            ascending=True
+        elif 'METOPA' == self.name:
+            ascending=False
+        elif 'METOPB' == self.name:
+            ascending=False
+        else:
+            raise Exception,"Cannot recognise self.name (equ crossing type"
+
+        return ascending
+
     # Get equator crossing 1 and 2 in each direction
     def get_nearest_time(self,line1,line2,year,month,day):
         
@@ -364,8 +403,8 @@ class tle_data(object):
         # First work out if ascending or not
         time = datetime.datetime(year,month,day)
         time_add_day = time + datetime.timedelta(seconds=86400)
-        # Now get times of equator crossing - only use ascending cases
-        ascending=True
+        # Now get times of equator crossing - depends on satellite for daytime case (needed for solar contamination)
+        ascending=self.get_ascending_descending_type()
 
         # Now Loop round a complete day to get times of equator crossing
         # including first one in next day
@@ -502,16 +541,16 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
     # Make link to make_fcdr.exe
     try:
         if test:
-            os.symlink('/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/make_fcdr.exe','make_fcdr.exe')
+            os.symlink('/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/test_equator/make_fcdr.exe','make_fcdr.exe')
         else:
-            os.symlink('/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/test/make_fcdr.exe','make_fcdr.exe')
+            os.symlink('/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/make_fcdr.exe','make_fcdr.exe')
     except:
         pass
     try:
         if test:
-            os.symlink('/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/write_easy_fcdr_from_netcdf.py','write_easy_fcdr_from_netcdf.py')
+            os.symlink('/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/test_equator/write_easy_fcdr_from_netcdf.py','write_easy_fcdr_from_netcdf.py')
         else:
-            os.symlink('/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/test/data/write_easy_fcdr_from_netcdf.py','write_easy_fcdr_from_netcdf.py')
+            os.symlink('/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/write_easy_fcdr_from_netcdf.py','write_easy_fcdr_from_netcdf.py')
     except:
         pass
     try:
@@ -523,6 +562,7 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
     outfile = 'run.{0:06d}.sh'.format(i)
     file_log = 'run.{0:06d}.log'.format(i)
     with open(outfile,'w') as fp:
+        fp.write('. /group_workspaces/cems2/fiduceo/Users/jmittaz/Python/jpdm/bin/activate\n')
         fp.write('export PYGAC_CONFIG_FILE=/home/users/jpdmittaz/pygac.cfg\n')
         outfile_stem = []
         for j in range(len(filelist)):
@@ -549,7 +589,8 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
                 fp.write(newstr)
             newstr = 'python2.7 gac_run.py {0} 0 0\n'.\
                 format(out_file_stem)
-            fp.write(newstr)
+# Removed for pre-beta for speed since we're not using the files yet
+#            fp.write(newstr)
             outfile_stem.append(out_file_stem)
         # Write merge command with all files                    
         newstr = './make_fcdr.exe '+str(uuid.uuid4())+' '+\
@@ -586,6 +627,7 @@ def write_commands(instr,year,month,day,timestep=60,test=False):
     avhrr_dir_name = get_avhrr_dir_name(instr)
 
     # Loop round crossing times
+    nwrites=0
     for eqtr in range(len(t.times)-1):
         # start and end time of equator crossing and 1/2 hour timewindow
         stime = t.times[eqtr] - datetime.timedelta(seconds=5400)
@@ -600,6 +642,9 @@ def write_commands(instr,year,month,day,timestep=60,test=False):
                                                                instr)
             make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,\
                                    eqtr,t.times[eqtr],t.times[eqtr+1],test=test)
+            nwrites=nwrites+1
+
+    print 'Number of command files : ',nwrites
 
 if __name__ == "__main__":
 
