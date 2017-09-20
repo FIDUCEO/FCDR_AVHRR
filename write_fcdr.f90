@@ -50,6 +50,7 @@ CONTAINS
     CHARACTER(LEN=256) :: d2
     CHARACTER(LEN=256) :: h2
     CHARACTER(LEN=256) :: min2
+    CHARACTER(LEN=256) :: sngle_split
     INTEGER :: year1, month1, day1, hour1, minute1
     INTEGER :: year2, month2, day2, hour2, minute2
     TYPE(AVHRR_Data) :: AVHRR
@@ -58,13 +59,14 @@ CONTAINS
     CHARACTER(LEN=1) :: first_segment_input
     LOGICAL :: first_segment
     LOGICAL :: new_filename
+    LOGICAL :: split_single_file
 
     nArgs = COMMAND_ARGUMENT_COUNT()
-    IF( 13 .gt. nArgs .or. 18 .le. nArgs )THEN
+    IF( 14 .gt. nArgs .or. 19 .le. nArgs )THEN
        CALL Gbcs_Critical(.TRUE.,&
             'USAGE: ./extract_l1b_data.exe uuid outfile eq_year1 eq_month1 &
             &eq_day1 eq_hour1 eq_min1 eq_year2 eq_month2 eq_day2 eq_hour2 &
-            &eq_min2 file1 (file2) (file3) (file4) (file5)',&
+            &eq_min2 split_single file1 (file2) (file3) (file4) (file5)',&
             'Main','extract_l1b_data.f90')
     ENDIF
 
@@ -140,36 +142,42 @@ CONTAINS
             'Main','extract_l1b_data.f90')
     ENDIF
 
-    CALL GET_COMMAND_ARGUMENT(13,file1,STATUS=stat)
+    CALL GET_COMMAND_ARGUMENT(13,sngle_split,STATUS=stat)
+    IF( 0 .ne. stat )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot get minute2 argument',&
+            'Main','extract_l1b_data.f90')
+    ENDIF
+
+    CALL GET_COMMAND_ARGUMENT(14,file1,STATUS=stat)
     IF( 0 .ne. stat )THEN
        CALL Gbcs_Critical(.TRUE.,'Cannot get fourth command line argument',&
             'Main','extract_l1b_data.f90')
     ENDIF
     nfiles = 1
 
-    IF( nArgs .gt. 13 )THEN
-       CALL GET_COMMAND_ARGUMENT(14,file2,STATUS=stat)
+    IF( nArgs .gt. 14 )THEN
+       CALL GET_COMMAND_ARGUMENT(15,file2,STATUS=stat)
        IF( 0 .ne. stat )THEN
           CALL Gbcs_Critical(.TRUE.,'Cannot get fifth command line argument',&
                'Main','extract_l1b_data.f90')
        ENDIF
        nfiles = 2
-       IF( nArgs .gt. 14 )THEN
-          CALL GET_COMMAND_ARGUMENT(15,file3,STATUS=stat)
+       IF( nArgs .gt. 15 )THEN
+          CALL GET_COMMAND_ARGUMENT(16,file3,STATUS=stat)
           IF( 0 .ne. stat )THEN
              CALL Gbcs_Critical(.TRUE.,'Cannot get six command line argument',&
                   'Main','extract_l1b_data.f90')
           ENDIF
           nfiles = 3
-          IF( nArgs .gt. 15 )THEN
-             CALL GET_COMMAND_ARGUMENT(16,file4,STATUS=stat)
+          IF( nArgs .gt. 16 )THEN
+             CALL GET_COMMAND_ARGUMENT(17,file4,STATUS=stat)
              IF( 0 .ne. stat )THEN
                 CALL Gbcs_Critical(.TRUE.,'Cannot get seventh command line argument',&
                      'Main','extract_l1b_data.f90')
              ENDIF
              nfiles = 4
-             IF( nArgs .gt. 16 )THEN
-                CALL GET_COMMAND_ARGUMENT(17,file5,STATUS=stat)
+             IF( nArgs .gt. 17 )THEN
+                CALL GET_COMMAND_ARGUMENT(18,file5,STATUS=stat)
                 IF( 0 .ne. stat )THEN
                    CALL Gbcs_Critical(.TRUE.,'Cannot get eighth command line argument',&
                         'Main','extract_l1b_data.f90')
@@ -191,6 +199,12 @@ CONTAINS
     READ(d2,'(i4)')day2
     READ(h2,'(i4)')hour2
     READ(min2,'(i4)')minute2
+
+    IF( 'Y' .eq. sngle_split .or. 'y' .eq. sngle_split )THEN
+       split_single_file = .TRUE.
+    ELSE
+       split_single_file = .FALSE.
+    ENDIF
 
     new_filename = .FALSE.
     IF( ofile .eq. 'TIROSN' )then
@@ -250,9 +264,12 @@ CONTAINS
 !            year2,month2,day2,hour2,minute2,0
        ofile = 'None'
     ENDIF
+    !
+    ! Note walton calibration for pre-beta
+    !
     CALL read_all_data(nfiles,file1,file2,file3,file4,file5,uuid_in,&
          AVHRR,year1,month1,day1,hour1,minute1,year2,month2,day2,hour2,&
-         minute2,ofile)
+         minute2,ofile,.TRUE.,split_single_file)
 
     !
     ! Deallocate structure
