@@ -1036,7 +1036,7 @@ CONTAINS
     ! Local variables
     TYPE(Imagery) :: IMG
     TYPE(AVHRR_Data), TARGET :: AVHRR
-    TYPE(AVHRR_Data) :: AVHRR_Total
+    TYPE(AVHRR_Data), TARGET :: AVHRR_Total
     TYPE(AVHRR_Instrument_Coefs) :: instr_coefs
     INTEGER :: start_pos, stop_pos
     TYPE(AVHRR_Data), POINTER :: pAVHRR=>NULL()
@@ -1148,25 +1148,19 @@ CONTAINS
             year1,month2,day2,hour2,minute2,&
             trim_data,trim_low,trim_high)
        CALL Deallocate_OutData(AVHRR_Total)
-    ELSE
-       CALL Resize_Orbit(AVHRR_Total,AVHRR,1,AVHRR_Total%arraySize,all=.TRUE.)
-    ENDIF
-
-    !
-    ! Make sure radiances are output as Marines code expects this
-    !
-    pAVHRR => AVHRR
-    CALL Recalibrate_AVHRR(IMG,instr_coefs,pAVHRR,out_radiances=.TRUE.,&
-         moon_events=.TRUE.,&
-         correct_solar_simple=.TRUE.,new_vis_cal=.TRUE.,&
-         noise_orbit=.TRUE.,filter_counts=.TRUE.,filter_prt=.TRUE.,&
-         dig_noise=.TRUE.,all_noise=.TRUE.)
-    
-    IF( walton_cal )THEN
-       CALL Calibration_Walton(IMG,AVHRR,.TRUE.,1.,walton_str,walton_cal)
-    ENDIF
-
-    IF( nfile .gt. 1 )THEN
+       !
+       ! Make sure radiances are output as Marines code expects this
+       !
+       pAVHRR => AVHRR
+       CALL Recalibrate_AVHRR(IMG,instr_coefs,pAVHRR,out_radiances=.TRUE.,&
+            moon_events=.TRUE.,&
+            correct_solar_simple=.TRUE.,new_vis_cal=.TRUE.,&
+            noise_orbit=.TRUE.,filter_counts=.TRUE.,filter_prt=.TRUE.,&
+            dig_noise=.TRUE.,all_noise=.TRUE.)
+       
+       IF( walton_cal )THEN
+          CALL Calibration_Walton(IMG,AVHRR,.TRUE.,1.,walton_str,walton_cal)
+       ENDIF
        !
        ! Resize to output
        !
@@ -1176,8 +1170,31 @@ CONTAINS
        ! Add in FIDUCEO uncertainties
        !
        CALL Add_FIDUCEO_Uncert(AVHRRout,uuid_in,output_filename)
-       CALL Deallocate_OutData(AVHRRout)
-    ELSE 
+       CALL Deallocate_OutData(AVHRRout)    
+    ELSE
+       !
+       ! Calibrate whole orbit - it gets trimmed later
+       !
+       !
+       ! Make sure radiances are output as Marines code expects this
+       !
+       pAVHRR => AVHRR_Total
+       CALL Recalibrate_AVHRR(IMG,instr_coefs,pAVHRR,out_radiances=.TRUE.,&
+            moon_events=.TRUE.,&
+            correct_solar_simple=.TRUE.,new_vis_cal=.TRUE.,&
+            noise_orbit=.TRUE.,filter_counts=.TRUE.,filter_prt=.TRUE.,&
+            dig_noise=.TRUE.,all_noise=.TRUE.)       
+       IF( walton_cal )THEN
+          CALL Calibration_Walton(IMG,AVHRR_Total,.TRUE.,1.,walton_str,&
+               walton_cal)
+       ENDIF
+       !
+       ! Now split out sections of data
+       !
+       CALL Resize_Orbit_Equator(AVHRR_Total,AVHRR,start_pos,stop_pos,&
+            year1,month1,day1,hour1,minute1,&
+            year1,month2,day2,hour2,minute2,&
+            trim_data,trim_low,trim_high)       
        !
        ! Add in FIDUCEO uncertainties
        !
