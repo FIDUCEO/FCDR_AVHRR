@@ -1010,7 +1010,7 @@ CONTAINS
 
   SUBROUTINE read_all_data(nFile,file1,file2,file3,file4,file5,uuid_in,&
        AVHRRout,year1,month1,day1,hour1,minute1,year2,month2,day2,&
-       hour2,minute2,output_filename,walton_cal)
+       hour2,minute2,output_filename,walton_cal,split_single_file)
 
     INTEGER, INTENT(IN) :: nFile
     CHARACTER(LEN=*), INTENT(IN) :: file1
@@ -1032,6 +1032,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: minute2
     CHARACTER(LEN=*), INTENT(IN) :: output_filename
     LOGICAL, INTENT(IN) :: walton_cal
+    LOGICAL, INTENT(IN) :: split_single_file
 
     ! Local variables
     TYPE(Imagery) :: IMG
@@ -1188,18 +1189,29 @@ CONTAINS
           CALL Calibration_Walton(IMG,AVHRR_Total,.TRUE.,1.,walton_str,&
                walton_cal)
        ENDIF
-       !
-       ! Now split out sections of data
-       !
-       CALL Resize_Orbit_Equator(AVHRR_Total,AVHRR,start_pos,stop_pos,&
-            year1,month1,day1,hour1,minute1,&
-            year1,month2,day2,hour2,minute2,&
-            trim_data,trim_low,trim_high)       
-       !
-       ! Add in FIDUCEO uncertainties
-       !
-       CALL Add_FIDUCEO_Uncert(AVHRR,uuid_in,output_filename)
-       CALL Deallocate_OutData(AVHRR)
+       IF( split_single_file )THEN
+          !
+          ! Now split out sections of data
+          !
+          CALL Resize_Orbit_Equator(AVHRR_Total,AVHRRout,start_pos,stop_pos,&
+               year1,month1,day1,hour1,minute1,&
+               year1,month2,day2,hour2,minute2,&
+               trim_data,trim_low,trim_high)       
+          CALL Resize_Orbit(AVHRRout,AVHRR,start_pos,stop_pos,all=.TRUE.)
+          !
+          ! Add in FIDUCEO uncertainties
+          !
+          CALL Add_FIDUCEO_Uncert(AVHRR,uuid_in,output_filename)
+          CALL Deallocate_OutData(AVHRR)
+       ELSE
+          !
+          ! Output complete orbit with no equator splitting
+          !
+          ! Add in FIDUCEO uncertainties
+          !
+          CALL Add_FIDUCEO_Uncert(AVHRR_Total,uuid_in,output_filename)
+          CALL Deallocate_OutData(AVHRR_Total)
+       ENDIF
     ENDIF
 
   END SUBROUTINE read_all_data
