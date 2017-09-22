@@ -24,6 +24,16 @@ import datetime
 from optparse import OptionParser
 class read_netcdf(object):
 
+    def add_nan_values(self,values):
+        gd = np.isfinite(values) & (values < -1e20)
+        if np.sum(gd) > 0:
+            values[gd] = np.NaN
+
+    def scale_values(self,values):
+        gd = (values > -1e20) & np.isfinite(values)
+        if np.sum(gd) > 0:
+            values[gd] = values[gd]*100.
+
     def read_data(self,filename):
 
         ncid = netCDF4.Dataset(filename,'r')
@@ -107,6 +117,11 @@ class read_netcdf(object):
         if self.ch5_there:
             u_non_random_ch5 = ncid.variables['ch5_non_random'][:,:]
             self.u_non_random_ch5 = u_non_random_ch5[gd,:]
+        scan_qual = ncid.variables['quality_scanline_bitmask'][:]
+        chan_qual = ncid.variables['quality_channel_bitmask'][:,:]
+
+        self.scan_qual = scan_qual[gd]
+        self.chan_qual = chan_qual[gd,:]
 
         self.nx = self.lat.shape[1]
         self.ny = self.lat.shape[0]
@@ -144,6 +159,48 @@ class read_netcdf(object):
         if self.ch5_there:
             self.u_non_random_ch5 = np.ma.filled(self.u_non_random_ch5,np.NaN)
 
+        self.add_nan_values(self.lat)
+        self.add_nan_values(self.lon)
+        self.add_nan_values(self.time)
+        self.add_nan_values(self.satza)
+        self.add_nan_values(self.relaz)
+        self.add_nan_values(self.ch1)
+        self.add_nan_values(self.ch2)
+        if self.ch3a_there:
+            self.add_nan_values(self.ch3a)
+        self.add_nan_values(self.ch3b)
+        self.add_nan_values(self.ch4)
+        if self.ch5_there:
+            self.add_nan_values(self.ch5)
+        self.add_nan_values(self.u_random_ch1)
+        self.add_nan_values(self.u_random_ch2)
+        if self.ch3a_there:
+            self.add_nan_values(self.u_random_ch3a)
+        self.add_nan_values(self.u_random_ch3b)
+        self.add_nan_values(self.u_random_ch4)
+        if self.ch5_there:
+            self.add_nan_values(self.u_non_random_ch5)
+        self.add_nan_values(self.u_non_random_ch1)
+        self.add_nan_values(self.u_non_random_ch2)
+        if self.ch3a_there:
+            self.add_nan_values(self.u_non_random_ch3a)
+        self.add_nan_values(self.u_non_random_ch3b)
+        self.add_nan_values(self.u_non_random_ch4)
+        if self.ch5_there:
+            self.add_nan_values(self.u_non_random_ch5)
+            
+#        self.scale_values(self.ch1)
+#        self.scale_values(self.ch2)
+#        if self.ch3a_there:
+#            self.scale_values(self.ch3a)
+#        self.scale_values(self.u_random_ch1)
+#        self.scale_values(self.u_random_ch2)
+#        if self.ch3a_there:
+#            self.scale_values(self.u_random_ch3a)
+#        self.scale_values(self.u_non_random_ch1)
+#        self.scale_values(self.u_non_random_ch2)
+#        if self.ch3a_there:
+#            self.scale_values(self.u_non_random_ch3a)
 
     def __init__(self,filename):
 
@@ -204,6 +261,9 @@ def main(file_in,fileout='None'):
     dataset.variables["u_non_random_Ch4"].data = data.u_non_random_ch4
     if data.ch5_there:
         dataset.variables["u_non_random_Ch5"].data = data.u_non_random_ch5
+
+    dataset.variables["quality_scanline_bitmask"].data = data.scan_qual
+    dataset.variables["quality_channel_bitmask"].data = data.chan_qual
    
     #avhrr.AVHRR._create_channel_refl_variable(12835, "Channel 6 Reflectance") 
     # dump it to disk, netcdf4, medium compression
