@@ -127,6 +127,8 @@ MODULE fiduceo_uncertainties
      REAL :: ucs4
      REAL :: ucs5
      INTEGER, ALLOCATABLE :: flag_no_detection(:,:)
+     INTEGER(GbcsInt1), ALLOCATABLE :: quality_channel_bitmask(:,:)
+     INTEGER(GbcsInt1), ALLOCATABLE :: quality_scanline_bitmask(:)
   END TYPE FIDUCEO_Data
 
   ! Constants
@@ -137,7 +139,7 @@ MODULE fiduceo_uncertainties
   !
   ! This is where the FIDUCEO software version number is defined
   !
-  CHARACTER(LEN=3) :: software_version = '0.1'
+  CHARACTER(LEN=6) :: software_version = '0.1pre'
   
   PRIVATE
   PUBLIC :: FIDUCEO_Data
@@ -168,6 +170,10 @@ CONTAINS
     LOGICAL :: twelve_micron_there
     TYPE(FIDUCEO_Data) :: FCDR
 
+    IF( .not. AVHRR%valid_data_there )THEN
+       RETURN
+    ENDIF
+
     IF( PRESENT(use_iasi_calibration) )THEN
        use_iasi_cal = use_iasi_calibration
     ELSE
@@ -191,6 +197,11 @@ CONTAINS
             twelve_micron_there)
     END DO
     !
+    ! Get Quality flags
+    !
+    CALL Get_Quality_Flags(AVHRR,FCDR)
+
+    !
     ! write to NetCDF
     !
     temp_file=TRIM(uuid_in)//'.nc'
@@ -210,6 +221,108 @@ CONTAINS
 !    call fill_netcdf(filename_nc,AVHRR,FCDR)
 
   END SUBROUTINE Add_FIDUCEO_Uncert
+
+  !
+  ! Work out quality flags from data in AVHRR_Data structure
+  !
+  SUBROUTINE Get_Quality_Flags(AVHRR,FCDR)
+
+    TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
+    TYPE(FIDUCEO_Data), INTENT(INOUT) :: FCDR
+
+    ! Local variables
+    INTEGER :: I,J
+    INTEGER :: STAT
+
+    !
+    ! Allocate and set quality bitmasks
+    !
+    ALLOCATE(FCDR%quality_channel_bitmask(6,AVHRR%arraySize),&
+         FCDR%quality_scanline_bitmask(AVHRR%arraySize),&
+         STAT=STAT)
+    FCDR%quality_channel_bitmask = 0
+    FCDR%quality_scanline_bitmask = 0
+
+    !
+    ! Scanline level flags
+    !
+    DO I=1,AVHRR%arraySize
+       IF( AVHRR%badTop(I) )THEN
+          FCDR%quality_scanline_bitmask(I) = &
+               IBSET(FCDR%quality_scanline_bitmask(I),0)
+       ENDIF
+       IF( AVHRR%badTime(I) )THEN
+          FCDR%quality_scanline_bitmask(I) = &
+               IBSET(FCDR%quality_scanline_bitmask(I),1)
+       ENDIF
+       IF( AVHRR%badNavigation(I) )THEN
+          FCDR%quality_scanline_bitmask(I) = &
+               IBSET(FCDR%quality_scanline_bitmask(I),2)
+       ENDIF
+       IF( AVHRR%badCalibration(I) )THEN
+          FCDR%quality_scanline_bitmask(I) = &
+               IBSET(FCDR%quality_scanline_bitmask(I),3)
+       ENDIF
+       !
+       ! Channel 3A present
+       !
+       IF( ANY(AVHRR%array3A(:,I) .ge. 0) )THEN
+          FCDR%quality_scanline_bitmask(I) = &
+               IBSET(FCDR%quality_scanline_bitmask(I),4)
+       ENDIF       
+       !
+       ! Solar contamination failure
+       !
+       IF( AVHRR%solar_contamination_failure(I) )THEN
+          FCDR%quality_scanline_bitmask(I) = &
+               IBSET(FCDR%quality_scanline_bitmask(I),5)
+       ENDIF
+       !
+       ! Solar contamination
+       !
+       IF( AVHRR%solar_contamination_3B(I) )THEN
+          FCDR%quality_scanline_bitmask(I) = &
+               IBSET(FCDR%quality_scanline_bitmask(I),6)
+       ENDIF
+    END DO
+
+    !
+    ! Channel level quality flags
+    !
+    DO I=1,AVHRR%arraySize
+       IF( ALL(AVHRR%array1(:,I) .lt. 0) )THEN
+          FCDR%quality_channel_bitmask(1,I) = &
+               IBSET(FCDR%quality_channel_bitmask(1,I),0)
+       ENDIF
+       IF( ALL(AVHRR%array2(:,I) .lt. 0) )THEN
+          FCDR%quality_channel_bitmask(2,I) = &
+               IBSET(FCDR%quality_channel_bitmask(2,I),0)
+       ENDIF
+       IF( ALL(AVHRR%array3A(:,I) .lt. 0) )THEN
+          FCDR%quality_channel_bitmask(3,I) = &
+               IBSET(FCDR%quality_channel_bitmask(3,I),0)
+       ENDIF
+       IF( ALL(AVHRR%array3B(:,I) .lt. 0) )THEN
+          FCDR%quality_channel_bitmask(4,I) = &
+               IBSET(FCDR%quality_channel_bitmask(4,I),0)
+       ENDIF
+       IF( ALL(AVHRR%array4(:,I) .lt. 0) )THEN
+          FCDR%quality_channel_bitmask(5,I) = &
+               IBSET(FCDR%quality_channel_bitmask(5,I),0)
+       ENDIF
+       IF( ALL(AVHRR%array5(:,I) .lt. 0) )THEN
+          FCDR%quality_channel_bitmask(6,I) = &
+               IBSET(FCDR%quality_channel_bitmask(6,I),0)
+       ENDIF
+       DO J=4,6
+          IF( 1 .eq. FCDR%flag_no_detection(J-3,I) )THEN
+             FCDR%quality_channel_bitmask(J,I) = &
+                  IBSET(FCDR%quality_channel_bitmask(J,I),1)
+          ENDIF
+       END DO
+    END DO
+
+  END SUBROUTINE Get_Quality_Flags
 
   !
   ! Write a tempory netcdf file for python to then convert
@@ -252,7 +365,8 @@ CONTAINS
     INTEGER :: ch3b_non_random_varid
     INTEGER :: ch4_non_random_varid
     INTEGER :: ch5_non_random_varid
-    INTEGER :: flag_no_detection_varid
+    INTEGER :: scan_qual_varid
+    INTEGER :: chan_qual_varid
     INTEGER :: stat
 
     INTEGER :: dimid_nx
@@ -272,7 +386,7 @@ CONTAINS
     stat = NF90_DEF_DIM(ncid,'ny',AVHRR%arraySize,dimid_ny)
     call check(stat)
 
-    stat = NF90_DEF_DIM(ncid,'nir',3,dimid_ir)
+    stat = NF90_DEF_DIM(ncid,'nir',6,dimid_ir)
     call check(stat)
 
     dims1(1) = dimid_ny
@@ -489,12 +603,37 @@ CONTAINS
        call check(stat)
     ENDIF
 
+    dims1(1) = dimid_ny
+    stat = NF90_DEF_VAR(ncid,'quality_scanline_bitmask',NF90_UBYTE,dims1,&
+         scan_qual_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, scan_qual_varid, 1, 1, 9)
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,scan_qual_varid,'long_name',&
+         'Bitmask for quality per scanline')
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,scan_qual_varid,'flag_masks',&
+         '1,2,4,8,16,32,64')
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,scan_qual_varid,'flag_meanings',&
+         'DO_NOT_USE, BAD_TIME, BAD_NAVIGATION, BAD_CALIBRATION, CHANNEL3A_PRESENT,SOLAR_CONTAMINATION_FAILURE,SOLAR_CONTAMINATION')
+    call check(stat)
+
     dims2(1) = dimid_ir
     dims2(2) = dimid_ny
-    stat = NF90_DEF_VAR(ncid,'flag_no_detection',NF90_INT,dims2,&
-         flag_no_detection_varid)
+    stat = NF90_DEF_VAR(ncid,'quality_channel_bitmask',NF90_UBYTE,dims2,&
+         chan_qual_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, flag_no_detection_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, chan_qual_varid, 1, 1, 9)
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,chan_qual_varid,'long_name',&
+         'Bitmask for quality per channel/scanline')
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,chan_qual_varid,'flag_masks',&
+         '1,2')
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,chan_qual_varid,'flag_meanings',&
+         'BAD_CHANNEL, SOME_PIXELS_NOT_DETECTED_2SIGMA')
     call check(stat)
 
     !
@@ -646,16 +785,16 @@ CONTAINS
     ENDIF
 
 !    WRITE(*,*)'Ch1 (Non-Rand) writing'
-    stat = NF90_PUT_VAR(ncid, ch1_non_random_varid, 0.03*AVHRR%new_array1)
+    stat = NF90_PUT_VAR(ncid, ch1_non_random_varid, 0.03)
     call check(stat)
 
 !    WRITE(*,*)'Ch2 (Non-Rand) writing'
-    stat = NF90_PUT_VAR(ncid, ch2_non_random_varid, 0.05*AVHRR%new_array2)
+    stat = NF90_PUT_VAR(ncid, ch2_non_random_varid, 0.05)
     call check(stat)
 
     IF( ALLOCATED(AVHRR%new_array3a) )THEN
 !       WRITE(*,*)'Ch3a (Non-Rand) writing'
-       stat = NF90_PUT_VAR(ncid, ch3a_non_random_varid, 0.05*AVHRR%new_array3a)
+       stat = NF90_PUT_VAR(ncid, ch3a_non_random_varid, 0.05)
        call check(stat)
     ENDIF
 
@@ -673,7 +812,15 @@ CONTAINS
        call check(stat)
     ENDIF
 
-    stat = NF90_PUT_VAR(ncid, flag_no_detection_varid, FCDR%flag_no_detection)
+!    stat = NF90_PUT_VAR(ncid, flag_no_detection_varid, FCDR%flag_no_detection)
+!    call check(stat)
+
+    stat = NF90_PUT_VAR(ncid, scan_qual_varid, &
+         FCDR%quality_scanline_bitmask)
+    call check(stat)
+
+    stat = NF90_PUT_VAR(ncid, chan_qual_varid, &
+         FCDR%quality_channel_bitmask)
     call check(stat)
 
     stat = NF90_CLOSE(ncid)
