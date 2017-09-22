@@ -528,7 +528,7 @@ def __find_avhrr_list_good(filelist,year,month,day,instr):
 # Makes dir structure and shell script for submission
 # This is for a single run
 def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
-                           equ_time1,equ_time2,test=False):
+                           equ_time1,equ_time2,split_single,test=False):
     
     curr_dir = os.getcwd()
     # Check to see if we've already made this directory
@@ -602,6 +602,10 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
         newstr = newstr + '{0:04d} {1:02d} {2:02d} {3:02d} {4:02d} '.\
             format(equ_time2.year,equ_time2.month,equ_time2.day,\
                        equ_time2.hour,equ_time2.minute)
+        if split_single:
+            newstr = newstr + ' Y'
+        else:
+            newstr = newstr + ' N'
         for j in range(len(filelist)):
             newstr = newstr+' '+outfile_stem[j]
         newstr = newstr+'\n'
@@ -615,7 +619,7 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
     job_name='./'+outfile
     job = ['bsub','-q', 'short-serial','-W', '01:00','-oo', file_log, job_name]
     # Actually submit jobs
-#    subprocess.call(job)
+    subprocess.call(job)
     os.chdir(curr_dir)
         
 # Write all shell command scripts for complete day
@@ -641,26 +645,34 @@ def write_commands(instr,year,month,day,timestep=60,test=False):
                                                                year,month,day,\
                                                                instr)
             make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,\
-                                   eqtr,t.times[eqtr],t.times[eqtr+1],test=test)
+                                   eqtr,t.times[eqtr],t.times[eqtr+1],\
+                                   split_single,test=test)
             nwrites=nwrites+1
 
     print 'Number of command files : ',nwrites
 
 if __name__ == "__main__":
 
-    parser = OptionParser("usage: %prog instr year month day (test=Y/N)")
+    parser = OptionParser("usage: %prog instr year month day split_single_file (test=Y/N)")
     (options, args) = parser.parse_args()
-    if len(args) != 4 and len(args) != 5:
+    if len(args) != 5 and len(args) != 6:
         parser.error("incorrect number of arguments")
     year = int(args[1])
     month = int(args[2])
     day = int(args[3])
-    if len(args) == 5:
-        if args[4] == 'Y':
+    split_single_file = args[4]
+    if len(args) == 6:
+        if args[5] == 'Y':
             test=True
         else:
             test=False
     else:
         test=False
-    write_commands(args[0],year,month,day,test=test)
+
+    if 'Y' == split_single_file or 'y' == split_single_file:
+        split_single=True
+    else:
+        split_single=False
+
+    write_commands(args[0],year,month,day,split_single,test=test)
 
