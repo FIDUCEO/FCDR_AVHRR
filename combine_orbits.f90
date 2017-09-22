@@ -97,6 +97,8 @@ CONTAINS
 
     AVHRR%scanLineNumber(POS1) = &
          AVHRR_New%scanLineNumber(POS2)
+    AVHRR%badTop(POS1) = &
+         AVHRR_New%badTop(POS2)
     AVHRR%badTime(POS1) = &
          AVHRR_New%badTime(POS2)
     AVHRR%badNavigation(POS1) = &
@@ -368,6 +370,8 @@ CONTAINS
 
     TYPE(AVHRR_Data), POINTER :: AVHRR_Ptr
 
+    AVHRR%valid_data_there = .TRUE.
+
     !
     ! Setup AVHRR pointer
     !
@@ -550,6 +554,8 @@ CONTAINS
     !
     AVHRR%scanLineNumber(last_position:AVHRR%arraySize) = &
          AVHRR_New%scanLineNumber(first_position:AVHRR_New%arraySize)
+    AVHRR%badTop(last_position:AVHRR%arraySize) = &
+         AVHRR_New%badTop(first_position:AVHRR_New%arraySize)
     AVHRR%badTime(last_position:AVHRR%arraySize) = &
          AVHRR_New%badTime(first_position:AVHRR_New%arraySize)
     AVHRR%badNavigation(last_position:AVHRR%arraySize) = &
@@ -1056,16 +1062,26 @@ CONTAINS
     AVHRR%newCalibration_there = .FALSE.
     AVHRR_Total%newCalibration_there = .FALSE.
 !    instr = get_instr(file1)
+    AVHRR_Total%arraySize = 0
     IF( nFile .eq. 1 )THEN
        CALL read_file(file1,AVHRR_Total,uuid_in,out_instr_coefs=instr_coefs)
+       IF( .not. AVHRR_Total%valid_data_there )THEN
+          RETURN
+       ENDIF
     ELSE IF( nFile .eq. 2 )THEN
        IF( .not. check_overlap(file1,file2) )THEN
           CALL Gbcs_Critical(.TRUE.,'No overlap between file1 and file2',&
                'read_all_data','extract_l1b_data.f90')
        ENDIF
        CALL read_file(file1,AVHRR_Total,uuid_in,out_instr_coefs=instr_coefs)
-       CALL read_file(file2,AVHRR,uuid_in)
-       CALL merge_avhrr(AVHRR_Total,AVHRR)
+       IF( AVHRR_Total%valid_data_there )THEN
+          CALL read_file(file2,AVHRR,uuid_in)
+          IF( AVHRR%valid_data_there )THEN
+             CALL merge_avhrr(AVHRR_Total,AVHRR)
+          ENDIF
+       ELSE
+          RETURN
+       ENDIF
        CALL Deallocate_OutData(AVHRR)
     ELSE IF( nFile .eq. 3 )THEN
        IF( .not. check_overlap(file1,file2) )THEN
@@ -1073,15 +1089,21 @@ CONTAINS
                'read_all_data','extract_l1b_data.f90')
        ENDIF
        CALL read_file(file1,AVHRR_Total,uuid_in,out_instr_coefs=instr_coefs)
-       CALL read_file(file2,AVHRR,uuid_in)
-       CALL merge_avhrr(AVHRR_Total,AVHRR)
-       CALL Deallocate_OutData(AVHRR)
-       IF( .not. check_overlap(file2,file3) )THEN
-          CALL Gbcs_Critical(.TRUE.,'No overlap between file2 and file3',&
+       IF( AVHRR_Total%valid_data_there )THEN
+          CALL read_file(file2,AVHRR,uuid_in)
+          IF( AVHRR%valid_data_there )THEN
+             CALL merge_avhrr(AVHRR_Total,AVHRR)
+          ENDIF
+          CALL Deallocate_OutData(AVHRR)
+          IF( .not. check_overlap(file2,file3) )THEN
+             CALL Gbcs_Critical(.TRUE.,'No overlap between file2 and file3',&
                'read_all_data','extract_l1b_data.f90')
+          ENDIF
+          CALL read_file(file3,AVHRR,uuid_in)
+          IF( AVHRR%valid_data_there )THEN
+             CALL merge_avhrr(AVHRR_Total,AVHRR)
+          ENDIF
        ENDIF
-       CALL read_file(file3,AVHRR,uuid_in)
-       CALL merge_avhrr(AVHRR_Total,AVHRR)
        CALL Deallocate_OutData(AVHRR)
     ELSE IF( nfile .eq. 4 )THEN
        IF( .not. check_overlap(file1,file2) )THEN
@@ -1089,55 +1111,77 @@ CONTAINS
                'read_all_data','extract_l1b_data.f90')
        ENDIF
        CALL read_file(file1,AVHRR_Total,uuid_in,out_instr_coefs=instr_coefs)
-       CALL read_file(file2,AVHRR,uuid_in)
-       CALL merge_avhrr(AVHRR_Total,AVHRR)
-       CALL Deallocate_OutData(AVHRR)
-       IF( .not. check_overlap(file2,file3) )THEN
-          CALL Gbcs_Critical(.TRUE.,'No overlap between file2 and file3',&
-               'read_all_data','extract_l1b_data.f90')
+       IF( AVHRR_Total%valid_data_there )THEN
+          CALL read_file(file2,AVHRR,uuid_in)
+          IF( AVHRR%valid_data_there )THEN
+             CALL merge_avhrr(AVHRR_Total,AVHRR)
+          ENDIF
+          CALL Deallocate_OutData(AVHRR)
+          IF( .not. check_overlap(file2,file3) )THEN
+             CALL Gbcs_Critical(.TRUE.,'No overlap between file2 and file3',&
+                  'read_all_data','extract_l1b_data.f90')
+          ENDIF
+          CALL read_file(file3,AVHRR,uuid_in)
+          IF( AVHRR%valid_data_there )THEN
+             CALL merge_avhrr(AVHRR_Total,AVHRR)
+          ENDIF
+          CALL Deallocate_OutData(AVHRR)
+          IF( .not. check_overlap(file3,file4) )THEN
+             CALL Gbcs_Critical(.TRUE.,'No overlap between file3 and file4',&
+                  'read_all_data','extract_l1b_data.f90')
+          ENDIF
+          CALL read_file(file4,AVHRR,uuid_in)
+          IF( AVHRR%valid_data_there )THEN
+             CALL merge_avhrr(AVHRR_Total,AVHRR)
+          ENDIF
+          CALL Deallocate_OutData(AVHRR)
        ENDIF
-       CALL read_file(file3,AVHRR,uuid_in)
-       CALL merge_avhrr(AVHRR_Total,AVHRR)
-       CALL Deallocate_OutData(AVHRR)
-       IF( .not. check_overlap(file3,file4) )THEN
-          CALL Gbcs_Critical(.TRUE.,'No overlap between file3 and file4',&
-               'read_all_data','extract_l1b_data.f90')
-       ENDIF
-       CALL read_file(file4,AVHRR,uuid_in)
-       CALL merge_avhrr(AVHRR_Total,AVHRR)
-       CALL Deallocate_OutData(AVHRR)
     ELSE IF( nfile .eq. 5 )THEN
        IF( .not. check_overlap(file1,file2) )THEN
           CALL Gbcs_Critical(.TRUE.,'No overlap between file1 and file2',&
                'read_all_data','extract_l1b_data.f90')
        ENDIF
        CALL read_file(file1,AVHRR_Total,uuid_in,out_instr_coefs=instr_coefs)
-       CALL read_file(file2,AVHRR,uuid_in)
-       CALL merge_avhrr(AVHRR_Total,AVHRR)
-       CALL Deallocate_OutData(AVHRR)
-       IF( .not. check_overlap(file2,file3) )THEN
-          CALL Gbcs_Critical(.TRUE.,'No overlap between file2 and file3',&
-               'read_all_data','extract_l1b_data.f90')
+       IF( AVHRR_Total%valid_data_there )THEN
+          CALL read_file(file2,AVHRR,uuid_in)
+          IF( AVHRR%valid_data_there )THEN
+             CALL merge_avhrr(AVHRR_Total,AVHRR)
+          ENDIF
+          CALL Deallocate_OutData(AVHRR)
+          IF( .not. check_overlap(file2,file3) )THEN
+             CALL Gbcs_Critical(.TRUE.,'No overlap between file2 and file3',&
+                  'read_all_data','extract_l1b_data.f90')
+          ENDIF
+          CALL read_file(file3,AVHRR,uuid_in)
+          IF( AVHRR%valid_data_there )THEN
+             CALL merge_avhrr(AVHRR_Total,AVHRR)
+          ENDIF
+          CALL Deallocate_OutData(AVHRR)
+          IF( .not. check_overlap(file3,file4) )THEN
+             CALL Gbcs_Critical(.TRUE.,'No overlap between file3 and file4',&
+                  'read_all_data','extract_l1b_data.f90')
+          ENDIF
+          CALL read_file(file4,AVHRR,uuid_in)
+          IF( AVHRR%valid_data_there )THEN
+             CALL merge_avhrr(AVHRR_Total,AVHRR)
+          ENDIF
+          CALL Deallocate_OutData(AVHRR)
+          IF( .not. check_overlap(file4,file5) )THEN
+             CALL Gbcs_Critical(.TRUE.,'No overlap between file3 and file4',&
+                  'read_all_data','extract_l1b_data.f90')
+          ENDIF
+          CALL read_file(file5,AVHRR,uuid_in)
+          IF( AVHRR%valid_data_there )THEN
+             CALL merge_avhrr(AVHRR_Total,AVHRR)
+          ENDIF
+          CALL Deallocate_OutData(AVHRR)
        ENDIF
-       CALL read_file(file3,AVHRR,uuid_in)
-       CALL merge_avhrr(AVHRR_Total,AVHRR)
-       CALL Deallocate_OutData(AVHRR)
-       IF( .not. check_overlap(file3,file4) )THEN
-          CALL Gbcs_Critical(.TRUE.,'No overlap between file3 and file4',&
-               'read_all_data','extract_l1b_data.f90')
-       ENDIF
-       CALL read_file(file4,AVHRR,uuid_in)
-       CALL merge_avhrr(AVHRR_Total,AVHRR)
-       CALL Deallocate_OutData(AVHRR)
-       IF( .not. check_overlap(file4,file5) )THEN
-          CALL Gbcs_Critical(.TRUE.,'No overlap between file3 and file4',&
-               'read_all_data','extract_l1b_data.f90')
-       ENDIF
-       CALL read_file(file5,AVHRR,uuid_in)
-       CALL merge_avhrr(AVHRR_Total,AVHRR)
-       CALL Deallocate_OutData(AVHRR)
     ENDIF
 
+    IF( AVHRR_Total%arraySize .le. 0 )THEN
+       CALL Gbcs_Critical(.TRUE.,'No data available',&
+            'read_all_data','combine_orbits.f90')
+    ENDIF
     trim_data = .FALSE.
     IF( nfile .gt. 1 )THEN
        !
@@ -1149,6 +1193,10 @@ CONTAINS
             year1,month2,day2,hour2,minute2,&
             trim_data,trim_low,trim_high)
        CALL Deallocate_OutData(AVHRR_Total)
+       IF( AVHRR%arraySize .le. 0 )THEN
+          CALL Gbcs_Critical(.TRUE.,'No data available',&
+               'read_all_data','combine_orbits.f90')
+       ENDIF
        !
        ! Make sure radiances are output as Marines code expects this
        !
@@ -1336,6 +1384,7 @@ CONTAINS
        no_smooth = .FALSE.
     ENDIF
 
+    AVHRRout%arraySize=00
     !
     ! From Satellite No work out if need ascending or descending
     !
@@ -1375,7 +1424,9 @@ CONTAINS
           IF( AVHRR%time(I) .gt. 0 )THEN
              IF( AVHRR%time(I) .gt. time1 )THEN
                 first_equ=I
-                make_orbit1=.TRUE.
+                IF( AVHRR%time(1) .gt. time1 )THEN
+                   make_orbit1=.TRUE.
+                ENDIF
                 EXIT checkLoop1
              ENDIF
           ENDIF
@@ -1406,7 +1457,9 @@ CONTAINS
           IF( AVHRR%time(I) .gt. 0 )THEN
              IF( AVHRR%time(I) .lt. time2 )THEN
                 last_equ=I
-                make_orbit2=.TRUE.
+                IF( AVHRR%time(AVHRR%arraySize) .lt. time2 )THEN
+                   make_orbit2=.TRUE.
+                ENDIF
                 EXIT checkLoop2
              ENDIF
           ENDIF
@@ -1416,6 +1469,15 @@ CONTAINS
                'Cannot find equator where it should be (first)',&
                'Resize orbit equator','combine_orbits.f90')
        ENDIF
+    ENDIF
+
+    IF( make_orbit1 )THEN
+       CALL Gbcs_Warning(.TRUE.,'Actual first equator crossing not found',&
+               'Resize orbit equator','combine_orbits.f90')            
+    ENDIF
+    IF( make_orbit2 )THEN
+       CALL Gbcs_Warning(.TRUE.,'Actual second equator crossing not found',&
+               'Resize orbit equator','combine_orbits.f90')            
     ENDIF
 
     !
@@ -1561,6 +1623,7 @@ CONTAINS
     INTEGER :: STAT
     LOGICAL :: alldata
     TYPE(AVHRR_Data), POINTER :: pAVHRRout
+    INTEGER :: mem_scale
 
     pAVHRRout => AVHRRout
 
@@ -1576,14 +1639,19 @@ CONTAINS
     AVHRRout%walton_there = .FALSE.
     CALL Allocate_OutData(AVHRR%nelem,pAVHRRout)
     nsize = endpos-startpos+1
+    IF( nsize .gt. MEMORY_ALLOC_STEP )THEN
+       CALL Gbcs_Warning(.TRUE.,&
+            'Having to increase memory usage in output structure',&
+            'Resize_Orbit','combine_orbits.f90')
+       mem_scale = (nsize/MEMORY_ALLOC_STEP)*MEMORY_ALLOC_STEP
+       CALL Reallocate_OutData(pAVHRRout,mem_scale)
+    ENDIF
     CALL Reallocate_Final_outData(pAVHRRout,nsize)
 
     IF( alldata .and. AVHRR%newCalibration_There )THEN
 
        AVHRRout%newCalibration_There = AVHRR%newCalibration_There
        AVHRRout%orbital_temperature = AVHRR%orbital_temperature
-       AVHRRout%solar_contamination_failure = &
-            AVHRR%solar_contamination_failure
        AVHRRout%new_cal_coefs3 = AVHRRout%new_cal_coefs3
        AVHRRout%new_cal_coefs4 = AVHRRout%new_cal_coefs4
        AVHRRout%new_cal_coefs5 = AVHRRout%new_cal_coefs5
@@ -1613,6 +1681,7 @@ CONTAINS
             AVHRRout%smoothSp4(AVHRRout%arraySize),&
             AVHRRout%smoothSp5(AVHRRout%arraySize),&
             AVHRRout%Interpolated(AVHRRout%arraySize),&
+            AVHRRout%solar_contamination_failure(AVHRRout%arraySize),&
             AVHRRout%solar_contamination_3B(AVHRRout%arraySize),&
             AVHRRout%solar_contamination_4(AVHRRout%arraySize),&
             AVHRRout%solar_contamination_5(AVHRRout%arraySize),&
@@ -1655,11 +1724,13 @@ CONTAINS
     AVHRRout%filter3a = AVHRR%filter3a
     AVHRRout%start_valid = 1
     AVHRRout%stop_valid = (endpos-startpos)+1
+    AVHRRout%valid_data_there = AVHRR%valid_data_there
     AVHRRout%walton_there = AVHRR%walton_there
     K = 0
     DO I=startpos,endpos
        K=K+1
        AVHRRout%scanLineNumber(K) = AVHRR%scanLineNumber(I)
+       AVHRRout%badTop(K) = AVHRR%badTop(I)
        AVHRRout%badTime(K) = AVHRR%badTime(I)
        AVHRRout%badNavigation(K) = AVHRR%badNavigation(I)
        AVHRRout%badCalibration(K) = AVHRR%badCalibration(I)
@@ -1776,6 +1847,8 @@ CONTAINS
           AVHRRout%smoothSp4(K) = AVHRR%smoothSp4(I)
           AVHRRout%smoothSp5(K) = AVHRR%smoothSp5(I)
           AVHRRout%Interpolated(K) = AVHRR%Interpolated(I)
+          AVHRRout%solar_contamination_failure(K) = &
+               AVHRR%solar_contamination_failure(I)
           AVHRRout%solar_contamination_3B(K) = AVHRR%solar_contamination_3B(I)
           AVHRRout%solar_contamination_4(K) = AVHRR%solar_contamination_4(I)
           AVHRRout%solar_contamination_5(K) = AVHRR%solar_contamination_5(I)
