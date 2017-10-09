@@ -415,7 +415,7 @@ CONTAINS
           ! 
           ! Check if in overlap
           !
-          IF( AVHRR%time(I) .ge. start_time )THEN
+          IF( ABS(AVHRR%time(I)) .ge. start_time )THEN
              !
              ! Check for bad navigation/flags etc.
              !
@@ -532,6 +532,9 @@ CONTAINS
     FindFirst: DO I=1,AVHRR_New%arraySize
        IF( corr_diff_time(AVHRR%time,last_position,AVHRR_New%arraySize,AVHRR_New%time,I,outJ) )THEN
           first_position = outJ+1
+          IF( first_position .gt. AVHRR_New%arraySize )THEN
+             first_position = -2
+          ENDIF
           EXIT FindFirst
        ENDIF
     END DO FindFirst
@@ -545,222 +548,224 @@ CONTAINS
     !
     ! Append new data to old structure
     !
-    extra_lines = AVHRR_New%arraySize - first_position - &
-         (AVHRR%arraySize-last_position)
-    CALL Reallocate_outData(AVHRR_Ptr,extra_lines)
+    IF( first_position .gt. 0 )THEN
+       extra_lines = AVHRR_New%arraySize - first_position - &
+            (AVHRR%arraySize-last_position)
+       CALL Reallocate_outData(AVHRR_Ptr,extra_lines)
 
-    !
-    ! Now add in extra data - original raw data
-    !
-    AVHRR%scanLineNumber(last_position:AVHRR%arraySize) = &
-         AVHRR_New%scanLineNumber(first_position:AVHRR_New%arraySize)
-    AVHRR%badTop(last_position:AVHRR%arraySize) = &
-         AVHRR_New%badTop(first_position:AVHRR_New%arraySize)
-    AVHRR%badTime(last_position:AVHRR%arraySize) = &
-         AVHRR_New%badTime(first_position:AVHRR_New%arraySize)
-    AVHRR%badNavigation(last_position:AVHRR%arraySize) = &
-         AVHRR_New%badNavigation(first_position:AVHRR_New%arraySize)
-    AVHRR%badCalibration(last_position:AVHRR%arraySize) = &
-         AVHRR_New%badCalibration(first_position:AVHRR_New%arraySize)
-    AVHRR%Lon(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%Lon(:,first_position:AVHRR_New%arraySize)
-    AVHRR%Lat(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%Lat(:,first_position:AVHRR_New%arraySize)
-    AVHRR%satZA(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%satZA(:,first_position:AVHRR_New%arraySize)
-    AVHRR%solZA(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%solZA(:,first_position:AVHRR_New%arraySize)
-    IF( ALLOCATED(AVHRR%relAz) )THEN
-       AVHRR%relAz(:,last_position:AVHRR%arraySize) = &
-            AVHRR_New%relAz(:,first_position:AVHRR_New%arraySize)
-    ENDIF
-    AVHRR%counts1(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%counts1(:,first_position:AVHRR_New%arraySize)
-    AVHRR%counts2(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%counts2(:,first_position:AVHRR_New%arraySize)
-    AVHRR%counts3(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%counts3(:,first_position:AVHRR_New%arraySize)
-    AVHRR%counts4(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%counts4(:,first_position:AVHRR_New%arraySize)
-    IF( ALLOCATED(AVHRR%counts5) )THEN
-       AVHRR%counts5(:,last_position:AVHRR%arraySize) = &
-            AVHRR_New%counts5(:,first_position:AVHRR_New%arraySize)
-    ENDIF
-    AVHRR%array1(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%array1(:,first_position:AVHRR_New%arraySize)
-    AVHRR%array2(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%array2(:,first_position:AVHRR_New%arraySize)
-    AVHRR%array3A(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%array3A(:,first_position:AVHRR_New%arraySize)
-    AVHRR%array3B(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%array3B(:,first_position:AVHRR_New%arraySize)
-    AVHRR%array4(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%array4(:,first_position:AVHRR_New%arraySize)
-    AVHRR%array5(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%array5(:,first_position:AVHRR_New%arraySize)
-    AVHRR%year(last_position:AVHRR%arraySize) = &
-         AVHRR_New%year(first_position:AVHRR_New%arraySize)
-    AVHRR%month(last_position:AVHRR%arraySize) = &
-         AVHRR_New%month(first_position:AVHRR_New%arraySize)
-    AVHRR%day(last_position:AVHRR%arraySize) = &
-         AVHRR_New%day(first_position:AVHRR_New%arraySize)
-    AVHRR%dayNo(last_position:AVHRR%arraySize) = &
-         AVHRR_New%dayNo(first_position:AVHRR_New%arraySize)
-    AVHRR%hours(last_position:AVHRR%arraySize) = &
-         AVHRR_New%hours(first_position:AVHRR_New%arraySize)
-    AVHRR%UTC_msecs(last_position:AVHRR%arraySize) = &
-         AVHRR_New%UTC_msecs(first_position:AVHRR_New%arraySize)
-    AVHRR%time(last_position:AVHRR%arraySize) = &
-         AVHRR_New%time(first_position:AVHRR_New%arraySize)
-    AVHRR%prt1(last_position:AVHRR%arraySize) = &
-         AVHRR_New%prt1(first_position:AVHRR_New%arraySize)
-    AVHRR%prt2(last_position:AVHRR%arraySize) = &
-         AVHRR_New%prt2(first_position:AVHRR_New%arraySize)
-    AVHRR%prt3(last_position:AVHRR%arraySize) = &
-         AVHRR_New%prt3(first_position:AVHRR_New%arraySize)
-    AVHRR%prt4(last_position:AVHRR%arraySize) = &
-         AVHRR_New%prt4(first_position:AVHRR_New%arraySize)
-    AVHRR%prt1Counts(last_position:AVHRR%arraySize) = &
-         AVHRR_New%prt1Counts(first_position:AVHRR_New%arraySize)
-    AVHRR%prt2Counts(last_position:AVHRR%arraySize) = &
-         AVHRR_New%prt2Counts(first_position:AVHRR_New%arraySize)
-    AVHRR%prt3Counts(last_position:AVHRR%arraySize) = &
-         AVHRR_New%prt3Counts(first_position:AVHRR_New%arraySize)
-    AVHRR%prt4Counts(last_position:AVHRR%arraySize) = &
-         AVHRR_New%prt4Counts(first_position:AVHRR_New%arraySize)
-    AVHRR%prt1CountsAll(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%prt1CountsAll(:,first_position:AVHRR_New%arraySize)
-    AVHRR%prt2CountsAll(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%prt2CountsAll(:,first_position:AVHRR_New%arraySize)
-    AVHRR%prt3CountsAll(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%prt3CountsAll(:,first_position:AVHRR_New%arraySize)
-    AVHRR%prt4CountsAll(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%prt4CountsAll(:,first_position:AVHRR_New%arraySize)
-    AVHRR%bb3(last_position:AVHRR%arraySize) = &
-         AVHRR_New%bb3(first_position:AVHRR_New%arraySize)
-    AVHRR%bb4(last_position:AVHRR%arraySize) = &
-         AVHRR_New%bb4(first_position:AVHRR_New%arraySize)
-    IF( ALLOCATED(AVHRR%bb5) )THEN
-       AVHRR%bb5(last_position:AVHRR%arraySize) = &
-            AVHRR_New%bb5(first_position:AVHRR_New%arraySize)
-    ENDIF
-    AVHRR%sp3(last_position:AVHRR%arraySize) = &
-         AVHRR_New%sp3(first_position:AVHRR_New%arraySize)
-    AVHRR%sp4(last_position:AVHRR%arraySize) = &
-         AVHRR_New%sp4(first_position:AVHRR_New%arraySize)
-    IF( ALLOCATED(AVHRR%sp5) )THEN
-       AVHRR%sp5(last_position:AVHRR%arraySize) = &
-            AVHRR_New%sp5(first_position:AVHRR_New%arraySize)
-    ENDIF
-    AVHRR%bbodyFilter3(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%bbodyFilter3(:,first_position:AVHRR_New%arraySize)
-    AVHRR%bbodyFilter4(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%bbodyFilter4(:,first_position:AVHRR_New%arraySize)
-    IF( ALLOCATED(AVHRR%bbodyFilter5) )THEN
-       AVHRR%bbodyFilter5(:,last_position:AVHRR%arraySize) = &
-            AVHRR_New%bbodyFilter5(:,first_position:AVHRR_New%arraySize)
-    ENDIF
-    AVHRR%spaceFilter3(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%spaceFilter3(:,first_position:AVHRR_New%arraySize)
-    AVHRR%spaceFilter4(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%spaceFilter4(:,first_position:AVHRR_New%arraySize)
-    IF( ALLOCATED(AVHRR%spaceFilter5) )THEN
-       AVHRR%spaceFilter5(:,last_position:AVHRR%arraySize) = &
-            AVHRR_New%spaceFilter5(:,first_position:AVHRR_New%arraySize)
-    ENDIF
-    AVHRR%patch(last_position:AVHRR%arraySize) = &
-         AVHRR_New%patch(first_position:AVHRR_New%arraySize)
-    IF( ALLOCATED(AVHRR%patchExtended) )THEN
-       AVHRR%patchExtended(last_position:AVHRR%arraySize) = &
-            AVHRR_New%patchExtended(first_position:AVHRR_New%arraySize)
-    ENDIF
-    IF( ALLOCATED(AVHRR%Radiator) )THEN
-       AVHRR%Radiator(last_position:AVHRR%arraySize) = &
-            AVHRR_New%Radiator(first_position:AVHRR_New%arraySize)
-    ENDIF
-    IF( ALLOCATED(AVHRR%Cooler) )THEN
-       AVHRR%Cooler(last_position:AVHRR%arraySize) = &
-            AVHRR_New%Cooler(first_position:AVHRR_New%arraySize)
-    ENDIF
-    IF( ALLOCATED(AVHRR%a_d_conv) )THEN
-       AVHRR%a_d_conv(last_position:AVHRR%arraySize) = &
-            AVHRR_New%a_d_conv(first_position:AVHRR_New%arraySize)
-    ENDIF
-    IF( ALLOCATED(AVHRR%motor) )THEN
-       AVHRR%motor(last_position:AVHRR%arraySize) = &
-            AVHRR_New%motor(first_position:AVHRR_New%arraySize)
-    ENDIF
-    IF( ALLOCATED(AVHRR%motorCurrent) )THEN
-       AVHRR%motorCurrent(last_position:AVHRR%arraySize) = &
-            AVHRR_New%motorCurrent(first_position:AVHRR_New%arraySize)
-    ENDIF
-    IF( ALLOCATED(AVHRR%electronics) )THEN
-       AVHRR%electronics(last_position:AVHRR%arraySize) = &
-            AVHRR_New%electronics(first_position:AVHRR_New%arraySize)
-    ENDIF
-    IF( ALLOCATED(AVHRR%baseplate) )THEN
-       AVHRR%baseplate(last_position:AVHRR%arraySize) = &
-            AVHRR_New%baseplate(first_position:AVHRR_New%arraySize)
-    ENDIF
-    AVHRR%calib1(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%calib1(:,first_position:AVHRR_New%arraySize)
-    AVHRR%calib1_2(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%calib1_2(:,first_position:AVHRR_New%arraySize)
-    AVHRR%calib1_intercept(last_position:AVHRR%arraySize) = &
-         AVHRR_New%calib1_intercept(first_position:AVHRR_New%arraySize)
-    AVHRR%calib2(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%calib2(:,first_position:AVHRR_New%arraySize)
-    AVHRR%calib2_2(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%calib2_2(:,first_position:AVHRR_New%arraySize)
-    AVHRR%calib2_intercept(last_position:AVHRR%arraySize) = &
-         AVHRR_New%calib2_intercept(first_position:AVHRR_New%arraySize)
-    IF( ALLOCATED(AVHRR%calib3A) )THEN
-       AVHRR%calib3A(:,last_position:AVHRR%arraySize) = &
-            AVHRR_New%calib3A(:,first_position:AVHRR_New%arraySize)
-    ENDIF
-    IF( ALLOCATED(AVHRR%calib3A_2) )THEN
-       AVHRR%calib3A_2(:,last_position:AVHRR%arraySize) = &
-            AVHRR_New%calib3A_2(:,first_position:AVHRR_New%arraySize)
-    ENDIF
-    IF( ALLOCATED(AVHRR%calib3A_intercept) )THEN
-       AVHRR%calib3A_intercept(last_position:AVHRR%arraySize) = &
-            AVHRR_New%calib3A_intercept(first_position:AVHRR_New%arraySize)
-    ENDIF
-    AVHRR%calib3(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%calib3(:,first_position:AVHRR_New%arraySize)
-    AVHRR%calib4(:,last_position:AVHRR%arraySize) = &
-         AVHRR_New%calib4(:,first_position:AVHRR_New%arraySize)
-    IF( ALLOCATED(AVHRR%calib5) )THEN
-       AVHRR%calib5(:,last_position:AVHRR%arraySize) = &
-            AVHRR_New%calib5(:,first_position:AVHRR_New%arraySize)
-    ENDIF
-    IF( ALLOCATED(AVHRR%clavr_mask) )THEN
-       AVHRR%clavr_mask(:,last_position:AVHRR%arraySize) = &
-            AVHRR_New%clavr_mask(:,first_position:AVHRR_New%arraySize)
-    ENDIF
-    IF( ALLOCATED(AVHRR%clavrx_mask) )THEN
-       AVHRR%clavrx_mask(:,last_position:AVHRR%arraySize) = &
-            AVHRR_New%clavrx_mask(:,first_position:AVHRR_New%arraySize)
-    ENDIF
-    IF( ALLOCATED(AVHRR%clavrx_prb) )THEN
-       AVHRR%clavrx_prb(:,last_position:AVHRR%arraySize) = &
-            AVHRR_New%clavrx_prb(:,first_position:AVHRR_New%arraySize)
-    ENDIF
-    IF( ALLOCATED(AVHRR%orig_solar_contamination_3B) )THEN
-       AVHRR%orig_solar_contamination_3B(last_position:AVHRR%arraySize) = &
-            AVHRR_New%orig_solar_contamination_3B(first_position:AVHRR_New%arraySize)
-    ENDIF
-    IF( ALLOCATED(AVHRR%orig_solar_contamination_4) )THEN
-       AVHRR%orig_solar_contamination_4(last_position:AVHRR%arraySize) = &
-            AVHRR_New%orig_solar_contamination_4(first_position:AVHRR_New%arraySize)
-    ENDIF
-    IF( ALLOCATED(AVHRR%orig_solar_contamination_5) )THEN
-       AVHRR%orig_solar_contamination_5(last_position:AVHRR%arraySize) = &
-            AVHRR_New%orig_solar_contamination_5(first_position:AVHRR_New%arraySize)
-    ENDIF
-    IF( ALLOCATED(AVHRR%satelliteAltitude) )THEN
-       AVHRR%satelliteAltitude(last_position:AVHRR%arraySize) = &
-            AVHRR_New%satelliteAltitude(first_position:AVHRR_New%arraySize)
+       !
+       ! Now add in extra data - original raw data
+       !
+       AVHRR%scanLineNumber(last_position:AVHRR%arraySize) = &
+            AVHRR_New%scanLineNumber(first_position:AVHRR_New%arraySize)
+       AVHRR%badTop(last_position:AVHRR%arraySize) = &
+            AVHRR_New%badTop(first_position:AVHRR_New%arraySize)
+       AVHRR%badTime(last_position:AVHRR%arraySize) = &
+            AVHRR_New%badTime(first_position:AVHRR_New%arraySize)
+       AVHRR%badNavigation(last_position:AVHRR%arraySize) = &
+            AVHRR_New%badNavigation(first_position:AVHRR_New%arraySize)
+       AVHRR%badCalibration(last_position:AVHRR%arraySize) = &
+            AVHRR_New%badCalibration(first_position:AVHRR_New%arraySize)
+       AVHRR%Lon(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%Lon(:,first_position:AVHRR_New%arraySize)
+       AVHRR%Lat(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%Lat(:,first_position:AVHRR_New%arraySize)
+       AVHRR%satZA(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%satZA(:,first_position:AVHRR_New%arraySize)
+       AVHRR%solZA(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%solZA(:,first_position:AVHRR_New%arraySize)
+       IF( ALLOCATED(AVHRR%relAz) )THEN
+          AVHRR%relAz(:,last_position:AVHRR%arraySize) = &
+               AVHRR_New%relAz(:,first_position:AVHRR_New%arraySize)
+       ENDIF
+       AVHRR%counts1(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%counts1(:,first_position:AVHRR_New%arraySize)
+       AVHRR%counts2(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%counts2(:,first_position:AVHRR_New%arraySize)
+       AVHRR%counts3(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%counts3(:,first_position:AVHRR_New%arraySize)
+       AVHRR%counts4(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%counts4(:,first_position:AVHRR_New%arraySize)
+       IF( ALLOCATED(AVHRR%counts5) )THEN
+          AVHRR%counts5(:,last_position:AVHRR%arraySize) = &
+               AVHRR_New%counts5(:,first_position:AVHRR_New%arraySize)
+       ENDIF
+       AVHRR%array1(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%array1(:,first_position:AVHRR_New%arraySize)
+       AVHRR%array2(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%array2(:,first_position:AVHRR_New%arraySize)
+       AVHRR%array3A(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%array3A(:,first_position:AVHRR_New%arraySize)
+       AVHRR%array3B(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%array3B(:,first_position:AVHRR_New%arraySize)
+       AVHRR%array4(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%array4(:,first_position:AVHRR_New%arraySize)
+       AVHRR%array5(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%array5(:,first_position:AVHRR_New%arraySize)
+       AVHRR%year(last_position:AVHRR%arraySize) = &
+            AVHRR_New%year(first_position:AVHRR_New%arraySize)
+       AVHRR%month(last_position:AVHRR%arraySize) = &
+            AVHRR_New%month(first_position:AVHRR_New%arraySize)
+       AVHRR%day(last_position:AVHRR%arraySize) = &
+            AVHRR_New%day(first_position:AVHRR_New%arraySize)
+       AVHRR%dayNo(last_position:AVHRR%arraySize) = &
+            AVHRR_New%dayNo(first_position:AVHRR_New%arraySize)
+       AVHRR%hours(last_position:AVHRR%arraySize) = &
+            AVHRR_New%hours(first_position:AVHRR_New%arraySize)
+       AVHRR%UTC_msecs(last_position:AVHRR%arraySize) = &
+            AVHRR_New%UTC_msecs(first_position:AVHRR_New%arraySize)
+       AVHRR%time(last_position:AVHRR%arraySize) = &
+            AVHRR_New%time(first_position:AVHRR_New%arraySize)
+       AVHRR%prt1(last_position:AVHRR%arraySize) = &
+            AVHRR_New%prt1(first_position:AVHRR_New%arraySize)
+       AVHRR%prt2(last_position:AVHRR%arraySize) = &
+            AVHRR_New%prt2(first_position:AVHRR_New%arraySize)
+       AVHRR%prt3(last_position:AVHRR%arraySize) = &
+            AVHRR_New%prt3(first_position:AVHRR_New%arraySize)
+       AVHRR%prt4(last_position:AVHRR%arraySize) = &
+            AVHRR_New%prt4(first_position:AVHRR_New%arraySize)
+       AVHRR%prt1Counts(last_position:AVHRR%arraySize) = &
+            AVHRR_New%prt1Counts(first_position:AVHRR_New%arraySize)
+       AVHRR%prt2Counts(last_position:AVHRR%arraySize) = &
+            AVHRR_New%prt2Counts(first_position:AVHRR_New%arraySize)
+       AVHRR%prt3Counts(last_position:AVHRR%arraySize) = &
+            AVHRR_New%prt3Counts(first_position:AVHRR_New%arraySize)
+       AVHRR%prt4Counts(last_position:AVHRR%arraySize) = &
+            AVHRR_New%prt4Counts(first_position:AVHRR_New%arraySize)
+       AVHRR%prt1CountsAll(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%prt1CountsAll(:,first_position:AVHRR_New%arraySize)
+       AVHRR%prt2CountsAll(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%prt2CountsAll(:,first_position:AVHRR_New%arraySize)
+       AVHRR%prt3CountsAll(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%prt3CountsAll(:,first_position:AVHRR_New%arraySize)
+       AVHRR%prt4CountsAll(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%prt4CountsAll(:,first_position:AVHRR_New%arraySize)
+       AVHRR%bb3(last_position:AVHRR%arraySize) = &
+            AVHRR_New%bb3(first_position:AVHRR_New%arraySize)
+       AVHRR%bb4(last_position:AVHRR%arraySize) = &
+            AVHRR_New%bb4(first_position:AVHRR_New%arraySize)
+       IF( ALLOCATED(AVHRR%bb5) )THEN
+          AVHRR%bb5(last_position:AVHRR%arraySize) = &
+               AVHRR_New%bb5(first_position:AVHRR_New%arraySize)
+       ENDIF
+       AVHRR%sp3(last_position:AVHRR%arraySize) = &
+            AVHRR_New%sp3(first_position:AVHRR_New%arraySize)
+       AVHRR%sp4(last_position:AVHRR%arraySize) = &
+            AVHRR_New%sp4(first_position:AVHRR_New%arraySize)
+       IF( ALLOCATED(AVHRR%sp5) )THEN
+          AVHRR%sp5(last_position:AVHRR%arraySize) = &
+               AVHRR_New%sp5(first_position:AVHRR_New%arraySize)
+       ENDIF
+       AVHRR%bbodyFilter3(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%bbodyFilter3(:,first_position:AVHRR_New%arraySize)
+       AVHRR%bbodyFilter4(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%bbodyFilter4(:,first_position:AVHRR_New%arraySize)
+       IF( ALLOCATED(AVHRR%bbodyFilter5) )THEN
+          AVHRR%bbodyFilter5(:,last_position:AVHRR%arraySize) = &
+               AVHRR_New%bbodyFilter5(:,first_position:AVHRR_New%arraySize)
+       ENDIF
+       AVHRR%spaceFilter3(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%spaceFilter3(:,first_position:AVHRR_New%arraySize)
+       AVHRR%spaceFilter4(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%spaceFilter4(:,first_position:AVHRR_New%arraySize)
+       IF( ALLOCATED(AVHRR%spaceFilter5) )THEN
+          AVHRR%spaceFilter5(:,last_position:AVHRR%arraySize) = &
+               AVHRR_New%spaceFilter5(:,first_position:AVHRR_New%arraySize)
+       ENDIF
+       AVHRR%patch(last_position:AVHRR%arraySize) = &
+            AVHRR_New%patch(first_position:AVHRR_New%arraySize)
+       IF( ALLOCATED(AVHRR%patchExtended) )THEN
+          AVHRR%patchExtended(last_position:AVHRR%arraySize) = &
+               AVHRR_New%patchExtended(first_position:AVHRR_New%arraySize)
+       ENDIF
+       IF( ALLOCATED(AVHRR%Radiator) )THEN
+          AVHRR%Radiator(last_position:AVHRR%arraySize) = &
+               AVHRR_New%Radiator(first_position:AVHRR_New%arraySize)
+       ENDIF
+       IF( ALLOCATED(AVHRR%Cooler) )THEN
+          AVHRR%Cooler(last_position:AVHRR%arraySize) = &
+               AVHRR_New%Cooler(first_position:AVHRR_New%arraySize)
+       ENDIF
+       IF( ALLOCATED(AVHRR%a_d_conv) )THEN
+          AVHRR%a_d_conv(last_position:AVHRR%arraySize) = &
+               AVHRR_New%a_d_conv(first_position:AVHRR_New%arraySize)
+       ENDIF
+       IF( ALLOCATED(AVHRR%motor) )THEN
+          AVHRR%motor(last_position:AVHRR%arraySize) = &
+               AVHRR_New%motor(first_position:AVHRR_New%arraySize)
+       ENDIF
+       IF( ALLOCATED(AVHRR%motorCurrent) )THEN
+          AVHRR%motorCurrent(last_position:AVHRR%arraySize) = &
+               AVHRR_New%motorCurrent(first_position:AVHRR_New%arraySize)
+       ENDIF
+       IF( ALLOCATED(AVHRR%electronics) )THEN
+          AVHRR%electronics(last_position:AVHRR%arraySize) = &
+               AVHRR_New%electronics(first_position:AVHRR_New%arraySize)
+       ENDIF
+       IF( ALLOCATED(AVHRR%baseplate) )THEN
+          AVHRR%baseplate(last_position:AVHRR%arraySize) = &
+               AVHRR_New%baseplate(first_position:AVHRR_New%arraySize)
+       ENDIF
+       AVHRR%calib1(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%calib1(:,first_position:AVHRR_New%arraySize)
+       AVHRR%calib1_2(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%calib1_2(:,first_position:AVHRR_New%arraySize)
+       AVHRR%calib1_intercept(last_position:AVHRR%arraySize) = &
+            AVHRR_New%calib1_intercept(first_position:AVHRR_New%arraySize)
+       AVHRR%calib2(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%calib2(:,first_position:AVHRR_New%arraySize)
+       AVHRR%calib2_2(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%calib2_2(:,first_position:AVHRR_New%arraySize)
+       AVHRR%calib2_intercept(last_position:AVHRR%arraySize) = &
+            AVHRR_New%calib2_intercept(first_position:AVHRR_New%arraySize)
+       IF( ALLOCATED(AVHRR%calib3A) )THEN
+          AVHRR%calib3A(:,last_position:AVHRR%arraySize) = &
+               AVHRR_New%calib3A(:,first_position:AVHRR_New%arraySize)
+       ENDIF
+       IF( ALLOCATED(AVHRR%calib3A_2) )THEN
+          AVHRR%calib3A_2(:,last_position:AVHRR%arraySize) = &
+               AVHRR_New%calib3A_2(:,first_position:AVHRR_New%arraySize)
+       ENDIF
+       IF( ALLOCATED(AVHRR%calib3A_intercept) )THEN
+          AVHRR%calib3A_intercept(last_position:AVHRR%arraySize) = &
+               AVHRR_New%calib3A_intercept(first_position:AVHRR_New%arraySize)
+       ENDIF
+       AVHRR%calib3(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%calib3(:,first_position:AVHRR_New%arraySize)
+       AVHRR%calib4(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%calib4(:,first_position:AVHRR_New%arraySize)
+       IF( ALLOCATED(AVHRR%calib5) )THEN
+          AVHRR%calib5(:,last_position:AVHRR%arraySize) = &
+               AVHRR_New%calib5(:,first_position:AVHRR_New%arraySize)
+       ENDIF
+       IF( ALLOCATED(AVHRR%clavr_mask) )THEN
+          AVHRR%clavr_mask(:,last_position:AVHRR%arraySize) = &
+               AVHRR_New%clavr_mask(:,first_position:AVHRR_New%arraySize)
+       ENDIF
+       IF( ALLOCATED(AVHRR%clavrx_mask) )THEN
+          AVHRR%clavrx_mask(:,last_position:AVHRR%arraySize) = &
+               AVHRR_New%clavrx_mask(:,first_position:AVHRR_New%arraySize)
+       ENDIF
+       IF( ALLOCATED(AVHRR%clavrx_prb) )THEN
+          AVHRR%clavrx_prb(:,last_position:AVHRR%arraySize) = &
+               AVHRR_New%clavrx_prb(:,first_position:AVHRR_New%arraySize)
+       ENDIF
+       IF( ALLOCATED(AVHRR%orig_solar_contamination_3B) )THEN
+          AVHRR%orig_solar_contamination_3B(last_position:AVHRR%arraySize) = &
+               AVHRR_New%orig_solar_contamination_3B(first_position:AVHRR_New%arraySize)
+       ENDIF
+       IF( ALLOCATED(AVHRR%orig_solar_contamination_4) )THEN
+          AVHRR%orig_solar_contamination_4(last_position:AVHRR%arraySize) = &
+               AVHRR_New%orig_solar_contamination_4(first_position:AVHRR_New%arraySize)
+       ENDIF
+       IF( ALLOCATED(AVHRR%orig_solar_contamination_5) )THEN
+          AVHRR%orig_solar_contamination_5(last_position:AVHRR%arraySize) = &
+               AVHRR_New%orig_solar_contamination_5(first_position:AVHRR_New%arraySize)
+       ENDIF
+       IF( ALLOCATED(AVHRR%satelliteAltitude) )THEN
+          AVHRR%satelliteAltitude(last_position:AVHRR%arraySize) = &
+               AVHRR_New%satelliteAltitude(first_position:AVHRR_New%arraySize)
+       ENDIF
     ENDIF
     AVHRR%newCalibration_there = .FALSE.
     AVHRR%walton_there = .FALSE.
@@ -885,10 +890,14 @@ CONTAINS
     CALL Get_Jul_Day(file1,POS_Year1,POS_Start1,POS_End1,jday1_start,jday1_end)
     CALL Get_Jul_Day(file2,POS_Year2,POS_Start2,POS_End2,jday2_start,jday2_end)
 
+    check_overlap = .FALSE.
     IF( jday1_end .ge. jday2_start )THEN
        check_overlap = .TRUE.
-    ELSE
-       check_overlap = .FALSE.
+    ELSE IF( ABS(jday1_end - jday2_start) .lt. 0.0007 )THEN
+       !
+       ! Check against a minute and a half (rounding errors
+       !
+       check_overlap = .TRUE.
     ENDIF
 
   END FUNCTION check_overlap
