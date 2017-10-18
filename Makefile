@@ -38,7 +38,7 @@ GBCSOBJECTS = GbcsKinds.o GbcsBaseTypes.o GbcsConstants.o GbcsStringUtil.o \
 	GbcsMatrixOps.o GbcsPDFLoaders.o \
 	GbcsScattPhysics.o GbcsCleanUp.o \
 	GbcsPixelLoaders.o AVHRR_Filter_Data.o NOAA_LoadAVHRRLevel1B.o GbcsImageUtil.o \
-	epr_wrapper_c.o epr_wrapper.o ARC_ATSR1.o ARC_L1bCorrection.o ARC_LoadImagery.o
+	epr_wrapper_c.o epr_wrapper.o ARC_ATSRVarNEdT.o ARC_ATSR1.o ARC_L1bCorrection.o ARC_LoadImagery.o
 
 OBJECTS = $(GBCSOBJECTS) fiduceo_uncertainties.o combine_orbits.o
 OBJECTS_ALL1 =  $(OBJECTS) write_fcdr.o
