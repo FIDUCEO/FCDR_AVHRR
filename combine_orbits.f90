@@ -19,8 +19,6 @@
 ! Module to combine three AVHRR orbits to create one 'good' orbit
 ! equator to equator
 !
-! MOFIDED VERSION 23-10-2017 M.Taylor
-
 MODULE Combine_Orbits
   
   USE GbcsKinds
@@ -897,7 +895,7 @@ CONTAINS
        check_overlap = .TRUE.
     ELSE IF( ABS(jday1_end - jday2_start) .lt. 0.0007 )THEN
        !
-       ! Check against a minute and a half (rounding errors)
+       ! Check against a minute and a half (rounding errors
        !
        check_overlap = .TRUE.
     ENDIF
@@ -1178,8 +1176,8 @@ CONTAINS
           ENDIF
           CALL Deallocate_OutData(AVHRR)
           IF( .not. check_overlap(file4,file5) )THEN
-             CALL Gbcs_Critical(.TRUE.,'No overlap between file4 and file5',&
-                  'read_all_data','extract_l1b_data.f90') !MT (20-10-2017): 'between file3 and file4' --> 'between file4 and file5'
+             CALL Gbcs_Critical(.TRUE.,'No overlap between file3 and file4',&
+                  'read_all_data','extract_l1b_data.f90')
           ENDIF
           CALL read_file(file5,AVHRR,uuid_in)
           IF( AVHRR%valid_data_there )THEN
@@ -1491,6 +1489,7 @@ CONTAINS
                'Resize orbit equator','combine_orbits.f90')            
     ENDIF
 
+    !
     ! Make choices on the basis of coverage. We have
     !
     !     not make_orbit1/not make_orbit2
@@ -1503,7 +1502,7 @@ CONTAINS
     !        - found first equator crossing but data does not include
     !          second one. Need to make at least complete orbit (backward
     !          in time) and then trim later
-    !     make_orbit1/make_orbit2 !MT (24-10-2017)
+    !     not make_orbit1/not make_orbit2
     !        - didn't find either - basically have from 1,arraySize 
     !          and no trimming
     IF( .not. make_orbit1 .and. .not. make_orbit2 )THEN
@@ -1519,20 +1518,7 @@ CONTAINS
              last_equ = first_equ + 15000
           ENDIF
        ENDIF
-!MT (24-10-2017) - fix reversed logic
-!    ELSE IF( make_orbit1 .and. .not. make_orbit2 )THEN
-!        trim_data = .TRUE.
-!        trim_low = first_equ
-!        trim_high = last_equ
-!        IF( last_equ - 15000 .lt. first_equ )THEN
-!            IF( last_equ-15000 .lt. 1 )THEN
-!                first_equ = 1
-!            ELSE
-!                trim_low = first_equ - (last_equ-15000)
-!                first_equ = last_equ - 15000
-!            ENDIF
-!        ENDIF
-    ELSE IF( .not. make_orbit1 .and. make_orbit2 )THEN
+    ELSE IF( make_orbit1 .and. .not. make_orbit2 )THEN
        trim_data = .TRUE.
        trim_low = first_equ
        trim_high = last_equ
@@ -1546,7 +1532,7 @@ CONTAINS
        ENDIF
     ELSE 
        ! Only have section - all we have
-       trim_data = .TRUE. !MT (24-10-2017)
+       trim_data = .FALSE.
     ENDIF
 
 !    IF( -1 .eq. first_equ )THEN
@@ -1937,7 +1923,7 @@ CONTAINS
             'extract_l1b_data.f90')
        inDirectory = './'
        WRITE(inFilename,'(''temp_file.'',a)')TRIM(uuid_in)
-!MT: 05-11-2017       remove_file=.TRUE.
+       remove_file=.TRUE.
     ELSE
        POS=INDEX(infile,'/',.TRUE.)
        IF( 0 .ne. POS )THEN

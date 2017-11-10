@@ -14,8 +14,6 @@
 # * 
 # * A copy of the GNU General Public License should have been supplied along
 # * with this program; if not, see http://www.gnu.org/licenses/
-# * ------------------------------------------------------------------------
-# * MT: 30-10-2017: Uncertainty variables renamed in line with FCDR-CDR file format spec fv1.1.1
 
 from fiduceo.fcdr.writer.fcdr_writer import FCDRWriter
 from fiduceo.fcdr.writer.templates import avhrr
@@ -23,9 +21,7 @@ import sys
 import netCDF4
 import numpy as np
 import datetime
-import xarray
 from optparse import OptionParser
-
 class read_netcdf(object):
 
     def add_nan_values(self,values):
@@ -234,6 +230,7 @@ def main(file_in,fileout='None'):
     dataset.variables["latitude"].data = data.lat
     dataset.variables["longitude"].data = data.lon
     dataset.variables["Time"].data = data.time
+    
     dataset.variables["satellite_zenith_angle"].data = data.satza
     dataset.variables["solar_zenith_angle"].data = data.solza
     dataset.variables["relative_azimuth_angle"].data = data.relaz
@@ -246,55 +243,28 @@ def main(file_in,fileout='None'):
     dataset.variables["Ch4_Bt"].data = data.ch4
     if data.ch5_there:
         dataset.variables["Ch5_Bt"].data = data.ch5
-# MT: 30-10-2017: uncertainty variable name change in line with FCDR-CDR file format spec fv1.1.1
-    dataset.variables["u_independent_Ch1"].data = data.u_random_ch1
-    dataset.variables["u_independent_Ch2"].data = data.u_random_ch2
-    if data.ch3a_there:
-        dataset.variables["u_independent_Ch3a"].data = data.u_random_ch3a
-    dataset.variables["u_independent_Ch3b"].data = data.u_random_ch3b
-    dataset.variables["u_independent_Ch4"].data = data.u_random_ch4
-    if data.ch5_there:
-        dataset.variables["u_independent_Ch5"].data = data.u_random_ch5
-   
-    dataset.variables["u_structured_Ch1"].data = data.u_non_random_ch1
-    dataset.variables["u_structured_Ch2"].data = data.u_non_random_ch2
-    if data.ch3a_there:
-        dataset.variables["u_structured_Ch3a"].data = data.u_non_random_ch3a
-    dataset.variables["u_structured_Ch3b"].data = data.u_non_random_ch3b
-    dataset.variables["u_structured_Ch4"].data = data.u_non_random_ch4
-    if data.ch5_there:
-        dataset.variables["u_structured_Ch5"].data = data.u_non_random_ch5
 
-# MT: 18-10-2017: these fields need adding to Tom's writer
+    dataset.variables["u_random_Ch1"].data = data.u_random_ch1
+    dataset.variables["u_random_Ch2"].data = data.u_random_ch2
+    if data.ch3a_there:
+        dataset.variables["u_random_Ch3a"].data = data.u_random_ch3a
+    dataset.variables["u_random_Ch3b"].data = data.u_random_ch3b
+    dataset.variables["u_random_Ch4"].data = data.u_random_ch4
+    if data.ch5_there:
+        dataset.variables["u_random_Ch5"].data = data.u_random_ch5
+   
+    dataset.variables["u_non_random_Ch1"].data = data.u_non_random_ch1
+    dataset.variables["u_non_random_Ch2"].data = data.u_non_random_ch2
+    if data.ch3a_there:
+        dataset.variables["u_non_random_Ch3a"].data = data.u_non_random_ch3a
+    dataset.variables["u_non_random_Ch3b"].data = data.u_non_random_ch3b
+    dataset.variables["u_non_random_Ch4"].data = data.u_non_random_ch4
+    if data.ch5_there:
+        dataset.variables["u_non_random_Ch5"].data = data.u_non_random_ch5
+
     dataset.variables["quality_scanline_bitmask"].data = data.scan_qual
     dataset.variables["quality_channel_bitmask"].data = data.chan_qual
-
-# MT: 08-11-2017: define channel correlation matrices
-    if data.noaa_string in ['NOAA06','NOAA08','NOAA10']:
-        S = np.diag([1,1,0,1,1,0])
-    elif data.noaa_string in ['NOAA07','NOAA09','NOAA11','NOAA12','NOAA14']:
-        S = np.diag([1,1,0,1,1,1])
-    elif data.noaa_string in ['NOAA15','NOAA16','NOAA17','NOAA18','NOAA19','METOPA','METOPB','METOPC']:
-        S = np.diag([1,1,1,1,1,1])
-
-#    default_array = DefaultData.create_default_array(SWATH_WIDTH, height, np.float32, fill_value=np.NaN)
-#    variable = Variable(["y", "x"], default_array)
-#    variable.attrs["standard_name"] = "channel_correlation_matrix"
-#    tu.add_units(variable,"1")
-#    tu.add_encoding(variable, np.int16, DefaultData.get_default_fill_value(np.int16), 1)
-#    variable.attrs["valid_max"] = 1
-#    variable.attrs["valid_min"] = 0
-#    dataset["channel_correlation_matrix"] = variable
-    da = xarray.DataArray(S,
-#            coords={"channel": ds_context.coords["channel"]},
-            dims=("nchan", "nchan"))
-    da.name = "channel_correlation_matrix"
-    da.attrs["units"] = "1"
-    da.attrs["valid_max"] = 1
-    da.attrs["valid_min"] = 0
-    da.encoding["dtype"] = np.int16
-    dataset=xarray.merge([dataset,da])
-
+   
     #avhrr.AVHRR._create_channel_refl_variable(12835, "Channel 6 Reflectance") 
     # dump it to disk, netcdf4, medium compression
     # writing will fail when the target file already exists
@@ -320,4 +290,3 @@ if __name__ == "__main__":
         main(args[0])
     elif len(args) == 2:
         main(args[0],fileout=args[1])
-

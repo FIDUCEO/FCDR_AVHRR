@@ -21,9 +21,6 @@
 #
 # Written by J.Mittaz UoR
 #
-# --------------------------------
-# Modified 17-10-2017 M.Taylor UoR: merge-orbit logic fixes added
-
 import numpy as np
 import ephem
 import datetime
@@ -208,7 +205,8 @@ class blacklist(object):
     # Read in one day of blacklist
     def get_blacklist_day(self,instrument,year,month,day):
         # Get filename of blacklist
-        mtaylor_path = "/group_workspaces/cems2/fiduceo/Users/mtaylor/avhrr_l1b/"
+        mtaylor_path = \
+            "/group_workspaces/cems2/fiduceo/Users/mtaylor/avhrr_l1b/"
         dir_in = '{0}/listes_orbites/liste_orbites_day/{1}/{2:04d}/{3:02d}/'.\
             format(mtaylor_path,instrument,year,month)
         file_in = '{0}/blackliste_{1}_{2:04d}_{3:02d}_{4:02d}.data'.\
@@ -294,35 +292,35 @@ class tle_data(object):
         time = datetime.datetime(year,month,day)
         self.name = instr
         if 'NOAA06' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-06.txt'
+            filename = '/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-06.txt'
         elif 'NOAA07' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-07.txt'
+            filename = '/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-07.txt'
         elif 'NOAA08' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-08.txt'
+            filename = '/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-08.txt'
         elif 'NOAA09' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-09.txt'
+            filename = '/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-09.txt'
         elif 'NOAA10' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-10.txt'
+            filename = '/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-10.txt'
         elif 'NOAA11' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-11.txt'
+            filename = '/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-11.txt'
         elif 'NOAA12' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-12.txt'
+            filename = '/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-12.txt'
         elif 'NOAA14' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-14.txt'
+            filename = '/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-14.txt'
         elif 'NOAA15' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-15.txt'
+            filename = '/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-15.txt'
         elif 'NOAA16' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-16.txt'
+            filename = '/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-16.txt'
         elif 'NOAA17' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-17.txt'
+            filename = '/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-17.txt'
         elif 'NOAA18' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-18.txt'
+            filename = '/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-18.txt'
         elif 'NOAA19' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-19.txt'
+            filename = '/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-19.txt'
         elif 'METOPA' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/metop-a.txt'
+            filename = '/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/metop-a.txt'
         elif 'METOPB' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/metop-b.txt'
+            filename = '/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/metop-b.txt'
 
         if not os.path.exists(filename):
             raise Exception,"TLE file not found : "+filename
@@ -467,17 +465,13 @@ class tle_data(object):
         self.times = self.get_nearest_time(line1,line2,year,month,day)
 
 # Get list of files that contain low/high time
-def __get_filelist(low_time,high_time,t,avhrr_dir_name):
-
-    #MT: 24-10-2017: Import local ECTs to implement additional logical processing
-    ect1_time = low_time + datetime.timedelta(seconds=5400) #MT
-    ect2_time = high_time - datetime.timedelta(seconds=5400) #MT
+def __get_filelist(low_time,high_time,avhrr_dir_name):
 
     # Make directory name
     dir_name_list = '/group_workspaces/cems2/esacci_sst/input/avhrr/l1b/{0}/v1/{1:04d}/{2:02d}/{3:02d}/NSS.*'.\
         format(avhrr_dir_name,low_time.year,\
                    low_time.month,low_time.day)
-    
+
     # Get list of all files
     filelist = glob.glob(dir_name_list)
 
@@ -499,25 +493,15 @@ def __get_filelist(low_time,high_time,t,avhrr_dir_name):
         # Get file data
         infile = get_file_data(filelist[i])
         # Check if there is overlap of file with low/high time
-        
         if infile.start_time <= low_time and infile.end_time >= low_time:
-            if infile.end_time >= ect1_time: #MT: 24-10-2017: end of orbit overlaps start of ECT window
-                ok = True
-                stored_file.append(filelist[i])
+            ok = True
+            stored_file.append(filelist[i])
         elif infile.start_time <= high_time and infile.end_time >= high_time:
-            if infile.start_time <= ect2_time: #MT: 24-10-2017: start of orbit overlaps end of ECT window
-                ok = True
-                stored_file.append(filelist[i])
+            ok = True
+            stored_file.append(filelist[i])
         elif infile.start_time >= low_time and infile.end_time <= high_time:
-            if infile.start_time <= ect1_time and infile.end_time <= ect2_time: #MT: 24-10-2017: end of orbit overlaps start of ECT window
-                ok = True
-                stored_file.append(filelist[i])
-            if infile.start_time >= ect1_time and infile.end_time >= ect2_time: #MT: 24-10-2017: end of orbit overlaps start of ECT window
-                ok = True
-                stored_file.append(filelist[i])
-            if infile.start_time >= ect1_time and infile.start_time <= ect2_time: #MT: 24-10-2017: start of orbit overlaps end of ECT window
-                ok = True
-                stored_file.append(filelist[i])
+            ok = True
+            stored_file.append(filelist[i])
 
     return ok,add_day,stored_file
 
@@ -556,23 +540,30 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
     os.chdir(outdir)
     # Make link to make_fcdr.exe
     try:
-        os.symlink('/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/make_fcdr.exe','make_fcdr.exe')
+        if test:
+            os.symlink('/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/test_equator/make_fcdr.exe','make_fcdr.exe')
+        else:
+            os.symlink('/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/make_fcdr.exe','make_fcdr.exe')
     except:
         pass
     try:
-        os.symlink('/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/git_version/FCDR_AVHRR/write_easy_fcdr_from_netcdf.py','write_easy_fcdr_from_netcdf.py')
+        if test:
+            os.symlink('/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/test_equator/write_easy_fcdr_from_netcdf.py','write_easy_fcdr_from_netcdf.py')
+        else:
+            os.symlink('/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/write_easy_fcdr_from_netcdf.py','write_easy_fcdr_from_netcdf.py')
     except:
         pass
     try:
-        os.symlink('/home/users/mtaylor/pyenv/pygac/lib/python2.7/site-packages/pygac/gac_run.py','gac_run.py')
+        os.symlink('/group_workspaces/cems2/fiduceo/Users/jmittaz/Python/jpdm/lib/python2.7/site-packages/pygac-1.0.1-py2.7-linux-x86_64.egg/pygac/gac_run.py',\
+                       'gac_run.py')
     except:
         pass
     # Write script files
     outfile = 'run.{0:06d}.sh'.format(i)
     file_log = 'run.{0:06d}.log'.format(i)
     with open(outfile,'w') as fp:
-        fp.write('. /home/users/mtaylor/pyenv/pygac/bin/activate\n')
-        fp.write('export PYGAC_CONFIG_FILE=/home/users/mtaylor/pyenv/pygac/pygac.cfg\n')
+        fp.write('. /group_workspaces/cems2/fiduceo/Users/jmittaz/Python/jpdm/bin/activate\n')
+        fp.write('export PYGAC_CONFIG_FILE=/home/users/jpdmittaz/pygac.cfg\n')
         outfile_stem = []
         for j in range(len(filelist)):
             # Convert listed data via pygac
@@ -619,15 +610,10 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
             newstr = newstr+' '+outfile_stem[j]
         newstr = newstr+'\n'
         fp.write(newstr)
-
         for j in range(len(filelist)):
             newstr = 'rm -f '+outfile_stem[j]+'*\n'
             fp.write(newstr)
 #        fp.write('rm -f *.h5')
-#        fp.write('rm -f make_fcdr.exe')
-#        fp.write('rm -f gac_run.py')
-#        fp.write('rm -f write_easy_fcdr_from_netcdf.py')
-
     # submit jobs
     os.chmod(outfile,stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
     job_name='./'+outfile
@@ -635,7 +621,7 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
     # Actually submit jobs
     subprocess.call(job)
     os.chdir(curr_dir)
-
+        
 # Write all shell command scripts for complete day
 def write_commands(instr,year,month,day,timestep=60,test=False):
     
@@ -652,8 +638,7 @@ def write_commands(instr,year,month,day,timestep=60,test=False):
         etime = t.times[eqtr+1] + datetime.timedelta(seconds=5400)
         # Get files that contain stime/etime
         ok,add_day,list_of_files = \
-            __get_filelist(stime,etime,t,avhrr_dir_name)
-        
+            __get_filelist(stime,etime,avhrr_dir_name)
         if ok:
             # Apply blacklist
             ok2,filelist,accepted = __find_avhrr_list_good(list_of_files,\
