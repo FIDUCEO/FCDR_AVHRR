@@ -27,7 +27,9 @@
 ! Written by J,Mittaz University of Reading 
 ! Under the FIDUCEO project (www.fiduceo.eu)
 !
-! Original 21-07-2017
+! Original 21-07-2017 (v0.1pre)
+!
+! MT: 31-10-2017: v0.2pre 
 !
 ! Note: Coefs data from CCI are ordered as
 !
@@ -40,6 +42,7 @@
 !    7    = bval   "
 !    8    = a4   (Tinstrument term)
 !
+
 MODULE fiduceo_uncertainties
 
   ! From Marines code base
@@ -120,12 +123,12 @@ MODULE fiduceo_uncertainties
      REAL, ALLOCATABLE :: urict3_s(:)
      REAL, ALLOCATABLE :: urict4_s(:)
      REAL, ALLOCATABLE :: urict5_s(:)
-     REAL, ALLOCATABLE :: ucict3(:)
-     REAL, ALLOCATABLE :: ucict4(:)
-     REAL, ALLOCATABLE :: ucict5(:)
-     REAL, ALLOCATABLE :: ucs3(:)
-     REAL, ALLOCATABLE :: ucs4(:)
-     REAL, ALLOCATABLE :: ucs5(:)
+     REAL :: ucict3
+     REAL :: ucict4
+     REAL :: ucict5
+     REAL :: ucs3
+     REAL :: ucs4
+     REAL :: ucs5
      INTEGER, ALLOCATABLE :: flag_no_detection(:,:)
      INTEGER(GbcsInt1), ALLOCATABLE :: quality_channel_bitmask(:,:)
      INTEGER(GbcsInt1), ALLOCATABLE :: quality_scanline_bitmask(:)
@@ -139,7 +142,7 @@ MODULE fiduceo_uncertainties
   !
   ! This is where the FIDUCEO software version number is defined
   !
-  CHARACTER(LEN=6) :: software_version = '0.1pre'
+  CHARACTER(LEN=6) :: software_version = '0.2pre'
   
   PRIVATE
   PUBLIC :: FIDUCEO_Data
@@ -214,11 +217,11 @@ CONTAINS
        command_fcdr ='python2.7 write_easy_fcdr_from_netcdf.py '//TRIM(temp_file)//' '//TRIM(filename_nc)
     ENDIF
     call SYSTEM(TRIM(command_fcdr))
-    command_fcdr = 'rm -f '//TRIM(temp_file)
+!    command_fcdr = 'rm -f '//TRIM(temp_file) !MT: 05-11-2017: commented
     call SYSTEM(TRIM(command_fcdr))
 !    print*, "remplissage"
 !    ! Which is French for "filling"
-!    call fill_netcdf(filename_nc,AVHRR,FCDR)
+    call fill_netcdf(filename_nc,AVHRR,FCDR) !MT: 03-11-2017: uncommented
 
   END SUBROUTINE Add_FIDUCEO_Uncert
 
@@ -680,6 +683,9 @@ CONTAINS
     stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'version',TRIM(software_version))
     call check(stat)    
 
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'spatial_correlation_scale',NPIXEL_PRT_SMOOTH)
+    call check(stat) 
+
     stat = NF90_ENDDEF(ncid)
     call check(stat)
 
@@ -784,16 +790,41 @@ CONTAINS
        call check(stat)
     ENDIF
 
+!MT: 03-11-2017: fix problem of value not filling array     
+!    ALLOCATE(ch1_non_random(nx,ny), stat)
+!    ALLOCATE(ch2_non_random(nx,ny), stat)
+!    ALLOCATE(ch3a_non_random(nx,ny), stat)
+!    IF( stat.ne.0 )THEN
+!       error
+!    ENDIF
+!    ch1_non_random = -1e30
+!    ch2_non_random = -1e30
+!    ch3a_non_random = -1e30
+!    WHERE(ch1_varid.ne.-1e30)ch1_non_random=0.03
+!    WHERE(ch2_varid.ne.-1e30)ch2_non_random=0.05
+!    WHERE(ch3a_varid.ne.-1e30)ch3a_non_random=0.05
+!    DEALLOCATE(ch1_non_random)
+!    DEALLOCATE(ch2_non_random)
+!    DEALLOCATE(ch3a_non_random)
+
 !    WRITE(*,*)'Ch1 (Non-Rand) writing'
-    stat = NF90_PUT_VAR(ncid, ch1_non_random_varid, 0.03)
-    call check(stat)
+    IF( ALLOCATED(AVHRR%new_array1) )THEN
+!       stat = NF90_PUT_VAR(ncid, ch1_non_random_varid, 0.03*AVHRR%new_array1_error)
+       stat = NF90_PUT_VAR(ncid, ch1_non_random_varid, 0.03)
+       call check(stat)
+    ENDIF
 
 !    WRITE(*,*)'Ch2 (Non-Rand) writing'
-    stat = NF90_PUT_VAR(ncid, ch2_non_random_varid, 0.05)
-    call check(stat)
+!MT: 03-11-2017: fix problem of value not filling array     
+    IF( ALLOCATED(AVHRR%new_array2) )THEN
+!       stat = NF90_PUT_VAR(ncid, ch2_non_random_varid, 0.05*AVHRR%new_array2_error)
+       stat = NF90_PUT_VAR(ncid, ch2_non_random_varid, 0.05)
+       call check(stat)
+    ENDIF
 
     IF( ALLOCATED(AVHRR%new_array3a) )THEN
 !       WRITE(*,*)'Ch3a (Non-Rand) writing'
+!       stat = NF90_PUT_VAR(ncid, ch3a_non_random_varid, 0.05*AVHRR%new_array3A_error)
        stat = NF90_PUT_VAR(ncid, ch3a_non_random_varid, 0.05)
        call check(stat)
     ENDIF
@@ -1416,12 +1447,6 @@ CONTAINS
             FCDR%uce3(outData%nelem,outData%arraySize),&
             FCDR%uce4(outData%nelem,outData%arraySize),&
             FCDR%uce5(outData%nelem,outData%arraySize),&
-            FCDR%ucict3(outdata%arraySize),&
-            FCDR%ucict4(outdata%arraySize),&
-            FCDR%ucict5(outdata%arraySize),&
-            FCDR%ucs3(outdata%arraySize),&
-            FCDR%ucs4(outdata%arraySize),&
-            FCDR%ucs5(outdata%arraySize),&
             FCDR%flag_no_detection(3,outData%arraySize),&
        STAT=STAT)
        IF( 0 .ne. STAT )THEN
@@ -1446,9 +1471,6 @@ CONTAINS
        FCDR%ucict3 = NAN_R
        FCDR%ucict4 = NAN_R
        FCDR%ucict5 = NAN_R
-       FCDR%ucs3 = NAN_R
-       FCDR%ucs4 = NAN_R
-       FCDR%ucs5 = NAN_R
        FCDR%flag_no_detection = 0
     ENDIF
 
@@ -1494,39 +1516,15 @@ CONTAINS
        IF( twelve_micron_there )THEN
           FCDR%uce5(j,i)=outdata%noise_cnts(6,i)
        ENDIF
-       IF( outdata%nsmoothBB3(i) .gt. 0 )THEN
-          FCDR%ucict3(i)=outdata%noise_cnts(4,i)/SQRT(1.*outdata%nsmoothBB3(i))
-       ELSE
-          FCDR%ucict3(i)=NAN_R
-       ENDIF
-       IF( outdata%nsmoothBB4(i) .gt. 0 )THEN
-          FCDR%ucict4(i)=outdata%noise_cnts(5,i)/SQRT(1.*outdata%nsmoothBB4(i))
-       ELSE
-          FCDR%ucict4(i)=NAN_R
-       ENDIF
+       FCDR%ucict3=outdata%noise_cnts_cal(4,i)
+       FCDR%ucict4=outdata%noise_cnts_cal(5,i)
        IF( twelve_micron_there )THEN
-          IF( outdata%nsmoothBB4(i) .gt. 0 )THEN
-             FCDR%ucict5(i)=outdata%noise_cnts(6,i)/SQRT(1.*outdata%nsmoothBB5(i))
-          ELSE
-             FCDR%ucict5(i)=NAN_R
-          ENDIF
+          FCDR%ucict5=outdata%noise_cnts_cal(6,i)
        ENDIF
-       IF( outdata%nsmoothBB3(i) .gt. 0 )THEN
-          FCDR%ucs3(i)=outdata%noise_cnts(4,i)/SQRT(1.*outdata%nsmoothSp3(i))
-       ELSE
-          FCDR%ucs3(i)=NAN_R
-       ENDIF
-       IF( outdata%nsmoothBB3(i) .gt. 0 )THEN
-          FCDR%ucs4(i)=outdata%noise_cnts(5,i)/SQRT(1.*outdata%nsmoothSp4(i))
-       ELSE
-          FCDR%ucs4(i)=NAN_R
-       ENDIF
+       FCDR%ucs3=outdata%noise_cnts_cal(4,i)
+       FCDR%ucs4=outdata%noise_cnts_cal(5,i)
        IF( twelve_micron_there )THEN
-          IF( outdata%nsmoothBB3(i) .gt. 0 )THEN
-             FCDR%ucs5(i)=outdata%noise_cnts(6,i)/SQRT(1.*outdata%nsmoothSp5(i))
-          ELSE
-             FCDR%ucs5(i)=NAN_R
-          ENDIF
+          FCDR%ucs5=outdata%noise_cnts_cal(6,i)
        ENDIF
        ur3 = NAN_R
        us3 = NAN_R
@@ -1539,10 +1537,10 @@ CONTAINS
                FCDR%dre_over_drict3(j,i)**2*FCDR%urict3_r(i)**2)
        end if
 
-       if ((FCDR%ucict3(i) .ne. NAN_R) &
-            .and. (FCDR%ucict3(i) .gt. 0) &
-            .and. (FCDR%ucs3(i) .ne. NAN_R) &
-            .and. (FCDR%ucs3(i) .gt. 0) &
+       if ((FCDR%ucict3 .ne. NAN_R) &
+            .and. (FCDR%ucict3 .gt. 0) &
+            .and. (FCDR%ucs3 .ne. NAN_R) &
+            .and. (FCDR%ucs3 .gt. 0) &
             .and. (FCDR%dre_over_drict3(j,i) .ne. NAN_R) & 
             .and. (FCDR%dre_over_dcs3(j,i) .ne. NAN_R) & 
             .and. (FCDR%dre_over_dcict3(j,i) .ne. NAN_R) &
@@ -1550,13 +1548,13 @@ CONTAINS
           IF( outData%walton_bias_correction )THEN
              ! Add in Walton bias correct uncertainty as well
              us3=sqrt((FCDR%dre_over_drict3(j,i)**2*FCDR%urict3_s(i)**2) &
-                  +(FCDR%dre_over_dcs3(j,i)**2*FCDR%ucs3(i)**2) &
-                  +(FCDR%dre_over_dcict3(j,i)**2*FCDR%ucict3(i)**2) &
+                  +(FCDR%dre_over_dcs3(j,i)**2*FCDR%ucs3**2) &
+                  +(FCDR%dre_over_dcict3(j,i)**2*FCDR%ucict3**2) &
                   +(outData%walton_bias_corr_uncert(1)**2)) 
           ELSE
              us3=sqrt((FCDR%dre_over_drict3(j,i)**2*FCDR%urict3_s(i)**2) &
-                  +(FCDR%dre_over_dcs3(j,i)**2*FCDR%ucs3(i)**2) &
-                  +(FCDR%dre_over_dcict3(j,i)**2*FCDR%ucict3(i)**2)) 
+                  +(FCDR%dre_over_dcs3(j,i)**2*FCDR%ucs3**2) &
+                  +(FCDR%dre_over_dcict3(j,i)**2*FCDR%ucict3**2)) 
           ENDIF
        end if
 
@@ -1571,23 +1569,23 @@ CONTAINS
                FCDR%dre_over_drict4(j,i)**2*FCDR%urict4_r(i)**2)
        end if
 
-       if ((FCDR%ucict4(i) .ne. NAN_R) &
-            .and. (FCDR%ucict4(i) .gt. 0) &
-            .and. (FCDR%ucs4(i) .ne. NAN_R) &
-            .and. (FCDR%ucs4(i) .gt. 0) &
+       if ((FCDR%ucict4 .ne. NAN_R) &
+            .and. (FCDR%ucict4 .gt. 0) &
+            .and. (FCDR%ucs4 .ne. NAN_R) &
+            .and. (FCDR%ucs4 .gt. 0) &
             .and. (FCDR%dre_over_drict4(j,i) .ne. NAN_R) & 
             .and. (FCDR%dre_over_dcs4(j,i) .ne. NAN_R) & 
             .and. (FCDR%dre_over_dcict4(j,i) .ne. NAN_R) &
             .and. (FCDR%urict4_s(i) .ge. 0) )then 
           IF( outData%walton_bias_correction )THEN
              us4=sqrt((FCDR%dre_over_drict4(j,i)**2*FCDR%urict4_s(i)**2) &
-                  +(FCDR%dre_over_dcs4(j,i)**2*FCDR%ucs4(i)**2) &
-                  +(FCDR%dre_over_dcict4(j,i)**2*FCDR%ucict4(i)**2) & 
+                  +(FCDR%dre_over_dcs4(j,i)**2*FCDR%ucs4**2) &
+                  +(FCDR%dre_over_dcict4(j,i)**2*FCDR%ucict4**2) & 
                   +(outData%walton_bias_corr_uncert(2)**2)) 
           ELSE
              us4=sqrt((FCDR%dre_over_drict4(j,i)**2*FCDR%urict4_s(i)**2) &
-                  +(FCDR%dre_over_dcs4(j,i)**2*FCDR%ucs4(i)**2) &
-                  +(FCDR%dre_over_dcict4(j,i)**2*FCDR%ucict4(i)**2)) 
+                  +(FCDR%dre_over_dcs4(j,i)**2*FCDR%ucs4**2) &
+                  +(FCDR%dre_over_dcict4(j,i)**2*FCDR%ucict4**2)) 
           ENDIF
        end if
 
@@ -1603,23 +1601,23 @@ CONTAINS
                   FCDR%dre_over_drict5(j,i)**2*FCDR%urict5_r(i)**2)
           end if
 
-          if ((FCDR%ucict5(i) .ne. NAN_R) &
-               .and. (FCDR%ucict5(i) .gt. 0) &
-               .and. (FCDR%ucs5(i) .ne. NAN_R) &
-               .and. (FCDR%ucs5(i) .gt. 0) &
+          if ((FCDR%ucict5 .ne. NAN_R) &
+               .and. (FCDR%ucict5 .gt. 0) &
+               .and. (FCDR%ucs5 .ne. NAN_R) &
+               .and. (FCDR%ucs5 .gt. 0) &
                .and. (FCDR%dre_over_drict5(j,i) .ne. NAN_R) & 
                .and. (FCDR%dre_over_dcs5(j,i) .ne. NAN_R) & 
                .and. (FCDR%dre_over_dcict5(j,i) .ne. NAN_R) &
                .and. (FCDR%urict5_s(i) .ge. 0) )then 
              IF( outData%walton_bias_correction )THEN
                 us5=sqrt((FCDR%dre_over_drict5(j,i)**2*FCDR%urict5_s(i)**2) &
-                     +(FCDR%dre_over_dcs5(j,i)**2*FCDR%ucs5(i)**2) &
-                     +(FCDR%dre_over_dcict5(j,i)**2*FCDR%ucict5(i)**2) & 
+                     +(FCDR%dre_over_dcs5(j,i)**2*FCDR%ucs5**2) &
+                     +(FCDR%dre_over_dcict5(j,i)**2*FCDR%ucict5**2) & 
                      +(outData%walton_bias_corr_uncert(3)**2)) 
              ELSE
                 us5=sqrt((FCDR%dre_over_drict5(j,i)**2*FCDR%urict5_s(i)**2) &
-                     +(FCDR%dre_over_dcs5(j,i)**2*FCDR%ucs5(i)**2) &
-                     +(FCDR%dre_over_dcict5(j,i)**2*FCDR%ucict5(i)**2)) 
+                     +(FCDR%dre_over_dcs5(j,i)**2*FCDR%ucs5**2) &
+                     +(FCDR%dre_over_dcict5(j,i)**2*FCDR%ucict5**2)) 
              ENDIF
           end if
        ENDIF
@@ -2027,11 +2025,18 @@ CONTAINS
     call check(nf90_inq_varid(ncid,"u_non_random_Ch5",ch5_us_varid))
     !print * ,"43"  
 
-    call check( nf90_put_var(ncid, ch1_us_varid, 0.03*AVHRR%new_array1, start = start_2))! count = count_pixel) )
+!MT: 07-11-2017: structured uncertainties on the reflectances are wrong
+!    call check( nf90_put_var(ncid, ch1_us_varid, 0.03*AVHRR%new_array1, start = start_2))! count = count_pixel) )
     !print * ,"44"  
-    call check( nf90_put_var(ncid, ch2_us_varid,  0.05*AVHRR%new_array2, start = start_2))! count = count_pixel) )
+!    call check( nf90_put_var(ncid, ch2_us_varid,  0.05*AVHRR%new_array2, start = start_2))! count = count_pixel) )
     !print * ,"45"  
-    call check( nf90_put_var(ncid, ch3a_us_varid,  0.05*AVHRR%new_array3A, start = start_2))! count = count_pixel) )
+!    call check( nf90_put_var(ncid, ch3a_us_varid,  0.05*AVHRR%new_array3A, start = start_2))! count = count_pixel) )
+    !print * ,"47"  
+    call check( nf90_put_var(ncid, ch1_us_varid, 0.03, start = start_2))! count = count_pixel) )
+    !print * ,"44"  
+    call check( nf90_put_var(ncid, ch2_us_varid,  0.05, start = start_2))! count = count_pixel) )
+    !print * ,"45"  
+    call check( nf90_put_var(ncid, ch3a_us_varid,  0.05, start = start_2))! count = count_pixel) )
     !print * ,"47"  
     call check( nf90_put_var(ncid, ch3b_us_varid, FCDR%us3, start = start_2))! count = count_pixel) )
     !print * ,"44"  
