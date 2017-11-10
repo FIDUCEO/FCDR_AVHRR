@@ -14,6 +14,8 @@
 ! *
 ! * A copy of the GNU General Public License should have been supplied along
 ! * with this program; if not, see http://www.gnu.org/licenses/
+! * ---------------------------------------------------------------------------
+! * MT: 26-10-2017: Fix for excess nArgs
 
 PROGRAM Extract_L1b_Data
 
@@ -61,14 +63,23 @@ CONTAINS
     LOGICAL :: new_filename
     LOGICAL :: split_single_file
 
-    nArgs = COMMAND_ARGUMENT_COUNT()
-    IF( 14 .gt. nArgs .or. 19 .le. nArgs )THEN
-       CALL Gbcs_Critical(.TRUE.,&
-            'USAGE: ./extract_l1b_data.exe uuid outfile eq_year1 eq_month1 &
-            &eq_day1 eq_hour1 eq_min1 eq_year2 eq_month2 eq_day2 eq_hour2 &
-            &eq_min2 split_single file1 (file2) (file3) (file4) (file5)',&
-            'Main','extract_l1b_data.f90')
-    ENDIF
+!MT: 26-10-2017: Log the list of passed input arguments: 
+!    INTEGER :: i
+!    CHARACTER(LEN=256) :: temp
+!    nArgs = COMMAND_ARGUMENT_COUNT()
+!    print *,'nArgs=',nArgs
+!    DO i = 1,nArgs
+!        CALL GET_COMMAND_ARGUMENT(i,temp,STATUS=stat)
+!        print *,'inArgs=',temp
+!    ENDDO
+
+!    IF( 14 .gt. nArgs .or. 19 .le. nArgs )THEN
+!       CALL Gbcs_Critical(.TRUE.,&
+!            'USAGE: ./extract_l1b_data.exe uuid outfile eq_year1 eq_month1 &
+!            &eq_day1 eq_hour1 eq_min1 eq_year2 eq_month2 eq_day2 eq_hour2 &
+!            &eq_min2 split_single file1 (file2) (file3) (file4) (file5)',&
+!            'Main','extract_l1b_data.f90')
+!   ENDIF
 
     CALL GET_COMMAND_ARGUMENT(1,uuid_in,STATUS=stat)
     IF( 0 .ne. stat )THEN
@@ -144,13 +155,13 @@ CONTAINS
 
     CALL GET_COMMAND_ARGUMENT(13,sngle_split,STATUS=stat)
     IF( 0 .ne. stat )THEN
-       CALL Gbcs_Critical(.TRUE.,'Cannot get minute2 argument',&
+       CALL Gbcs_Critical(.TRUE.,'Cannot get sngle_split argument',&
             'Main','extract_l1b_data.f90')
     ENDIF
 
     CALL GET_COMMAND_ARGUMENT(14,file1,STATUS=stat)
     IF( 0 .ne. stat )THEN
-       CALL Gbcs_Critical(.TRUE.,'Cannot get fourth command line argument',&
+       CALL Gbcs_Critical(.TRUE.,'Cannot get file1 command line argument',&
             'Main','extract_l1b_data.f90')
     ENDIF
     nfiles = 1
@@ -158,28 +169,28 @@ CONTAINS
     IF( nArgs .gt. 14 )THEN
        CALL GET_COMMAND_ARGUMENT(15,file2,STATUS=stat)
        IF( 0 .ne. stat )THEN
-          CALL Gbcs_Critical(.TRUE.,'Cannot get fifth command line argument',&
+          CALL Gbcs_Critical(.TRUE.,'Cannot get file2 command line argument',&
                'Main','extract_l1b_data.f90')
        ENDIF
        nfiles = 2
        IF( nArgs .gt. 15 )THEN
           CALL GET_COMMAND_ARGUMENT(16,file3,STATUS=stat)
           IF( 0 .ne. stat )THEN
-             CALL Gbcs_Critical(.TRUE.,'Cannot get six command line argument',&
+             CALL Gbcs_Critical(.TRUE.,'Cannot get file3 command line argument',&
                   'Main','extract_l1b_data.f90')
           ENDIF
           nfiles = 3
           IF( nArgs .gt. 16 )THEN
              CALL GET_COMMAND_ARGUMENT(17,file4,STATUS=stat)
              IF( 0 .ne. stat )THEN
-                CALL Gbcs_Critical(.TRUE.,'Cannot get seventh command line argument',&
+                CALL Gbcs_Critical(.TRUE.,'Cannot get file4 command line argument',&
                      'Main','extract_l1b_data.f90')
              ENDIF
              nfiles = 4
              IF( nArgs .gt. 17 )THEN
                 CALL GET_COMMAND_ARGUMENT(18,file5,STATUS=stat)
                 IF( 0 .ne. stat )THEN
-                   CALL Gbcs_Critical(.TRUE.,'Cannot get eighth command line argument',&
+                   CALL Gbcs_Critical(.TRUE.,'Cannot get file5 command line argument',&
                         'Main','extract_l1b_data.f90')
                 ENDIF
                 nfiles = 5
@@ -199,6 +210,9 @@ CONTAINS
     READ(d2,'(i4)')day2
     READ(h2,'(i4)')hour2
     READ(min2,'(i4)')minute2
+
+
+
 
     IF( 'Y' .eq. sngle_split .or. 'y' .eq. sngle_split )THEN
        split_single_file = .TRUE.
