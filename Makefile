@@ -24,8 +24,8 @@ NCDFPATH = /group_workspaces/cems2/esacci_sst/software/common.gfortran
 #FC_FLAGS = -I/group_workspaces/cems2/esacci_sst/software/common/include -I. -fpp -free -fPIC -assume byterecl -fpconstant -std03 -check all -debug all -traceback -g -O2
 #F_FLAGS = -fpp -fPIC -assume byterecl -fpconstant -check all -debug all -traceback -g -O2
 #FC_FLAGS = -Wall -g -fbounds-check -I. -I$(NCDFPATH)/include -cpp 
-#FC_FLAGS = -g -fbounds-check -I. -I$(NCDFPATH)/include -cpp 
-FC_FLAGS = -O -I. -I$(NCDFPATH)/include -cpp 
+FC_FLAGS = -g -fbounds-check -I. -I$(NCDFPATH)/include -cpp 
+#FC_FLAGS = -O -I. -I$(NCDFPATH)/include -cpp 
 C_FLAGS = -I GBCS/thirdparty/epr_api/src -IGBCS/src/EPR_API
 LIBRARIES = $(NCDFPATH)/lib/libnetcdff.a $(NCDFPATH)/lib/libnetcdf.a $(NCDFPATH)/lib/libhdf5hl_fortran.a $(NCDFPATH)/lib/libhdf5_hl.a $(NCDFPATH)/lib/libhdf5_fortran.a $(NCDFPATH)/lib/libhdf5.a -ldl -lz -LGBCS/thirdparty/epr_api/obj/Linux_x86_64 -lepr
 #LIBRARIES += -L/usr/lib/gcc/x86_64-redhat-linux/4.1.1 -lgfortran -lpng 
@@ -38,7 +38,7 @@ GBCSOBJECTS = GbcsKinds.o GbcsBaseTypes.o GbcsConstants.o GbcsStringUtil.o \
 	GbcsMatrixOps.o GbcsPDFLoaders.o \
 	GbcsScattPhysics.o GbcsCleanUp.o \
 	GbcsPixelLoaders.o AVHRR_Filter_Data.o NOAA_LoadAVHRRLevel1B.o GbcsImageUtil.o \
-	epr_wrapper_c.o epr_wrapper.o ARC_ATSRVarNEdT.o ARC_ATSR1.o ARC_L1bCorrection.o ARC_LoadImagery.o
+	epr_wrapper_c.o epr_wrapper.o ARC_ATSR1.o ARC_L1bCorrection.o ARC_ATSRVarNEdT.o ARC_LoadImagery.o
 
 OBJECTS = $(GBCSOBJECTS) fiduceo_uncertainties.o combine_orbits.o
 OBJECTS_ALL1 =  $(OBJECTS) write_fcdr.o
@@ -56,7 +56,7 @@ vpath %.c GBCS/src/EPR_API
 vpath %.f .
 
 all: $(OBJECTS_ALL1)
-	$(FC) -o write_fcdr.exe write_fcdr.o $(OBJECTS) $(LIBRARIES)
+	$(FC) -o make_fcdr.exe write_fcdr.o $(OBJECTS) $(LIBRARIES)
 
 .PHONY: clean
 clean:
