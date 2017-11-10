@@ -467,7 +467,7 @@ class tle_data(object):
         self.times = self.get_nearest_time(line1,line2,year,month,day)
 
 # Get list of files that contain low/high time
-def __get_filelist(low_time,high_time,t,avhrr_dir_name):
+def __get_filelist(low_time,high_time,avhrr_dir_name):
 
     #MT: 24-10-2017: Import local ECTs to implement additional logical processing
     ect1_time = low_time + datetime.timedelta(seconds=5400) #MT
@@ -652,7 +652,7 @@ def write_commands(instr,year,month,day,timestep=60,test=False):
         etime = t.times[eqtr+1] + datetime.timedelta(seconds=5400)
         # Get files that contain stime/etime
         ok,add_day,list_of_files = \
-            __get_filelist(stime,etime,t,avhrr_dir_name)
+            __get_filelist(stime,etime,avhrr_dir_name)
         
         if ok:
             # Apply blacklist
