@@ -129,6 +129,11 @@ MODULE fiduceo_uncertainties
      REAL, ALLOCATABLE :: ucs3(:)
      REAL, ALLOCATABLE :: ucs4(:)
      REAL, ALLOCATABLE :: ucs5(:)
+! MT: 11-11-2017: Define temp variables to store strctured uncertainties on the reflectance channels
+     REAL, ALLOCATABLE :: ucs1(:)
+     REAL, ALLOCATABLE :: ucs2(:)
+     REAL, ALLOCATABLE :: ucs3a(:)
+     
      INTEGER, ALLOCATABLE :: flag_no_detection(:,:)
      INTEGER(GbcsInt1), ALLOCATABLE :: quality_channel_bitmask(:,:)
      INTEGER(GbcsInt1), ALLOCATABLE :: quality_scanline_bitmask(:)
@@ -790,40 +795,41 @@ CONTAINS
        call check(stat)
     ENDIF
 
-!MT: 03-11-2017: fix problem of value not filling array     
-    ALLOCATE(ch1_non_random(nx,ny),ch2_non_random(nx,ny),ch3a_non_random(nx,ny),STAT=stat)
-!    IF( stat.ne.0 )THEN
-!       error
-!    ENDIF
-    ch1_non_random = -1e30
-    ch2_non_random = -1e30
-    ch3a_non_random = -1e30
-    WHERE(ch1_varid.ne.-1e30)ch1_non_random=0.03
-    WHERE(ch2_varid.ne.-1e30)ch2_non_random=0.05
-    WHERE(ch3a_varid.ne.-1e30)ch3a_non_random=0.05
-!    DEALLOCATE(ch1_non_random,ch2_non_random,ch3a_non_random)
-
 !    WRITE(*,*)'Ch1 (Non-Rand) writing'
-!    IF( ALLOCATED(AVHRR%new_array1) )THEN
+!MT: 11-11-2017: fix problem of value not filling array     
+    ALLOCATE(ucs1,STAT=stat)
+    ucs1 = -1e30
+    WHERE(ch1_varid.ne.-1e30)ucs1=0.03
+    IF( ALLOCATED(AVHRR%new_array1) )THEN
 !       stat = NF90_PUT_VAR(ncid, ch1_non_random_varid, 0.03*AVHRR%new_array1_error)
-!       stat = NF90_PUT_VAR(ncid, ch1_non_random_varid, 0.03)
-!       call check(stat)
-!    ENDIF
+       stat = NF90_PUT_VAR(ncid, ch1_non_random_varid, ucs1)
+       call check(stat)
+    ENDIF
+    DEALLOCATE(ucs1)
 
 !    WRITE(*,*)'Ch2 (Non-Rand) writing'
-!MT: 03-11-2017: fix problem of value not filling array     
-!    IF( ALLOCATED(AVHRR%new_array2) )THEN
+!MT: 11-11-2017: fix problem of value not filling array     
+    ALLOCATE(ucs2,STAT=stat)
+    ucs2 = -1e30
+    WHERE(ch2_varid.ne.-1e30)ucs2=0.05
+    IF( ALLOCATED(AVHRR%new_array2) )THEN
 !       stat = NF90_PUT_VAR(ncid, ch2_non_random_varid, 0.05*AVHRR%new_array2_error)
-!       stat = NF90_PUT_VAR(ncid, ch2_non_random_varid, 0.05)
-!       call check(stat)
-!    ENDIF
+       stat = NF90_PUT_VAR(ncid, ch2_non_random_varid, ucs2)
+       call check(stat)
+    ENDIF
+    DEALLOCATE(ucs2)
 
-!    IF( ALLOCATED(AVHRR%new_array3a) )THEN
 !       WRITE(*,*)'Ch3a (Non-Rand) writing'
+!MT: 11-11-2017: fix problem of value not filling array     
+    ALLOCATE(ucs3a,STAT=stat)
+    ucs3a = -1e30
+    WHERE(ch3a_varid.ne.-1e30)ucs3a=0.05
+    IF( ALLOCATED(AVHRR%new_array3a) )THEN
 !       stat = NF90_PUT_VAR(ncid, ch3a_non_random_varid, 0.05*AVHRR%new_array3A_error)
-!       stat = NF90_PUT_VAR(ncid, ch3a_non_random_varid, 0.05)
-!       call check(stat)
-!    ENDIF
+       stat = NF90_PUT_VAR(ncid, ch3a_non_random_varid, ucs3a)
+       call check(stat)
+    ENDIF
+    DEALLOCATE(ucs3a)
 
 !    WRITE(*,*)'Ch3b (Non-Rand) writing'
     stat = NF90_PUT_VAR(ncid, ch3b_non_random_varid, FCDR%us3)
@@ -2071,11 +2077,11 @@ CONTAINS
     !print * ,"45"  
 !    call check( nf90_put_var(ncid, ch3a_us_varid,  0.05*AVHRR%new_array3A, start = start_2))! count = count_pixel) )
     !print * ,"47"  
-    call check( nf90_put_var(ncid, ch1_us_varid, ch1_non_random, start = start_2))! count = count_pixel) )
+    call check( nf90_put_var(ncid, ch1_us_varid, ch1_non_random_varid, start = start_2))! count = count_pixel) )
     !print * ,"44"  
-    call check( nf90_put_var(ncid, ch2_us_varid,  ch2_non_random, start = start_2))! count = count_pixel) )
+    call check( nf90_put_var(ncid, ch2_us_varid,  ch2_non_random_varid, start = start_2))! count = count_pixel) )
     !print * ,"45"  
-    call check( nf90_put_var(ncid, ch3a_us_varid,  ch3a_non_random, start = start_2))! count = count_pixel) )
+    call check( nf90_put_var(ncid, ch3a_us_varid,  ch3a_non_random_varid, start = start_2))! count = count_pixel) )
     !print * ,"47"  
     call check( nf90_put_var(ncid, ch3b_us_varid, FCDR%us3, start = start_2))! count = count_pixel) )
     !print * ,"44"  
