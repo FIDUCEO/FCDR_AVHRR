@@ -129,10 +129,6 @@ MODULE fiduceo_uncertainties
      REAL, ALLOCATABLE :: ucs3(:)
      REAL, ALLOCATABLE :: ucs4(:)
      REAL, ALLOCATABLE :: ucs5(:)
-! MT: 11-11-2017: Define temp variables to store strctured uncertainties on the reflectance channels
-     REAL, ALLOCATABLE :: ucs1(:)
-     REAL, ALLOCATABLE :: ucs2(:)
-     REAL, ALLOCATABLE :: ucs3a(:)
      
      INTEGER, ALLOCATABLE :: flag_no_detection(:,:)
      INTEGER(GbcsInt1), ALLOCATABLE :: quality_channel_bitmask(:,:)
@@ -148,6 +144,12 @@ MODULE fiduceo_uncertainties
   ! This is where the FIDUCEO software version number is defined
   !
   CHARACTER(LEN=6) :: software_version = '0.2pre'
+
+! MT: 11-11-2017: Define temp variables to store strctured uncertainties on the reflectance channels
+    REAL, ALLOCATABLE :: us1(:,:)
+    REAL, ALLOCATABLE :: us2(:,:)
+    REAL, ALLOCATABLE :: us3a(:,:)
+
   
   PRIVATE
   PUBLIC :: FIDUCEO_Data
@@ -215,7 +217,6 @@ CONTAINS
     temp_file=TRIM(uuid_in)//'.nc'
     CALL Write_Temp_NETCDF(temp_file,AVHRR,FCDR,twelve_micron_there)
 !    CALL Rescale(AVHRR,FCDR)
-!    write(height,'(i5)') AVHRR%arraysize
     IF( 'None' .eq. filename_nc )THEN
        command_fcdr ='python2.7 write_easy_fcdr_from_netcdf.py '//TRIM(temp_file)
     ELSE
@@ -797,39 +798,49 @@ CONTAINS
 
 !    WRITE(*,*)'Ch1 (Non-Rand) writing'
 !MT: 11-11-2017: fix problem of value not filling array     
-    ALLOCATE(ucs1,STAT=stat)
-    ucs1 = -1e30
-    WHERE(ch1_varid.ne.-1e30)ucs1=0.03
+    ALLOCATE(us1(AVHRR%nelem,AVHRR%arraySize), STAT=STAT)
+!    DO I = 1,AVHRR%nelem
+!       DO J = 1,AVHRR%arraySize
+!          IF (ch1_varid(I,J).ne.-1e30) THEN
+!             us1(I,J) = 0.03
+!          ENDIF
+!       ENDDO
+!   ENDDO
+    us1 = -1e30
+    WHERE(AVHRR%new_array1.ne.-1e30)
+       us1 = 0.03
+    ENDWHERE
     IF( ALLOCATED(AVHRR%new_array1) )THEN
 !       stat = NF90_PUT_VAR(ncid, ch1_non_random_varid, 0.03*AVHRR%new_array1_error)
-       stat = NF90_PUT_VAR(ncid, ch1_non_random_varid, ucs1)
+       stat = NF90_PUT_VAR(ncid, ch1_non_random_varid, us1)
        call check(stat)
     ENDIF
-    DEALLOCATE(ucs1)
 
 !    WRITE(*,*)'Ch2 (Non-Rand) writing'
 !MT: 11-11-2017: fix problem of value not filling array     
-    ALLOCATE(ucs2,STAT=stat)
-    ucs2 = -1e30
-    WHERE(ch2_varid.ne.-1e30)ucs2=0.05
+    ALLOCATE(us2(AVHRR%nelem,AVHRR%arraySize), STAT=STAT)
+    us2 = -1e30
+    WHERE(AVHRR%new_array2.ne.-1e30)
+       us2 = 0.05
+    ENDWHERE
     IF( ALLOCATED(AVHRR%new_array2) )THEN
 !       stat = NF90_PUT_VAR(ncid, ch2_non_random_varid, 0.05*AVHRR%new_array2_error)
-       stat = NF90_PUT_VAR(ncid, ch2_non_random_varid, ucs2)
+       stat = NF90_PUT_VAR(ncid, ch2_non_random_varid, us2)
        call check(stat)
     ENDIF
-    DEALLOCATE(ucs2)
 
 !       WRITE(*,*)'Ch3a (Non-Rand) writing'
 !MT: 11-11-2017: fix problem of value not filling array     
-    ALLOCATE(ucs3a,STAT=stat)
-    ucs3a = -1e30
-    WHERE(ch3a_varid.ne.-1e30)ucs3a=0.05
+    ALLOCATE(us3a(AVHRR%nelem,AVHRR%arraySize), STAT=STAT)
+    us3a = -1e30
+    WHERE(AVHRR%new_array3a.ne.-1e30)
+       us3a = 0.05
+    ENDWHERE
     IF( ALLOCATED(AVHRR%new_array3a) )THEN
 !       stat = NF90_PUT_VAR(ncid, ch3a_non_random_varid, 0.05*AVHRR%new_array3A_error)
-       stat = NF90_PUT_VAR(ncid, ch3a_non_random_varid, ucs3a)
+       stat = NF90_PUT_VAR(ncid, ch3a_non_random_varid, us3a)
        call check(stat)
     ENDIF
-    DEALLOCATE(ucs3a)
 
 !    WRITE(*,*)'Ch3b (Non-Rand) writing'
     stat = NF90_PUT_VAR(ncid, ch3b_non_random_varid, FCDR%us3)
@@ -871,7 +882,7 @@ CONTAINS
 
     INTEGER, INTENT(IN)                  :: i
     TYPE(AVHRR_Data), INTENT (IN)        :: outData
-    REAL, DIMENSION(8,2), INTENT(IN)       :: coefs1,coefs2,coefs3
+    REAL, DIMENSION(8,2), INTENT(IN)     :: coefs1,coefs2,coefs3
     TYPE(FIDUCEO_Data), INTENT(INOUT)    :: FCDR
     LOGICAL, INTENT(IN) :: twelve_micron_there
 
@@ -2077,11 +2088,11 @@ CONTAINS
     !print * ,"45"  
 !    call check( nf90_put_var(ncid, ch3a_us_varid,  0.05*AVHRR%new_array3A, start = start_2))! count = count_pixel) )
     !print * ,"47"  
-    call check( nf90_put_var(ncid, ch1_us_varid, ch1_non_random_varid, start = start_2))! count = count_pixel) )
+    call check( nf90_put_var(ncid, ch1_us_varid, us1, start = start_2))! count = count_pixel) )
     !print * ,"44"  
-    call check( nf90_put_var(ncid, ch2_us_varid,  ch2_non_random_varid, start = start_2))! count = count_pixel) )
+    call check( nf90_put_var(ncid, ch2_us_varid,  us2, start = start_2))! count = count_pixel) )
     !print * ,"45"  
-    call check( nf90_put_var(ncid, ch3a_us_varid,  ch3a_non_random_varid, start = start_2))! count = count_pixel) )
+    call check( nf90_put_var(ncid, ch3a_us_varid,  us3a, start = start_2))! count = count_pixel) )
     !print * ,"47"  
     call check( nf90_put_var(ncid, ch3b_us_varid, FCDR%us3, start = start_2))! count = count_pixel) )
     !print * ,"44"  
@@ -2093,6 +2104,10 @@ CONTAINS
     !-Close the netcdf file. 
     call check( nf90_close(ncid) )
     !write(*,*) "file netcdf close"    
+
+    DEALLOCATE(us1)
+    DEALLOCATE(us2)
+    DEALLOCATE(us3a)
 
   END SUBROUTINE fill_netcdf
 
