@@ -14,12 +14,19 @@
 ! *
 ! * A copy of the GNU General Public License should have been supplied along
 ! * with this program; if not, see http://www.gnu.org/licenses/
+!
+! *  Module to combine three AVHRR orbits to create one 'good' orbit
+! * equator to equator
+!
+! * MODIFIED VERSION: M.Taylor University of Reading
+! * MT: 20-10-2017: 'between file3 and file4' --> 'between file4 and file5'
+! * MT: 24-10-2017: fix reversed logic in Resize_orbit_equator
+! * MT: 11-11-2017: added allocation of nmoothBB3,4,5 to fix error caused by their absence in fiduceo_uncertainties.f90
+! * MT: 11-11-2017: added allocation of nmoothSp3,4,5 to fix error caused by their absence in fiduceo_uncertainties.f90
+! * MT: 11-11-2017: write nmoothBB3,4,5 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
+! * MT: 11-11-2017: write nmoothSp3,4,5 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
 
-!
-! Module to combine three AVHRR orbits to create one 'good' orbit
-! equator to equator
-!
-! MOFIDED VERSION 23-10-2017 M.Taylor
+
 
 MODULE Combine_Orbits
   
@@ -1177,9 +1184,10 @@ CONTAINS
              CALL merge_avhrr(AVHRR_Total,AVHRR)
           ENDIF
           CALL Deallocate_OutData(AVHRR)
+!MT: 20-10-2017: 'between file3 and file4' --> 'between file4 and file5'
           IF( .not. check_overlap(file4,file5) )THEN
              CALL Gbcs_Critical(.TRUE.,'No overlap between file4 and file5',&
-                  'read_all_data','extract_l1b_data.f90') !MT (20-10-2017): 'between file3 and file4' --> 'between file4 and file5'
+                  'read_all_data','extract_l1b_data.f90') 
           ENDIF
           CALL read_file(file5,AVHRR,uuid_in)
           IF( AVHRR%valid_data_there )THEN
@@ -1503,7 +1511,7 @@ CONTAINS
     !        - found first equator crossing but data does not include
     !          second one. Need to make at least complete orbit (backward
     !          in time) and then trim later
-    !     make_orbit1/make_orbit2 !MT (24-10-2017)
+    !     make_orbit1/make_orbit2
     !        - didn't find either - basically have from 1,arraySize 
     !          and no trimming
     IF( .not. make_orbit1 .and. .not. make_orbit2 )THEN
@@ -1519,7 +1527,7 @@ CONTAINS
              last_equ = first_equ + 15000
           ENDIF
        ENDIF
-!MT (24-10-2017) - fix reversed logic
+!MT: 24-10-2017: fix reversed logic in Resize_orbit_equator
 !    ELSE IF( make_orbit1 .and. .not. make_orbit2 )THEN
 !        trim_data = .TRUE.
 !        trim_low = first_equ
@@ -1546,7 +1554,9 @@ CONTAINS
        ENDIF
     ELSE 
        ! Only have section - all we have
-       trim_data = .TRUE. !MT (24-10-2017)
+!MT: 24-10-2017: 
+!       trim_data = .FALSE.
+       trim_data = .TRUE.
     ENDIF
 
 !    IF( -1 .eq. first_equ )THEN
@@ -1703,6 +1713,14 @@ CONTAINS
             AVHRRout%smoothSp3(AVHRRout%arraySize),&
             AVHRRout%smoothSp4(AVHRRout%arraySize),&
             AVHRRout%smoothSp5(AVHRRout%arraySize),&
+!MT: 11-11-2017: added allocation of nmoothBB3,4,5 to fix error caused by their absence in fiduceo_uncertainties.f90
+!MT: 11-11-2017: added allocation of nmoothSp3,4,5 to fix error caused by their absence in fiduceo_uncertainties.f90
+            AVHRRout%nsmoothBB3(AVHRRout%arraySize),&
+            AVHRRout%nsmoothBB4(AVHRRout%arraySize),&
+            AVHRRout%nsmoothBB5(AVHRRout%arraySize),&
+            AVHRRout%nsmoothSp3(AVHRRout%arraySize),&
+            AVHRRout%nsmoothSp4(AVHRRout%arraySize),&
+            AVHRRout%nsmoothSp5(AVHRRout%arraySize),&
             AVHRRout%Interpolated(AVHRRout%arraySize),&
             AVHRRout%solar_contamination_failure(AVHRRout%arraySize),&
             AVHRRout%solar_contamination_3B(AVHRRout%arraySize),&
@@ -1869,6 +1887,14 @@ CONTAINS
           AVHRRout%smoothSp3(K) = AVHRR%smoothSp3(I)
           AVHRRout%smoothSp4(K) = AVHRR%smoothSp4(I)
           AVHRRout%smoothSp5(K) = AVHRR%smoothSp5(I)
+!MT: 11-11-2017: write nmoothBB3,4,5 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
+!MT: 11-11-2017: write nmoothSp3,4,5 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
+          AVHRRout%nsmoothBB3(K) = AVHRR%nsmoothBB3(I)
+          AVHRRout%nsmoothBB4(K) = AVHRR%nsmoothBB4(I)
+          AVHRRout%nsmoothBB5(K) = AVHRR%nsmoothBB5(I)
+          AVHRRout%nsmoothSp3(K) = AVHRR%nsmoothSp3(I)
+          AVHRRout%nsmoothSp4(K) = AVHRR%nsmoothSp4(I)
+          AVHRRout%nsmoothSp5(K) = AVHRR%nsmoothSp5(I)
           AVHRRout%Interpolated(K) = AVHRR%Interpolated(I)
           AVHRRout%solar_contamination_failure(K) = &
                AVHRR%solar_contamination_failure(I)
@@ -1937,7 +1963,7 @@ CONTAINS
             'extract_l1b_data.f90')
        inDirectory = './'
        WRITE(inFilename,'(''temp_file.'',a)')TRIM(uuid_in)
-!MT: 05-11-2017       remove_file=.TRUE.
+       remove_file=.TRUE. !MT: set to FALSE for debugging 
     ELSE
        POS=INDEX(infile,'/',.TRUE.)
        IF( 0 .ne. POS )THEN
