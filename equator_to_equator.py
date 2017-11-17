@@ -20,9 +20,15 @@
 # and generate the FIDUCEO FCDR (pre-beta easy)
 #
 # Written by J.Mittaz UoR
-#
 # --------------------------------
-# Modified 17-10-2017 M.Taylor UoR: merge-orbit logic fixes added
+# Modified M.Taylor UoR: 
+# MT: 24-10-2017: import local ECTs to implement additional logical processing in orbit merging
+# MT: 24-10-2017: add logic for case where end of orbit overlaps start of ECT window
+# MT: 24-10-2017: add logic for case where start of orbit overlaps end of ECT window
+# MT: 24-10-2017: add more logic for case where end of orbit overlaps start of ECT window
+# MT: 15-11-2017: convert if to elif to fix repetition of orbit files in filelist
+
+
 
 import numpy as np
 import ephem
@@ -469,9 +475,11 @@ class tle_data(object):
 # Get list of files that contain low/high time
 def __get_filelist(low_time,high_time,avhrr_dir_name):
 
-    #MT: 24-10-2017: Import local ECTs to implement additional logical processing
-    ect1_time = low_time + datetime.timedelta(seconds=5400) #MT
-    ect2_time = high_time - datetime.timedelta(seconds=5400) #MT
+    # MT: 24-10-2017: Import local ECTs to implement additional logical processing
+    # MT: -----
+    ect1_time = low_time + datetime.timedelta(seconds=5400) 
+    ect2_time = high_time - datetime.timedelta(seconds=5400)
+    # MT: -----
 
     # Make directory name
     dir_name_list = '/group_workspaces/cems2/esacci_sst/input/avhrr/l1b/{0}/v1/{1:04d}/{2:02d}/{3:02d}/NSS.*'.\
@@ -488,6 +496,7 @@ def __get_filelist(low_time,high_time,avhrr_dir_name):
         dir_name_list = '/group_workspaces/cems2/esacci_sst/input/avhrr/l1b/{0}/v1/{1:04d}/{2:02d}/{3:02d}/NSS.*'.\
             format(avhrr_dir_name,high_time.year,\
                        high_time.month,high_time.day)
+
         filelist2 = glob.glob(dir_name_list)
         filelist = filelist+filelist2
         add_day=True
@@ -498,24 +507,30 @@ def __get_filelist(low_time,high_time,avhrr_dir_name):
     for i in range(len(filelist)):
         # Get file data
         infile = get_file_data(filelist[i])
-        # Check if there is overlap of file with low/high time
-        
+        # Check if there is overlap of file with low/high time        
         if infile.start_time <= low_time and infile.end_time >= low_time:
-            if infile.end_time >= ect1_time: #MT: 24-10-2017: end of orbit overlaps start of ECT window
+# MT: 24-10-2017: add logic for case where end of orbit overlaps start of ECT window
+            if infile.end_time >= ect1_time: 
                 ok = True
                 stored_file.append(filelist[i])
         elif infile.start_time <= high_time and infile.end_time >= high_time:
-            if infile.start_time <= ect2_time: #MT: 24-10-2017: start of orbit overlaps end of ECT window
+# MT: 24-10-2017: add logic for case where start of orbit overlaps end of ECT window
+            if infile.start_time <= ect2_time: 
                 ok = True
                 stored_file.append(filelist[i])
         elif infile.start_time >= low_time and infile.end_time <= high_time:
-            if infile.start_time <= ect1_time and infile.end_time <= ect2_time: #MT: 24-10-2017: end of orbit overlaps start of ECT window
+# MT: 24-10-2017: add logic for case where end of orbit overlaps start of ECT window
+            if infile.start_time <= ect1_time and infile.end_time <= ect2_time: 
                 ok = True
                 stored_file.append(filelist[i])
-            if infile.start_time >= ect1_time and infile.end_time >= ect2_time: #MT: 24-10-2017: end of orbit overlaps start of ECT window
+# MT: 24-10-2017: end of orbit overlaps start of ECT window 
+# MT: 15-11-2017: convert if to elif to fix repetition of orbit files in filelist
+            elif infile.start_time >= ect1_time and infile.end_time >= ect2_time: 
                 ok = True
-                stored_file.append(filelist[i])
-            if infile.start_time >= ect1_time and infile.start_time <= ect2_time: #MT: 24-10-2017: start of orbit overlaps end of ECT window
+                stored_file.append(filelist[i]) 
+# MT: 24-10-2017: start of orbit overlaps end of ECT window
+# MT: 15-11-2017: convert if to elif to fix repetition of orbit files in filelist
+            elif infile.start_time >= ect1_time and infile.start_time <= ect2_time: 
                 ok = True
                 stored_file.append(filelist[i])
 
