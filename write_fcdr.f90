@@ -15,7 +15,7 @@
 ! * A copy of the GNU General Public License should have been supplied along
 ! * with this program; if not, see http://www.gnu.org/licenses/
 ! * ---------------------------------------------------------------------------
-! * MT: 26-10-2017: Fix for excess nArgs
+! * MT: 16-11-2017: fix for excess nArgs now applied in equator_to_equator.py
 
 PROGRAM Extract_L1b_Data
 
@@ -63,7 +63,7 @@ CONTAINS
     LOGICAL :: new_filename
     LOGICAL :: split_single_file
 
-!MT: 26-10-2017: Log the list of passed input arguments: 
+!MT: 26-10-2017: extract list of input arguments: 
 !    INTEGER :: i
 !    CHARACTER(LEN=256) :: temp
 !    nArgs = COMMAND_ARGUMENT_COUNT()
@@ -73,13 +73,13 @@ CONTAINS
 !        print *,'inArgs=',temp
 !    ENDDO
 
-!    IF( 14 .gt. nArgs .or. 19 .le. nArgs )THEN
-!       CALL Gbcs_Critical(.TRUE.,&
-!            'USAGE: ./extract_l1b_data.exe uuid outfile eq_year1 eq_month1 &
-!            &eq_day1 eq_hour1 eq_min1 eq_year2 eq_month2 eq_day2 eq_hour2 &
-!            &eq_min2 split_single file1 (file2) (file3) (file4) (file5)',&
-!            'Main','extract_l1b_data.f90')
-!   ENDIF
+    IF( 14 .gt. nArgs .or. 19 .le. nArgs )THEN
+       CALL Gbcs_Critical(.TRUE.,&
+            'USAGE: ./extract_l1b_data.exe uuid outfile eq_year1 eq_month1 &
+            &eq_day1 eq_hour1 eq_min1 eq_year2 eq_month2 eq_day2 eq_hour2 &
+            &eq_min2 split_single file1 (file2) (file3) (file4) (file5)',&
+            'Main','extract_l1b_data.f90')
+    ENDIF
 
     CALL GET_COMMAND_ARGUMENT(1,uuid_in,STATUS=stat)
     IF( 0 .ne. stat )THEN
@@ -211,9 +211,6 @@ CONTAINS
     READ(h2,'(i4)')hour2
     READ(min2,'(i4)')minute2
 
-
-
-
     IF( 'Y' .eq. sngle_split .or. 'y' .eq. sngle_split )THEN
        split_single_file = .TRUE.
     ELSE
@@ -284,7 +281,6 @@ CONTAINS
     CALL read_all_data(nfiles,file1,file2,file3,file4,file5,uuid_in,&
          AVHRR,year1,month1,day1,hour1,minute1,year2,month2,day2,hour2,&
          minute2,ofile,.TRUE.,split_single_file)
-
     !
     ! Deallocate structure
     !
@@ -293,3 +289,4 @@ CONTAINS
   END SUBROUTINE TopLevel
 
 END PROGRAM EXTRACT_L1B_DATA
+
