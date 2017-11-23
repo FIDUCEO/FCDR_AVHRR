@@ -14,7 +14,7 @@
 ! *
 ! * A copy of the GNU General Public License should have been supplied along
 ! * with this program; if not, see http://www.gnu.org/licenses/
-
+!
 !
 ! This code is a simple rewrite of Marines original code to split out
 ! the FIDUCEO uncertainties and sensitivities into a different structure
@@ -29,6 +29,12 @@
 !
 ! Original 21-07-2017 (v0.1pre)
 !
+! MT: 11-11-2017: Define temp variables us1,us2,us3a to store structured uncertainties on the reflectance channels
+! MT: 11-11-2017: fix problem of value not filling array with 0.03 for u_structured_Ch1
+! MT: 11-11-2017: fix problem of value not filling array with 0.05 for u_structured_Ch2
+! MT: 11-11-2017: fix problem of value not filling array with 0.05 for u_structured_Ch3a
+! MT: 13-11-2017: allocated nsmoothBB3,4,5 and nsmoothSp3,4,5 to AVHRRout data structure in combine_orbits.f90 so that the calculations don't fail 
+!
 ! MT: 31-10-2017: v0.2pre 
 !
 ! Note: Coefs data from CCI are ordered as
@@ -41,7 +47,6 @@
 !    6    = aval   "
 !    7    = bval   "
 !    8    = a4   (Tinstrument term)
-!
 
 MODULE fiduceo_uncertainties
 
@@ -145,12 +150,11 @@ MODULE fiduceo_uncertainties
   !
   CHARACTER(LEN=6) :: software_version = '0.2pre'
 
-! MT: 11-11-2017: Define temp variables to store strctured uncertainties on the reflectance channels
-    REAL, ALLOCATABLE :: us1(:,:)
-    REAL, ALLOCATABLE :: us2(:,:)
-    REAL, ALLOCATABLE :: us3a(:,:)
-
-  
+! MT: 11-11-2017: Define temp variables to store structured uncertainties on the reflectance channels
+  REAL, ALLOCATABLE :: us1(:,:)
+  REAL, ALLOCATABLE :: us2(:,:)
+  REAL, ALLOCATABLE :: us3a(:,:)
+ 
   PRIVATE
   PUBLIC :: FIDUCEO_Data
   PUBLIC :: Add_FIDUCEO_Uncert
@@ -223,7 +227,7 @@ CONTAINS
        command_fcdr ='python2.7 write_easy_fcdr_from_netcdf.py '//TRIM(temp_file)//' '//TRIM(filename_nc)
     ENDIF
     call SYSTEM(TRIM(command_fcdr))
-!    command_fcdr = 'rm -f '//TRIM(temp_file) !MT: 05-11-2017: commented to inspect temp files
+    command_fcdr = 'rm -f '//TRIM(temp_file) !MT: 05-11-2017: comment to keep temp netcdf files
     call SYSTEM(TRIM(command_fcdr))
 !    print*, "remplissage"
 !    ! Which is French for "filling"
@@ -1519,8 +1523,13 @@ CONTAINS
        end if
     ENDIF
 
+!    print *,'cs_cict_3=',cs_cict_3
+!    print *,'cs_cict_4=',cs_cict_4
+!    print *,'cs_cict_5=',cs_cict_5
+
     !--ON cacul les incertitudes qui changent d'un pixel à l'autre           
     do j=1,409 
+
        FCDR%ue3(j,i)=NAN_R
        FCDR%ue4(j,i)=NAN_R
        FCDR%ue5(j,i)=NAN_R
@@ -1548,6 +1557,8 @@ CONTAINS
 !       IF( twelve_micron_there )THEN
 !          FCDR%ucs5=outdata%noise_cnts_cal(6,i)
 !       ENDIF
+       
+!MT: 13-11-2017: allocated nsmoothBB3,4,5 and nsmoothSp3,4,5 to AVHRRout data structure in combine_orbits.f90 so that the calculations don't fail 
        IF( outdata%nsmoothBB3(i) .gt. 0 )THEN
           FCDR%ucict3(i)=outdata%noise_cnts(4,i)/SQRT(1.*outdata%nsmoothBB3(i))
        ELSE
