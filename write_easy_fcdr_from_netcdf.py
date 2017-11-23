@@ -15,10 +15,10 @@
 # * A copy of the GNU General Public License should have been supplied along
 # * with this program; if not, see http://www.gnu.org/licenses/
 # * ------------------------------------------------------------------------
-# * MT: 30-10-2017: Uncertainty variables renamed in line with FCDR-CDR file format spec fv1.1.1
-# * MT: 08-11-2017: Unit change for reflectances from "percent" to "1" (with corresponding scale_factor changes)
+# * MT: 18-10-2017: added quality flag fields
+# * MT: 30-10-2017: uncertainty variables renamed in line with FCDR-CDR file format spec fv1.1.1
 # * MT: 09-11-2017: channel_correlation_matrix added (sensor specific)
-# * MT: 10-11-2017: spatial_correlation_scale added (non-sensor specific)
+# * MT: 10-11-2017: spatial_correlation_scale added (sensor specific)
 
 from fiduceo.fcdr.writer.fcdr_writer import FCDRWriter
 from fiduceo.fcdr.writer.templates import avhrr
@@ -269,7 +269,7 @@ def main(file_in,fileout='None'):
     if data.ch5_there:
         dataset.variables["u_structured_Ch5"].data = data.u_non_random_ch5
 
-# MT: 18-10-2017: these fields need adding to Tom's writer
+# MT: 18-10-2017: added quality flag fields
     dataset.variables["quality_scanline_bitmask"].data = data.scan_qual
     dataset.variables["quality_channel_bitmask"].data = data.chan_qual
 
@@ -280,23 +280,13 @@ def main(file_in,fileout='None'):
         S = np.diag([1,1,0,1,1,1])
     elif data.noaa_string in ['NOAA15','NOAA16','NOAA17','NOAA18','NOAA19','METOPA','METOPB','METOPC']:
         S = np.diag([1,1,1,1,1,1])
-#    default_array = DefaultData.create_default_array(SWATH_WIDTH, height, np.float32, fill_value=np.NaN)
-#    variable = Variable(["y", "x"], default_array)
-#    variable.attrs["standard_name"] = "channel_correlation_matrix"
-#    tu.add_units(variable,"1")
-#    tu.add_encoding(variable, np.int16, DefaultData.get_default_fill_value(np.int16), 1)
-#    variable.attrs["valid_max"] = 1
-#    variable.attrs["valid_min"] = 0
-#    dataset["channel_correlation_matrix"] = variable
-    ccm = xarray.DataArray(S,
-#            coords={"channel": ds_context.coords["channel"]},
-            dims=("nchan", "nchan"))
+    ccm = xarray.DataArray(S,dims=("nchan", "nchan"))
     ccm.name = "channel_correlation_matrix"
     ccm.attrs["units"] = "1"
     ccm.attrs["valid_max"] = 1
     ccm.attrs["valid_min"] = 0
     ccm.encoding["dtype"] = np.int16
-    dataset=xarray.merge([dataset,ccm])
+#    dataset=xarray.merge([dataset,ccm])
 
 # MT: 10-11-2017: spatial_correlation_scale (scs)
     scs = xarray.DataArray(data.spatial_correlation_scale)
@@ -305,7 +295,10 @@ def main(file_in,fileout='None'):
     scs.attrs["valid_max"] = 1000
     scs.attrs["valid_min"] = 0
     scs.encoding["dtype"] = np.int16
-    dataset=xarray.merge([dataset,scs])
+# MT: 23-11-2017: store and reset global variables broken by xarray.merge [thanks, Gerrit Holl]
+    attr = dataset.attrs
+    dataset=xarray.merge([dataset,ccm,scs])
+    dataset.attrs = attr
 
     #avhrr.AVHRR._create_channel_refl_variable(12835, "Channel 6 Reflectance") 
     # dump it to disk, netcdf4, medium compression
