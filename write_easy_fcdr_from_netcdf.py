@@ -127,7 +127,6 @@ class read_netcdf(object):
             self.u_non_random_ch5 = u_non_random_ch5[gd,:]
         scan_qual = ncid.variables['quality_scanline_bitmask'][:]
         chan_qual = ncid.variables['quality_channel_bitmask'][:,:]
-
         self.scan_qual = scan_qual[gd]
         self.chan_qual = chan_qual[gd,:]
 
@@ -241,7 +240,6 @@ def main(file_in,fileout='None'):
     dataset.variables["satellite_zenith_angle"].data = data.satza
     dataset.variables["solar_zenith_angle"].data = data.solza
     dataset.variables["relative_azimuth_angle"].data = data.relaz
-
     dataset.variables["Ch1_Ref"].data = data.ch1
     dataset.variables["Ch2_Ref"].data = data.ch2
     if data.ch3a_there:
@@ -258,8 +256,7 @@ def main(file_in,fileout='None'):
     dataset.variables["u_independent_Ch3b"].data = data.u_random_ch3b
     dataset.variables["u_independent_Ch4"].data = data.u_random_ch4
     if data.ch5_there:
-        dataset.variables["u_independent_Ch5"].data = data.u_random_ch5
-   
+        dataset.variables["u_independent_Ch5"].data = data.u_random_ch5   
     dataset.variables["u_structured_Ch1"].data = data.u_non_random_ch1
     dataset.variables["u_structured_Ch2"].data = data.u_non_random_ch2
     if data.ch3a_there:
@@ -268,7 +265,6 @@ def main(file_in,fileout='None'):
     dataset.variables["u_structured_Ch4"].data = data.u_non_random_ch4
     if data.ch5_there:
         dataset.variables["u_structured_Ch5"].data = data.u_non_random_ch5
-
 # MT: 18-10-2017: added quality flag fields
     dataset.variables["quality_scanline_bitmask"].data = data.scan_qual
     dataset.variables["quality_channel_bitmask"].data = data.chan_qual

@@ -227,7 +227,7 @@ CONTAINS
        command_fcdr ='python2.7 write_easy_fcdr_from_netcdf.py '//TRIM(temp_file)//' '//TRIM(filename_nc)
     ENDIF
     call SYSTEM(TRIM(command_fcdr))
-    command_fcdr = 'rm -f '//TRIM(temp_file) !MT: 05-11-2017: comment to keep temp netcdf files
+       command_fcdr = 'rm -f '//TRIM(temp_file) !MT: 05-11-2017: comment to keep temp netcdf files
     call SYSTEM(TRIM(command_fcdr))
 !    print*, "remplissage"
 !    ! Which is French for "filling"
