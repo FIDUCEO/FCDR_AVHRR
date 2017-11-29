@@ -1963,7 +1963,7 @@ CONTAINS
             'extract_l1b_data.f90')
        inDirectory = './'
        WRITE(inFilename,'(''temp_file.'',a)')TRIM(uuid_in)
-       remove_file=.TRUE. !MT: set to FALSE for debugging 
+       remove_file=.TRUE. !MT: set to FALSE for debugging
     ELSE
        POS=INDEX(infile,'/',.TRUE.)
        IF( 0 .ne. POS )THEN
