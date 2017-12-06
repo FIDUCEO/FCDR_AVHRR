@@ -188,6 +188,9 @@ CONTAINS
        RETURN
     ENDIF
 
+!MT: 06-12-2017
+    write(*,*)'use_iasi_calibration=',use_iasi_calibration
+
     IF( PRESENT(use_iasi_calibration) )THEN
        use_iasi_cal = use_iasi_calibration
     ELSE
@@ -215,6 +218,18 @@ CONTAINS
     !
     CALL Get_Quality_Flags(AVHRR,FCDR)
 
+
+!MT: 06-12-2017: debugging ch3a & ch5
+    write(*,*)'IN: Add_FIDUCEO_Uncert'
+    write(*,*)'======================'
+    write(*,*)'twelve_micron_there=',twelve_micron_there
+    write(110,*)AVHRR%new_array1
+    write(120,*)AVHRR%new_array2
+    write(130,*)AVHRR%new_array3a
+    write(131,*)FCDR%btf3
+    write(140,*)FCDR%btf4
+    write(150,*)FCDR%btf5
+
     !
     ! write to NetCDF
     !
@@ -227,7 +242,7 @@ CONTAINS
        command_fcdr ='python2.7 write_easy_fcdr_from_netcdf.py '//TRIM(temp_file)//' '//TRIM(filename_nc)
     ENDIF
     call SYSTEM(TRIM(command_fcdr))
-       command_fcdr = 'rm -f '//TRIM(temp_file) !MT: 05-11-2017: comment to keep temp netcdf files
+!       command_fcdr = 'rm -f '//TRIM(temp_file) !MT: 05-11-2017: comment to keep temp netcdf files
     call SYSTEM(TRIM(command_fcdr))
 !    print*, "remplissage"
 !    ! Which is French for "filling"
@@ -1422,6 +1437,7 @@ CONTAINS
   SUBROUTINE radiance_uncertainties(i,outData,coefs1,coefs2,coefs3,FCDR,&
        twelve_micron_there)
 
+
     INTEGER, INTENT(IN) :: i
     TYPE(AVHRR_Data), INTENT(IN) :: outData
     REAL, INTENT(IN) :: coefs1(8,2)
@@ -1656,9 +1672,13 @@ CONTAINS
           ENDIF
        end if
 
+!MT: 06-12-2017: allocate ur5 and us5 first
+       ur5 = NAN_R
+       us5 = NAN_R
+
        IF( twelve_micron_there )THEN
-          ur5 = NAN_R
-          us5 = NAN_R
+!          ur5 = NAN_R
+!          us5 = NAN_R
           !---Ch 5
           if ((FCDR%uce5(j,i) .ne. NAN_R) &
                .and. (FCDR%uce5(j,i) .gt. 0) &
@@ -1800,6 +1820,7 @@ CONTAINS
        ENDIF
 
     end do 
+
   END SUBROUTINE radiance_uncertainties
 
   !
@@ -2116,9 +2137,9 @@ CONTAINS
     call check( nf90_close(ncid) )
     !write(*,*) "file netcdf close"    
 
-    DEALLOCATE(us1)
-    DEALLOCATE(us2)
-    DEALLOCATE(us3a)
+!    DEALLOCATE(us1)
+!    DEALLOCATE(us2)
+!    DEALLOCATE(us3a)
 
   END SUBROUTINE fill_netcdf
 

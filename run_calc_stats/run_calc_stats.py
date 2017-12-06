@@ -1,13 +1,17 @@
+
 import numpy as np
 import datetime 
 import calendar
 import os
 import os.path
 import sys
+import uuid
+import glob
+import stat
 from  optparse import OptionParser
 import subprocess
 
-def run_calc_stats(name):
+def __get_avhrr_dirname(name):
 
     if name == 'NOAA06':
         dirname = 'AVHRR06_G'
@@ -38,23 +42,55 @@ def run_calc_stats(name):
     elif name == 'METOPA':
         dirname = 'AVHRRMTA_G'
 
+    return dirname
+
+def make_shell_command(dirname,year,month,day,file_nc,i,directory):
+         
+    currentdir = os.getcwd()
+    outdir = '{0}/{1}/{2:04d}/{3:02d}/{4:02d}'.\
+        format(currentdir,dirname,year,month,day)
+    if not os.path.isdir(outdir):
+        os.makedirs(outdir)
+    os.chdir(outdir)
+    try:
+        os.symlink('/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_co\
+de/calc_stats.py','calc_stats.py')
+    except:
+        pass
+
+    # job submission script file 
+    job_file = 'run.{0:06d}.sh'.format(i)
+    job_log = 'run.{0:06d}.log'.format(i)
+    with open(job_file,'w') as fp:
+        job_stem = []
+        base = os.path.basename(file_nc)
+        str_tuple = os.path.splitext(base)
+        job_stem = str_tuple[0]+'.'+str(uuid.uuid4())
+        job_str = 'python2.7 calc_stats.py {0} {1:04d} {2:02d} {3:02d} {4}\n'.format(dirname,year,month,day,file_nc,job_stem)
+        fp.write(job_str)    
+
+    os.chmod(job_file,stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+    job_name='./'+job_file
+    job = ['bsub','-q', 'short-serial','-W', '01:00','-oo', job_log, job_name]
+    subprocess.call(job)
+    os.chdir(currentdir)                    
+
+def run_calc_stats(dirname):
+
     for year in range(1978,2017):
         for month in range(1,13):
             maxday = calendar.monthrange(year,month)[1]
             for day in range(1,maxday+1):
                 directory = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/{0}/{1:04d}/{2:02d}/{3:02d}'.format(dirname,year,month,day)
-                if os.path.isdir(directory):
-                    directory_stats = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/stats/{0}/{1:04d}/{2:02d}/{3:02d}'.format(dirname,year,month,day)
-                    if not os.path.isdir(directory_stats):
-                        os.makedirs(directory_stats)
-
-                        filelist = os.listdir(directory)
-                        print filelist
-                        for i in range(len(filelist)):
-                            file_nc = filelist[i]
-                            command='python2.7 calc_stats.py {0} {1:04d} {2:02d} {3:02d} {4}'.format(name,year,month,day,file_nc)
-                            subprocess.call(command,shell=True)
-
+                if os.path.isdir(directory):       
+#                    filelist = os.listdir(directory)
+                    nclist = os.path.join(directory,'*.nc')
+                    filelist = glob.glob(nclist)
+                    for i in range(len(filelist)):
+                        file_nc_all = str(filelist[i])
+                        file_nc = os.path.basename(file_nc_all)
+                        make_shell_command(dirname,year,month,day,file_nc,i,directory)       
+ 
 if __name__ == "__main__":
     
     parser = OptionParser("usage: %prog instr_name")
@@ -62,5 +98,8 @@ if __name__ == "__main__":
     if len(args) != 1:
         parser.error("incorrect number of arguments")
 
-    run_calc_stats(args[0])
+    dirname = __get_avhrr_dirname(args[0])
+    run_calc_stats(dirname)
+
+
 

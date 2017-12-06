@@ -3,7 +3,7 @@
 function get_channel {
 
     temp_name=`uuid`
-    search_name='stats_*_'${2}'_'${3}'.data'
+    search_name=${1}'_*_'${2}'_'${3}'.data'
     find ${1} -name "${search_name}" > ${temp_name}.list
     rm -f ${1}_${2}_${3}.dat
     while read line
