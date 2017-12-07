@@ -1678,6 +1678,10 @@ CONTAINS
             AVHRRout%smoothPrt2(AVHRRout%arraySize),&
             AVHRRout%smoothPrt3(AVHRRout%arraySize),&
             AVHRRout%smoothPrt4(AVHRRout%arraySize),&
+            AVHRRout%nsmoothPrt1(AVHRRout%arraySize),&
+            AVHRRout%nsmoothPrt2(AVHRRout%arraySize),&
+            AVHRRout%nsmoothPrt3(AVHRRout%arraySize),&
+            AVHRRout%nsmoothPrt4(AVHRRout%arraySize),&
             AVHRRout%smoothPrt1Cnts(AVHRRout%arraySize),&
             AVHRRout%smoothPrt2Cnts(AVHRRout%arraySize),&
             AVHRRout%smoothPrt3Cnts(AVHRRout%arraySize),&
@@ -1689,6 +1693,12 @@ CONTAINS
             AVHRRout%smoothSp3(AVHRRout%arraySize),&
             AVHRRout%smoothSp4(AVHRRout%arraySize),&
             AVHRRout%smoothSp5(AVHRRout%arraySize),&
+            AVHRRout%nsmoothBB3(AVHRRout%arraySize),&
+            AVHRRout%nsmoothBB4(AVHRRout%arraySize),&
+            AVHRRout%nsmoothBB5(AVHRRout%arraySize),&
+            AVHRRout%nsmoothSp3(AVHRRout%arraySize),&
+            AVHRRout%nsmoothSp4(AVHRRout%arraySize),&
+            AVHRRout%nsmoothSp5(AVHRRout%arraySize),&
             AVHRRout%Interpolated(AVHRRout%arraySize),&
             AVHRRout%solar_contamination_failure(AVHRRout%arraySize),&
             AVHRRout%solar_contamination_3B(AVHRRout%arraySize),&
@@ -1844,6 +1854,10 @@ CONTAINS
           AVHRRout%smoothPrt2(K) = AVHRR%smoothPrt2(I)
           AVHRRout%smoothPrt3(K) = AVHRR%smoothPrt3(I)
           AVHRRout%smoothPrt4(K) = AVHRR%smoothPrt4(I)
+          AVHRRout%nsmoothPrt1(K) = AVHRR%nsmoothPrt1(I)
+          AVHRRout%nsmoothPrt2(K) = AVHRR%nsmoothPrt2(I)
+          AVHRRout%nsmoothPrt3(K) = AVHRR%nsmoothPrt3(I)
+          AVHRRout%nsmoothPrt4(K) = AVHRR%nsmoothPrt4(I)
           AVHRRout%smoothPrt1Cnts(K) = AVHRR%smoothPrt1Cnts(I)
           AVHRRout%smoothPrt2Cnts(K) = AVHRR%smoothPrt2Cnts(I)
           AVHRRout%smoothPrt3Cnts(K) = AVHRR%smoothPrt3Cnts(I)
@@ -1855,6 +1869,12 @@ CONTAINS
           AVHRRout%smoothSp3(K) = AVHRR%smoothSp3(I)
           AVHRRout%smoothSp4(K) = AVHRR%smoothSp4(I)
           AVHRRout%smoothSp5(K) = AVHRR%smoothSp5(I)
+          AVHRRout%nsmoothBB3(K) = AVHRR%nsmoothBB3(I)
+          AVHRRout%nsmoothBB4(K) = AVHRR%nsmoothBB4(I)
+          AVHRRout%nsmoothBB5(K) = AVHRR%nsmoothBB5(I)
+          AVHRRout%nsmoothSp3(K) = AVHRR%nsmoothSp3(I)
+          AVHRRout%nsmoothSp4(K) = AVHRR%nsmoothSp4(I)
+          AVHRRout%nsmoothSp5(K) = AVHRR%nsmoothSp5(I)
           AVHRRout%Interpolated(K) = AVHRR%Interpolated(I)
           AVHRRout%solar_contamination_failure(K) = &
                AVHRR%solar_contamination_failure(I)
