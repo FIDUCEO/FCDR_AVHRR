@@ -34,4 +34,11 @@ get_channel ${1} structured Ch3b
 get_channel ${1} structured Ch4
 get_channel ${1} structured Ch5
 
+get_channel ${1} measurement Ch1
+get_channel ${1} measurement Ch2
+get_channel ${1} measurement Ch3a
+get_channel ${1} measurement Ch3b
+get_channel ${1} measurement Ch4
+get_channel ${1} measurement Ch5
+
 

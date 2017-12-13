@@ -7,9 +7,9 @@
 # =======================================
 # Original code: J.Mittaz University of Reading 2017 
 #
-# Version 2.0
-# 03 December, 2017
-# michael.taylor AT reading DOT ac DOT uk
+# Version 3.0
+# 12 December, 2017
+# michael.taylor@reading.ac.uk
 # =======================================
 
 import os
@@ -50,45 +50,69 @@ def main():
     path_out = path_in
 
     file_in = path_in+file_nc         
+
     file_out_independent1 = path_out+file_stem+"_u_independent_Ch1.data"
     file_out_independent2 = path_out+file_stem+"_u_independent_Ch2.data"
-    file_out_independent3 = path_out+file_stem+"_u_independent_Ch3a.data"
-    file_out_independent4 = path_out+file_stem+"_u_independent_Ch3b.data"
-    file_out_independent5 = path_out+file_stem+"_u_independent_Ch4.data"
-    file_out_independent6 = path_out+file_stem+"_u_independent_Ch5.data"
+    file_out_independent3a = path_out+file_stem+"_u_independent_Ch3a.data"
+    file_out_independent3b = path_out+file_stem+"_u_independent_Ch3b.data"
+    file_out_independent4 = path_out+file_stem+"_u_independent_Ch4.data"
+    file_out_independent5 = path_out+file_stem+"_u_independent_Ch5.data"
 
     file_out_structured1 = path_out+file_stem+"_u_structured_Ch1.data"
     file_out_structured2 = path_out+file_stem+"_u_structured_Ch2.data"
-    file_out_structured3 = path_out+file_stem+"_u_structured_Ch3a.data"
-    file_out_structured4 = path_out+file_stem+"_u_structured_Ch3b.data"
-    file_out_structured5 = path_out+file_stem+"_u_structured_Ch4.data"
-    file_out_structured6 = path_out+file_stem+"_u_structured_Ch5.data"
+    file_out_structured3a = path_out+file_stem+"_u_structured_Ch3a.data"
+    file_out_structured3b = path_out+file_stem+"_u_structured_Ch3b.data"
+    file_out_structured4 = path_out+file_stem+"_u_structured_Ch4.data"
+    file_out_structured5 = path_out+file_stem+"_u_structured_Ch5.data"
+
+# MT: 12-12-2017: add in channel data
+    file_out_measurement1 = path_out+file_stem+"_measurement_Ch1.data"
+    file_out_measurement2 = path_out+file_stem+"_measurement_Ch2.data"
+    file_out_measurement3a = path_out+file_stem+"_measurement_Ch3a.data"
+    file_out_measurement3b = path_out+file_stem+"_measurement_Ch3b.data"
+    file_out_measurement4 = path_out+file_stem+"_measurement_Ch4.data"
+    file_out_measurement5 = path_out+file_stem+"_measurement_Ch5.data"
 
 # Remove old files if present
     if os.path.exists(file_out_independent1):
         os.remove(file_out_independent1)
     if os.path.exists(file_out_independent2):
         os.remove(file_out_independent2)
-    if os.path.exists(file_out_independent3):
-        os.remove(file_out_independent3)
+    if os.path.exists(file_out_independent3a):
+        os.remove(file_out_independent3a)
+    if os.path.exists(file_out_independent3b):
+        os.remove(file_out_independent3b)
     if os.path.exists(file_out_independent4):
         os.remove(file_out_independent4)
     if os.path.exists(file_out_independent5):
         os.remove(file_out_independent5)
-    if os.path.exists(file_out_independent6):
-        os.remove(file_out_independent6)
+
     if os.path.exists(file_out_structured1):
         os.remove(file_out_structured1)
     if os.path.exists(file_out_structured2):
         os.remove(file_out_structured2)
-    if os.path.exists(file_out_structured3):
-        os.remove(file_out_structured3)
+    if os.path.exists(file_out_structured3a):
+        os.remove(file_out_structured3a)
+    if os.path.exists(file_out_structured3b):
+        os.remove(file_out_structured3b)
     if os.path.exists(file_out_structured4):
         os.remove(file_out_structured4)
     if os.path.exists(file_out_structured5):
         os.remove(file_out_structured5)
-    if os.path.exists(file_out_structured6):
-        os.remove(file_out_structured6)
+
+# MT: 12-12-2017: add in channel data
+    if os.path.exists(file_out_measurement1):
+        os.remove(file_out_measurement1)
+    if os.path.exists(file_out_measurement2):
+        os.remove(file_out_measurement2)
+    if os.path.exists(file_out_measurement3a):
+        os.remove(file_out_measurement3a)
+    if os.path.exists(file_out_measurement3b):
+        os.remove(file_out_measurement3b)
+    if os.path.exists(file_out_measurement4):
+        os.remove(file_out_measurement4)
+    if os.path.exists(file_out_measurement5):
+        os.remove(file_out_measurement5)
 
 # Check to see if input file exists
     if not os.path.exists(file_in):
@@ -121,6 +145,7 @@ def main():
     gd = ~np.isfinite(u_independent_Ch5) | (u_independent_Ch5 < -1e20)
     if np.sum(gd) > 0:
         u_independent_Ch5[gd] = float('nan')
+
     u_structured_Ch1 = ncfile.variables['u_structured_Ch1'][:,:]
     gd = ~np.isfinite(u_structured_Ch1) | (u_structured_Ch1 < -1e20)
     if np.sum(gd) > 0:
@@ -145,12 +170,38 @@ def main():
     gd = ~np.isfinite(u_structured_Ch5) | (u_structured_Ch5 < -1e20)
     if np.sum(gd) > 0:
         u_structured_Ch5[gd] = float('nan')
+
+# MT: 12-12-2017: add in channel data
+    measurement_Ch1 = ncfile.variables['Ch1_Ref'][:,:]
+    gd = ~np.isfinite(measurement_Ch1) | (measurement_Ch1 < -1e20)
+    if np.sum(gd) > 0:
+        measurement_Ch1[gd] = float('nan')
+    measurement_Ch2 = ncfile.variables['Ch2_Ref'][:,:]
+    gd = ~np.isfinite(measurement_Ch2) | (measurement_Ch2 < -1e20)
+    if np.sum(gd) > 0:
+        measurement_Ch2[gd] = float('nan')
+    measurement_Ch3a = ncfile.variables['Ch3a_Ref'][:,:]
+    gd = ~np.isfinite(measurement_Ch3a) | (measurement_Ch3a < -1e20)
+    if np.sum(gd) > 0:
+        measurement_Ch3a[gd] = float('nan')
+    measurement_Ch3b = ncfile.variables['Ch3b_Bt'][:,:]
+    gd = ~np.isfinite(measurement_Ch3b) | (measurement_Ch3b < -1e20)
+    if np.sum(gd) > 0:
+        measurement_Ch3b[gd] = float('nan')
+    measurement_Ch4 = ncfile.variables['Ch4_Bt'][:,:]
+    gd = ~np.isfinite(measurement_Ch4) | (measurement_Ch4 < -1e20)
+    if np.sum(gd) > 0:
+        measurement_Ch4[gd] = float('nan')
+    measurement_Ch5 = ncfile.variables['Ch5_Bt'][:,:]
+    gd = ~np.isfinite(measurement_Ch5) | (measurement_Ch5 < -1e20)
+    if np.sum(gd) > 0:
+        measurement_Ch5[gd] = float('nan')
     ncfile.close()
 
-    stat_array = np.zeros((12,13))
+    stat_array = np.zeros((18,13))
     stat_array[:,:] = -1e30
 
-    for i in range(1,13):
+    for i in range(1,19):
         if 1 == i:
             i_var = u_independent_Ch1[:,:]
         elif 2 == i:
@@ -163,6 +214,7 @@ def main():
             i_var = u_independent_Ch4[:,:]
         elif 6 == i:
             i_var = u_independent_Ch5[:,:]
+
         elif 7 == i:
             i_var = u_structured_Ch1[:,:]
         elif 8 == i:
@@ -175,6 +227,20 @@ def main():
             i_var = u_structured_Ch4[:,:]
         elif 12 == i:
             i_var = u_structured_Ch5[:,:]
+
+# MT: 12-12-2017: add in channel data
+        elif 13 == i:
+            i_var = measurement_Ch1[:,:]
+        elif 14 == i:
+            i_var = measurement_Ch2[:,:]
+        elif 15 == i:
+            i_var = measurement_Ch3a[:,:]
+        elif 16 == i:
+            i_var = measurement_Ch3b[:,:]
+        elif 17 == i:
+            i_var = measurement_Ch4[:,:]
+        elif 18 == i:
+            i_var = measurement_Ch5[:,:]
 
         stat_array[i-1,0]  = i                                   # variable
 # MT: 03-12-2017: Calculation of fraction of good data
@@ -237,7 +303,7 @@ def main():
                                 stat_array[i,12]))
 
     i=2
-    with open(file_out_independent3,'w') as fp:
+    with open(file_out_independent3a,'w') as fp:
         fp.write('{0:04d} {1:02d} {2:02d} {3:02d} {4:02d} {5:2d} {6:e} {7:e} {8:e} {9:e} {10:e} {11:e} {12:e} {13:e} {14:e} {15:e} {16:e} {17:e}\n'.\
                      format(year,month,day,hh,mm,int(stat_array[i,0]),\
                                 stat_array[i,1],\
@@ -254,7 +320,7 @@ def main():
                                 stat_array[i,12]))
 
     i=3
-    with open(file_out_independent4,'w') as fp:
+    with open(file_out_independent3b,'w') as fp:
         fp.write('{0:04d} {1:02d} {2:02d} {3:02d} {4:02d} {5:2d} {6:e} {7:e} {8:e} {9:e} {10:e} {11:e} {12:e} {13:e} {14:e} {15:e} {16:e} {17:e}\n'.\
                      format(year,month,day,hh,mm,int(stat_array[i,0]),\
                                 stat_array[i,1],\
@@ -271,7 +337,7 @@ def main():
                                 stat_array[i,12]))
 
     i=4
-    with open(file_out_independent5,'w') as fp:
+    with open(file_out_independent4,'w') as fp:
         fp.write('{0:04d} {1:02d} {2:02d} {3:02d} {4:02d} {5:2d} {6:e} {7:e} {8:e} {9:e} {10:e} {11:e} {12:e} {13:e} {14:e} {15:e} {16:e} {17:e}\n'.\
                      format(year,month,day,hh,mm,int(stat_array[i,0]),\
                                 stat_array[i,1],\
@@ -288,7 +354,7 @@ def main():
                                 stat_array[i,12]))
 
     i=5
-    with open(file_out_independent6,'w') as fp:
+    with open(file_out_independent5,'w') as fp:
         fp.write('{0:04d} {1:02d} {2:02d} {3:02d} {4:02d} {5:2d} {6:e} {7:e} {8:e} {9:e} {10:e} {11:e} {12:e} {13:e} {14:e} {15:e} {16:e} {17:e}\n'.\
                      format(year,month,day,hh,mm,int(stat_array[i,0]),\
                                 stat_array[i,1],\
@@ -339,7 +405,7 @@ def main():
                                 stat_array[i,12]))
 
     i=8
-    with open(file_out_structured3,'w') as fp:
+    with open(file_out_structured3a,'w') as fp:
         fp.write('{0:04d} {1:02d} {2:02d} {3:02d} {4:02d} {5:2d} {6:e} {7:e} {8:e} {9:e} {10:e} {11:e} {12:e} {13:e} {14:e} {15:e} {16:e} {17:e}\n'.\
                      format(year,month,day,hh,mm,int(stat_array[i,0]),\
                                 stat_array[i,1],\
@@ -356,7 +422,7 @@ def main():
                                 stat_array[i,12]))
 
     i=9
-    with open(file_out_structured4,'w') as fp:
+    with open(file_out_structured3b,'w') as fp:
         fp.write('{0:04d} {1:02d} {2:02d} {3:02d} {4:02d} {5:2d} {6:e} {7:e} {8:e} {9:e} {10:e} {11:e} {12:e} {13:e} {14:e} {15:e} {16:e} {17:e}\n'.\
                      format(year,month,day,hh,mm,int(stat_array[i,0]),\
                                 stat_array[i,1],\
@@ -373,7 +439,7 @@ def main():
                                 stat_array[i,12]))
 
     i=10
-    with open(file_out_structured5,'w') as fp:
+    with open(file_out_structured4,'w') as fp:
         fp.write('{0:04d} {1:02d} {2:02d} {3:02d} {4:02d} {5:2d} {6:e} {7:e} {8:e} {9:e} {10:e} {11:e} {12:e} {13:e} {14:e} {15:e} {16:e} {17:e}\n'.\
                      format(year,month,day,hh,mm,int(stat_array[i,0]),\
                                 stat_array[i,1],\
@@ -390,7 +456,109 @@ def main():
                                 stat_array[i,12]))
 
     i=11
-    with open(file_out_structured6,'w') as fp:
+    with open(file_out_structured5,'w') as fp:
+        fp.write('{0:04d} {1:02d} {2:02d} {3:02d} {4:02d} {5:2d} {6:e} {7:e} {8:e} {9:e} {10:e} {11:e} {12:e} {13:e} {14:e} {15:e} {16:e} {17:e}\n'.\
+                     format(year,month,day,hh,mm,int(stat_array[i,0]),\
+                                stat_array[i,1],\
+                                stat_array[i,2],\
+                                stat_array[i,3],\
+                                stat_array[i,4],\
+                                stat_array[i,5],\
+                                stat_array[i,6],\
+                                stat_array[i,7],\
+                                stat_array[i,8],\
+                                stat_array[i,9],\
+                                stat_array[i,10],\
+                                stat_array[i,11],\
+                                stat_array[i,12]))
+
+    i=12
+    with open(file_out_measurement1,'w') as fp:
+        fp.write('{0:04d} {1:02d} {2:02d} {3:02d} {4:02d} {5:2d} {6:e} {7:e} {8:e} {9:e} {10:e} {11:e} {12:e} {13:e} {14:e} {15:e} {16:e} {17:e}\n'.\
+                     format(year,month,day,hh,mm,int(stat_array[i,0]),\
+                                stat_array[i,1],\
+                                stat_array[i,2],\
+                                stat_array[i,3],\
+                                stat_array[i,4],\
+                                stat_array[i,5],\
+                                stat_array[i,6],\
+                                stat_array[i,7],\
+                                stat_array[i,8],\
+                                stat_array[i,9],\
+                                stat_array[i,10],\
+                                stat_array[i,11],\
+                                stat_array[i,12]))
+
+    i=13
+    with open(file_out_measurement2,'w') as fp:
+        fp.write('{0:04d} {1:02d} {2:02d} {3:02d} {4:02d} {5:2d} {6:e} {7:e} {8:e} {9:e} {10:e} {11:e} {12:e} {13:e} {14:e} {15:e} {16:e} {17:e}\n'.\
+                     format(year,month,day,hh,mm,int(stat_array[i,0]),\
+                                stat_array[i,1],\
+                                stat_array[i,2],\
+                                stat_array[i,3],\
+                                stat_array[i,4],\
+                                stat_array[i,5],\
+                                stat_array[i,6],\
+                                stat_array[i,7],\
+                                stat_array[i,8],\
+                                stat_array[i,9],\
+                                stat_array[i,10],\
+                                stat_array[i,11],\
+                                stat_array[i,12]))
+
+    i=14
+    with open(file_out_measurement3a,'w') as fp:
+        fp.write('{0:04d} {1:02d} {2:02d} {3:02d} {4:02d} {5:2d} {6:e} {7:e} {8:e} {9:e} {10:e} {11:e} {12:e} {13:e} {14:e} {15:e} {16:e} {17:e}\n'.\
+                     format(year,month,day,hh,mm,int(stat_array[i,0]),\
+                                stat_array[i,1],\
+                                stat_array[i,2],\
+                                stat_array[i,3],\
+                                stat_array[i,4],\
+                                stat_array[i,5],\
+                                stat_array[i,6],\
+                                stat_array[i,7],\
+                                stat_array[i,8],\
+                                stat_array[i,9],\
+                                stat_array[i,10],\
+                                stat_array[i,11],\
+                                stat_array[i,12]))
+
+    i=15
+    with open(file_out_measurement3b,'w') as fp:
+        fp.write('{0:04d} {1:02d} {2:02d} {3:02d} {4:02d} {5:2d} {6:e} {7:e} {8:e} {9:e} {10:e} {11:e} {12:e} {13:e} {14:e} {15:e} {16:e} {17:e}\n'.\
+                     format(year,month,day,hh,mm,int(stat_array[i,0]),\
+                                stat_array[i,1],\
+                                stat_array[i,2],\
+                                stat_array[i,3],\
+                                stat_array[i,4],\
+                                stat_array[i,5],\
+                                stat_array[i,6],\
+                                stat_array[i,7],\
+                                stat_array[i,8],\
+                                stat_array[i,9],\
+                                stat_array[i,10],\
+                                stat_array[i,11],\
+                                stat_array[i,12]))
+
+    i=16
+    with open(file_out_measurement4,'w') as fp:
+        fp.write('{0:04d} {1:02d} {2:02d} {3:02d} {4:02d} {5:2d} {6:e} {7:e} {8:e} {9:e} {10:e} {11:e} {12:e} {13:e} {14:e} {15:e} {16:e} {17:e}\n'.\
+                     format(year,month,day,hh,mm,int(stat_array[i,0]),\
+                                stat_array[i,1],\
+                                stat_array[i,2],\
+                                stat_array[i,3],\
+                                stat_array[i,4],\
+                                stat_array[i,5],\
+                                stat_array[i,6],\
+                                stat_array[i,7],\
+                                stat_array[i,8],\
+                                stat_array[i,9],\
+                                stat_array[i,10],\
+                                stat_array[i,11],\
+                                stat_array[i,12]))
+
+    i=17
+    with open(file_out_measurement5,'w') as fp:
         fp.write('{0:04d} {1:02d} {2:02d} {3:02d} {4:02d} {5:2d} {6:e} {7:e} {8:e} {9:e} {10:e} {11:e} {12:e} {13:e} {14:e} {15:e} {16:e} {17:e}\n'.\
                      format(year,month,day,hh,mm,int(stat_array[i,0]),\
                                 stat_array[i,1],\
