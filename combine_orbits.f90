@@ -25,8 +25,7 @@
 ! * MT: 11-11-2017: added allocation of nmoothSp3,4,5 to fix error caused by their absence in fiduceo_uncertainties.f90
 ! * MT: 11-11-2017: write nmoothBB3,4,5 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
 ! * MT: 11-11-2017: write nmoothSp3,4,5 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
-
-
+! * MT: 11-12-2017: fix case of sub-orbit segments in Resize_orbit_equator
 
 MODULE Combine_Orbits
   
@@ -1529,17 +1528,6 @@ CONTAINS
        ENDIF
 !MT: 24-10-2017: fix reversed logic in Resize_orbit_equator
 !    ELSE IF( make_orbit1 .and. .not. make_orbit2 )THEN
-!        trim_data = .TRUE.
-!        trim_low = first_equ
-!        trim_high = last_equ
-!        IF( last_equ - 15000 .lt. first_equ )THEN
-!            IF( last_equ-15000 .lt. 1 )THEN
-!                first_equ = 1
-!            ELSE
-!                trim_low = first_equ - (last_equ-15000)
-!                first_equ = last_equ - 15000
-!            ENDIF
-!        ENDIF
     ELSE IF( .not. make_orbit1 .and. make_orbit2 )THEN
        trim_data = .TRUE.
        trim_low = first_equ
@@ -1554,9 +1542,8 @@ CONTAINS
        ENDIF
     ELSE 
        ! Only have section - all we have
-!MT: 24-10-2017: 
-!       trim_data = .FALSE.
-       trim_data = .TRUE.
+!MT: 11-12-2017: reset to FALSE
+       trim_data = .FALSE.
     ENDIF
 
 !    IF( -1 .eq. first_equ )THEN
@@ -1715,6 +1702,11 @@ CONTAINS
             AVHRRout%smoothSp5(AVHRRout%arraySize),&
 !MT: 11-11-2017: added allocation of nmoothBB3,4,5 to fix error caused by their absence in fiduceo_uncertainties.f90
 !MT: 11-11-2017: added allocation of nmoothSp3,4,5 to fix error caused by their absence in fiduceo_uncertainties.f90
+!MT: 08-12-2017: added allocation of nsmoothPRT1,2,3,4 to fix error caused by their absence in fiduceo_uncertainties.f90
+            AVHRRout%nsmoothPrt1(AVHRRout%arraySize),&
+            AVHRRout%nsmoothPrt2(AVHRRout%arraySize),&
+            AVHRRout%nsmoothPrt3(AVHRRout%arraySize),&
+            AVHRRout%nsmoothPrt4(AVHRRout%arraySize),&
             AVHRRout%nsmoothBB3(AVHRRout%arraySize),&
             AVHRRout%nsmoothBB4(AVHRRout%arraySize),&
             AVHRRout%nsmoothBB5(AVHRRout%arraySize),&
@@ -1889,6 +1881,11 @@ CONTAINS
           AVHRRout%smoothSp5(K) = AVHRR%smoothSp5(I)
 !MT: 11-11-2017: write nmoothBB3,4,5 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
 !MT: 11-11-2017: write nmoothSp3,4,5 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
+!MT: 08-12-2017: write nmoothPrt1,2,3,4 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
+          AVHRRout%nsmoothPrt1(K) = AVHRR%nsmoothPrt1(I)
+          AVHRRout%nsmoothPrt2(K) = AVHRR%nsmoothPrt2(I)
+          AVHRRout%nsmoothPrt3(K) = AVHRR%nsmoothPrt3(I)
+          AVHRRout%nsmoothPrt4(K) = AVHRR%nsmoothPrt4(I)
           AVHRRout%nsmoothBB3(K) = AVHRR%nsmoothBB3(I)
           AVHRRout%nsmoothBB4(K) = AVHRR%nsmoothBB4(I)
           AVHRRout%nsmoothBB5(K) = AVHRR%nsmoothBB5(I)
@@ -1963,7 +1960,7 @@ CONTAINS
             'extract_l1b_data.f90')
        inDirectory = './'
        WRITE(inFilename,'(''temp_file.'',a)')TRIM(uuid_in)
-       remove_file=.TRUE. !MT: set to FALSE for debugging
+       remove_file=.TRUE.
     ELSE
        POS=INDEX(infile,'/',.TRUE.)
        IF( 0 .ne. POS )THEN
