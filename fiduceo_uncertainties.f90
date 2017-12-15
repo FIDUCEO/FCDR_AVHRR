@@ -1586,24 +1586,24 @@ CONTAINS
           FCDR%ucict4(i)=NAN_R
        ENDIF
        IF( twelve_micron_there )THEN
-          IF( outdata%nsmoothBB4(i) .gt. 0 )THEN
+          IF( outdata%nsmoothBB5(i) .gt. 0 )THEN
              FCDR%ucict5(i)=outdata%noise_cnts(6,i)/SQRT(1.*outdata%nsmoothBB5(i))
           ELSE
              FCDR%ucict5(i)=NAN_R
           ENDIF
        ENDIF
-       IF( outdata%nsmoothBB3(i) .gt. 0 )THEN
+       IF( outdata%nsmoothSp3(i) .gt. 0 )THEN
           FCDR%ucs3(i)=outdata%noise_cnts(4,i)/SQRT(1.*outdata%nsmoothSp3(i))
        ELSE
           FCDR%ucs3(i)=NAN_R
        ENDIF
-       IF( outdata%nsmoothBB3(i) .gt. 0 )THEN
+       IF( outdata%nsmoothSp4(i) .gt. 0 )THEN
           FCDR%ucs4(i)=outdata%noise_cnts(5,i)/SQRT(1.*outdata%nsmoothSp4(i))
        ELSE
           FCDR%ucs4(i)=NAN_R
        ENDIF
        IF( twelve_micron_there )THEN
-          IF( outdata%nsmoothBB3(i) .gt. 0 )THEN
+          IF( outdata%nsmoothSp5(i) .gt. 0 )THEN
              FCDR%ucs5(i)=outdata%noise_cnts(6,i)/SQRT(1.*outdata%nsmoothSp5(i))
           ELSE
              FCDR%ucs5(i)=NAN_R
