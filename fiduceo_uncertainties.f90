@@ -826,7 +826,7 @@ CONTAINS
 !       ENDDO
 !   ENDDO
     us1 = -1e30
-    WHERE(AVHRR%new_array1.ne.-1e30)
+    WHERE(AVHRR%new_array1.gt.-1e20)
        us1 = 0.03
     ENDWHERE
     IF( ALLOCATED(AVHRR%new_array1) )THEN
@@ -839,7 +839,7 @@ CONTAINS
 !MT: 11-11-2017: fix problem of value not filling array     
     ALLOCATE(us2(AVHRR%nelem,AVHRR%arraySize), STAT=STAT)
     us2 = -1e30
-    WHERE(AVHRR%new_array2.ne.-1e30)
+    WHERE(AVHRR%new_array2.gt.-1e20)
        us2 = 0.05
     ENDWHERE
     IF( ALLOCATED(AVHRR%new_array2) )THEN
@@ -852,7 +852,7 @@ CONTAINS
 !MT: 11-11-2017: fix problem of value not filling array     
     ALLOCATE(us3a(AVHRR%nelem,AVHRR%arraySize), STAT=STAT)
     us3a = -1e30
-    WHERE(AVHRR%new_array3a.ne.-1e30)
+    WHERE(AVHRR%new_array3a.gt.-1e20)
        us3a = 0.05
     ENDWHERE
     IF( ALLOCATED(AVHRR%new_array3a) )THEN
