@@ -212,6 +212,12 @@ CONTAINS
        AVHRR%bbodyFilter5(:,POS1) = &
             AVHRR_New%bbodyFilter5(:,POS2)
     ENDIF
+    AVHRR%spaceFilter1(:,POS1) = &
+         AVHRR_New%spaceFilter1(:,POS2)
+    AVHRR%spaceFilter2(:,POS1) = &
+         AVHRR_New%spaceFilter2(:,POS2)
+    AVHRR%spaceFilter3a(:,POS1) = &
+         AVHRR_New%spaceFilter3a(:,POS2)
     AVHRR%spaceFilter3(:,POS1) = &
          AVHRR_New%spaceFilter3(:,POS2)
     AVHRR%spaceFilter4(:,POS1) = &
@@ -673,6 +679,12 @@ CONTAINS
           AVHRR%bbodyFilter5(:,last_position:AVHRR%arraySize) = &
                AVHRR_New%bbodyFilter5(:,first_position:AVHRR_New%arraySize)
        ENDIF
+       AVHRR%spaceFilter1(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%spaceFilter1(:,first_position:AVHRR_New%arraySize)
+       AVHRR%spaceFilter2(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%spaceFilter2(:,first_position:AVHRR_New%arraySize)
+       AVHRR%spaceFilter3a(:,last_position:AVHRR%arraySize) = &
+            AVHRR_New%spaceFilter3a(:,first_position:AVHRR_New%arraySize)
        AVHRR%spaceFilter3(:,last_position:AVHRR%arraySize) = &
             AVHRR_New%spaceFilter3(:,first_position:AVHRR_New%arraySize)
        AVHRR%spaceFilter4(:,last_position:AVHRR%arraySize) = &
@@ -1683,18 +1695,6 @@ CONTAINS
 
     IF( alldata .and. AVHRR%newCalibration_There )THEN
 
-       AVHRRout%newCalibration_There = AVHRR%newCalibration_There
-       AVHRRout%orbital_temperature = AVHRR%orbital_temperature
-       AVHRRout%new_cal_coefs3 = AVHRRout%new_cal_coefs3
-       AVHRRout%new_cal_coefs4 = AVHRRout%new_cal_coefs4
-       AVHRRout%new_cal_coefs5 = AVHRRout%new_cal_coefs5
-       AVHRRout%gain_stdev = AVHRRout%gain_stdev
-       AVHRRout%earthshine_eta = AVHRRout%earthshine_eta
-       AVHRRout%poly_coefs3 = AVHRRout%poly_coefs3
-       AVHRRout%poly_coefs4 = AVHRRout%poly_coefs4
-       AVHRRout%poly_coefs5 = AVHRRout%poly_coefs5
-       AVHRRout%gain_maxdev = AVHRRout%gain_maxdev
-
        ALLOCATE(AVHRRout%new_calib3(3,AVHRRout%arraySize),&
             AVHRRout%new_calib4(3,AVHRRout%arraySize),&
             AVHRRout%new_calib5(3,AVHRRout%arraySize),&
@@ -1702,6 +1702,10 @@ CONTAINS
             AVHRRout%smoothPrt2(AVHRRout%arraySize),&
             AVHRRout%smoothPrt3(AVHRRout%arraySize),&
             AVHRRout%smoothPrt4(AVHRRout%arraySize),&
+            AVHRRout%nsmoothPrt1(AVHRRout%arraySize),&
+            AVHRRout%nsmoothPrt2(AVHRRout%arraySize),&
+            AVHRRout%nsmoothPrt3(AVHRRout%arraySize),&
+            AVHRRout%nsmoothPrt4(AVHRRout%arraySize),&
             AVHRRout%smoothPrt1Cnts(AVHRRout%arraySize),&
             AVHRRout%smoothPrt2Cnts(AVHRRout%arraySize),&
             AVHRRout%smoothPrt3Cnts(AVHRRout%arraySize),&
@@ -1749,13 +1753,81 @@ CONTAINS
        IF( AVHRR%walton_there )THEN
           ALLOCATE(AVHRRout%array3B_error(AVHRR%nelem,AVHRRout%arraySize),&
                AVHRRout%array4_error(AVHRR%nelem,AVHRRout%arraySize),&
-               AVHRRout%array5_error(AVHRR%nelem,AVHRRout%arraySize),STAT=STAT)
-
+               AVHRRout%array5_error(AVHRR%nelem,AVHRRout%arraySize),&
+               STAT=STAT)
           IF( 0 .ne. STAT )THEN
-             CALL Gbcs_Critical(.TRUE.,'Allocating outputData (walton)',&
+             CALL Gbcs_Critical(.TRUE.,'Allocating outputData (recal walton)',&
                   'Resize_Orbits','combine_orbits.f90')
           ENDIF
+       ENDIF       
+       AVHRRout%new_calib3 = NAN_R
+       AVHRRout%new_calib4 = NAN_R
+       AVHRRout%new_calib5 = NAN_R
+       AVHRRout%smoothPrt1 = NAN_R
+       AVHRRout%smoothPrt2 = NAN_R
+       AVHRRout%smoothPrt3 = NAN_R
+       AVHRRout%smoothPrt4 = NAN_R
+       AVHRRout%nsmoothPrt1 = 0
+       AVHRRout%nsmoothPrt2 = 0
+       AVHRRout%nsmoothPrt3 = 0
+       AVHRRout%nsmoothPrt4 = 0
+       AVHRRout%smoothPrt1Cnts = NAN_R
+       AVHRRout%smoothPrt2Cnts = NAN_R
+       AVHRRout%smoothPrt3Cnts = NAN_R
+       AVHRRout%smoothPrt4Cnts = NAN_R
+       AVHRRout%smoothPrt = NAN_R
+       AVHRRout%smoothBB3 = NAN_R
+       AVHRRout%smoothBB4 = NAN_R
+       AVHRRout%smoothBB5 = NAN_R
+       AVHRRout%smoothSp3 = NAN_R
+       AVHRRout%smoothSp4 = NAN_R
+       AVHRRout%smoothSp5 = NAN_R
+!MT: 11-11-2017: added allocation of nmoothBB3,4,5 to fix error caused by their absence in fiduceo_uncertainties.f90
+!MT: 11-11-2017: added allocation of nmoothSp3,4,5 to fix error caused by their absence in fiduceo_uncertainties.f90
+       AVHRRout%nsmoothBB3 = 0
+       AVHRRout%nsmoothBB4 = 0
+       AVHRRout%nsmoothBB5 = 0
+       AVHRRout%nsmoothSp3 = 0
+       AVHRRout%nsmoothSp4 = 0
+       AVHRRout%nsmoothSp5 = 0
+       AVHRRout%Interpolated = .FALSE.
+       AVHRRout%solar_contamination_failure = .FALSE.
+       AVHRRout%solar_contamination_3B = .FALSE.
+       AVHRRout%solar_contamination_4 = .FALSE.
+       AVHRRout%solar_contamination_5 = .FALSE.
+       AVHRRout%moon_contamination = .FALSE.
+       AVHRRout%new_array1 = NAN_R
+       AVHRRout%new_array2 = NAN_R
+       AVHRRout%new_array3A = NAN_R
+       AVHRRout%new_array3B = NAN_R
+       AVHRRout%new_array4 = NAN_R
+       AVHRRout%new_array5 = NAN_R
+       AVHRRout%new_array1_error = NAN_R
+       AVHRRout%new_array2_error = NAN_R
+       AVHRRout%new_array3A_error = NAN_R
+       AVHRRout%new_array3B_error = NAN_R
+       AVHRRout%new_array4_error = NAN_R
+       AVHRRout%new_array5_error = NAN_R
+       AVHRRout%noise_cnts = NAN_R
+       AVHRRout%noise_cnts_cal = NAN_R
+       IF( AVHRR%walton_there )THEN
+          AVHRRout%array3B_error = NAN_R
+          AVHRRout%array4_error = NAN_R
+          AVHRRout%array5_error = NAN_R
        ENDIF
+
+       AVHRRout%newCalibration_There = AVHRR%newCalibration_There
+       AVHRRout%orbital_temperature = AVHRR%orbital_temperature
+       AVHRRout%new_cal_coefs3 = AVHRR%new_cal_coefs3
+       AVHRRout%new_cal_coefs4 = AVHRR%new_cal_coefs4
+       AVHRRout%new_cal_coefs5 = AVHRR%new_cal_coefs5
+       AVHRRout%gain_stdev = AVHRR%gain_stdev
+       AVHRRout%earthshine_eta = AVHRR%earthshine_eta
+       AVHRRout%poly_coefs3 = AVHRR%poly_coefs3
+       AVHRRout%poly_coefs4 = AVHRR%poly_coefs4
+       AVHRRout%poly_coefs5 = AVHRR%poly_coefs5
+       AVHRRout%gain_maxdev = AVHRR%gain_maxdev
+
     ENDIF
 
     AVHRRout%isGAC = AVHRR%isGAC
@@ -1868,7 +1940,6 @@ CONTAINS
        ! If new calbration there
        !
        IF( alldata .and. AVHRR%newCalibration_There )THEN
-
           AVHRRout%new_calib3(:,K) = AVHRR%new_calib3(:,I)
           AVHRRout%new_calib4(:,K) = AVHRR%new_calib4(:,I)
           AVHRRout%new_calib5(:,K) = AVHRR%new_calib5(:,I)
@@ -1876,6 +1947,10 @@ CONTAINS
           AVHRRout%smoothPrt2(K) = AVHRR%smoothPrt2(I)
           AVHRRout%smoothPrt3(K) = AVHRR%smoothPrt3(I)
           AVHRRout%smoothPrt4(K) = AVHRR%smoothPrt4(I)
+          AVHRRout%nsmoothPrt1(K) = AVHRR%nsmoothPrt1(I)
+          AVHRRout%nsmoothPrt2(K) = AVHRR%nsmoothPrt2(I)
+          AVHRRout%nsmoothPrt3(K) = AVHRR%nsmoothPrt3(I)
+          AVHRRout%nsmoothPrt4(K) = AVHRR%nsmoothPrt4(I)
           AVHRRout%smoothPrt1Cnts(K) = AVHRR%smoothPrt1Cnts(I)
           AVHRRout%smoothPrt2Cnts(K) = AVHRR%smoothPrt2Cnts(I)
           AVHRRout%smoothPrt3Cnts(K) = AVHRR%smoothPrt3Cnts(I)
