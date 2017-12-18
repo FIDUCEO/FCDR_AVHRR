@@ -64,22 +64,24 @@ CONTAINS
     LOGICAL :: split_single_file
 
 !MT: 26-10-2017: extract list of input arguments: 
-    INTEGER :: i
-    CHARACTER(LEN=256) :: temp
-    nArgs = COMMAND_ARGUMENT_COUNT()
-    print *,'nArgs=',nArgs
-    DO i = 1,nArgs
-        CALL GET_COMMAND_ARGUMENT(i,temp,STATUS=stat)
-        print *,'inArgs=',temp
-    ENDDO
+!    INTEGER :: i
+!    CHARACTER(LEN=256) :: temp
+!    nArgs = COMMAND_ARGUMENT_COUNT()
+!    write(*,*)'nArgs=',nArgs
+!    DO i = 1,nArgs
+!        CALL GET_COMMAND_ARGUMENT(i,temp,STATUS=stat)
+!        write(*,*),'inArgs=',temp
+!    ENDDO
 
-!    IF( 14 .gt. nArgs .or. 19 .le. nArgs )THEN
-!       CALL Gbcs_Critical(.TRUE.,&
-!            'USAGE: ./extract_l1b_data.exe uuid outfile eq_year1 eq_month1 &
-!            &eq_day1 eq_hour1 eq_min1 eq_year2 eq_month2 eq_day2 eq_hour2 &
-!            &eq_min2 split_single file1 (file2) (file3) (file4) (file5)',&
-!            'Main','extract_l1b_data.f90')
-!    ENDIF
+    nArgs = COMMAND_ARGUMENT_COUNT()
+    IF( 14 .gt. nArgs .or. 19 .le. nArgs )THEN
+       write(*,*)'nArgs=',nArgs
+       CALL Gbcs_Critical(.TRUE.,&
+            'USAGE: ./extract_l1b_data.exe uuid outfile eq_year1 eq_month1 &
+            &eq_day1 eq_hour1 eq_min1 eq_year2 eq_month2 eq_day2 eq_hour2 &
+            &eq_min2 split_single file1 (file2) (file3) (file4) (file5)',&
+            'Main','extract_l1b_data.f90')
+    ENDIF
 
     CALL GET_COMMAND_ARGUMENT(1,uuid_in,STATUS=stat)
     IF( 0 .ne. stat )THEN

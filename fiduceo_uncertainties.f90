@@ -35,7 +35,7 @@
 ! MT: 11-11-2017: fix problem of value not filling array with 0.05 for u_structured_Ch3a
 ! MT: 13-11-2017: allocated nsmoothBB3,4,5 and nsmoothSp3,4,5 to AVHRRout data structure in combine_orbits.f90 so that the calculations don't fail 
 !
-! MT: 31-10-2017: v0.2pre 
+! MT: 11-12-2017: v0.3pre 
 !
 ! Note: Coefs data from CCI are ordered as
 !
@@ -148,7 +148,8 @@ MODULE fiduceo_uncertainties
   !
   ! This is where the FIDUCEO software version number is defined
   !
-  CHARACTER(LEN=6) :: software_version = '0.2pre'
+  ! MT: 11-12-2017: v0.3pre
+  CHARACTER(LEN=6) :: software_version = '0.3pre'
 
 ! MT: 11-11-2017: Define temp variables to store structured uncertainties on the reflectance channels
   REAL, ALLOCATABLE :: us1(:,:)
@@ -187,10 +188,6 @@ CONTAINS
     IF( .not. AVHRR%valid_data_there )THEN
        RETURN
     ENDIF
-
-!MT: 06-12-2017
-    write(*,*)'use_iasi_calibration=',use_iasi_calibration
-
     IF( PRESENT(use_iasi_calibration) )THEN
        use_iasi_cal = use_iasi_calibration
     ELSE
@@ -220,15 +217,15 @@ CONTAINS
 
 
 !MT: 06-12-2017: debugging ch3a & ch5
-    write(*,*)'IN: Add_FIDUCEO_Uncert'
-    write(*,*)'======================'
-    write(*,*)'twelve_micron_there=',twelve_micron_there
-    write(110,*)AVHRR%new_array1
-    write(120,*)AVHRR%new_array2
-    write(130,*)AVHRR%new_array3a
-    write(131,*)FCDR%btf3
-    write(140,*)FCDR%btf4
-    write(150,*)FCDR%btf5
+!    write(*,*)'IN: Add_FIDUCEO_Uncert'
+!    write(*,*)'======================'
+!    write(*,*)'twelve_micron_there=',twelve_micron_there
+!    write(100,*)AVHRR%new_array1
+!    write(200,*)AVHRR%new_array2
+!    write(300,*)AVHRR%new_array3a
+!    write(301,*)FCDR%btf3
+!    write(400,*)FCDR%btf4
+!    write(500,*)FCDR%btf5
 
     !
     ! write to NetCDF
@@ -242,7 +239,7 @@ CONTAINS
        command_fcdr ='python2.7 write_easy_fcdr_from_netcdf.py '//TRIM(temp_file)//' '//TRIM(filename_nc)
     ENDIF
     call SYSTEM(TRIM(command_fcdr))
-!       command_fcdr = 'rm -f '//TRIM(temp_file) !MT: 05-11-2017: comment to keep temp netcdf files
+       command_fcdr = 'rm -f '//TRIM(temp_file) !MT: 05-11-2017: comment to keep temp netcdf files
     call SYSTEM(TRIM(command_fcdr))
 !    print*, "remplissage"
 !    ! Which is French for "filling"
@@ -1673,12 +1670,12 @@ CONTAINS
        end if
 
 !MT: 06-12-2017: allocate ur5 and us5 first
-       ur5 = NAN_R
-       us5 = NAN_R
+!       ur5 = NAN_R
+!       us5 = NAN_R
 
        IF( twelve_micron_there )THEN
-!          ur5 = NAN_R
-!          us5 = NAN_R
+          ur5 = NAN_R
+          us5 = NAN_R
           !---Ch 5
           if ((FCDR%uce5(j,i) .ne. NAN_R) &
                .and. (FCDR%uce5(j,i) .gt. 0) &

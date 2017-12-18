@@ -1,3 +1,22 @@
+#!/usr/bin/env python2.7                                                                    
+
+# * Copyright (C) 2017 M.Taylor University of Reading                                       
+# * This code was developed for the EC project "Fidelity and Uncertainty in                 
+# * Climate Data Records from Earth Observations (FIDUCEO).                                 
+# * Grant Agreement: 638822                                                                 
+# *                                                                                         
+# * This program is free software; you can redistribute it and/or modify it                 
+# * under the terms of the GNU General Public License as published by the Free              
+# * Software Foundation; either version 3 of the License, or (at your option)               
+# * any later version.                                                                      
+# * This program is distributed in the hope that it will be useful, but WITHOUT             
+# * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or                   
+# * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for                
+# * more details.                                                                           
+# *                                                                                         
+# * A copy of the GNU General Public License should have been supplied along                
+# * with this program; if not, see http://www.gnu.org/licenses/                             
+
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,8 +27,10 @@ class read_data(object):
 
         if noise_type == 'independent':
             ntype = 1
-        else:
+        elif noise_type == 'structured':
             ntype = 2
+        elif noise_type == 'measurement':
+            ntype = 3
 
         if channel == 'Ch1':
             chan = 1
@@ -37,7 +58,7 @@ class read_data(object):
                 self.independent_ch4 = d
             elif 6 == chan:
                 self.independent_ch5 = d
-        else:
+        elif 2 == ntype:
             if 1 == chan:
                 self.structured_ch1 = d
             elif 2 == chan:
@@ -50,6 +71,19 @@ class read_data(object):
                 self.structured_ch4 = d
             elif 6 == chan:
                 self.structured_ch5 = d
+        elif 3 == ntype:
+            if 1 == chan:
+                self.measurement_ch1 = d
+            elif 2 == chan:
+                self.measurement_ch2 = d
+            elif 3 == chan:
+                self.measurement_ch3a = d
+            elif 4 == chan:
+                self.measurement_ch3b = d
+            elif 5 == chan:
+                self.measurement_ch4 = d
+            elif 6 == chan:
+                self.measurement_ch5 = d
 
     def file_length(self,filename):
 
@@ -79,12 +113,20 @@ class read_data(object):
         self.read_file(avhrr_name,'independent','Ch3b')
         self.read_file(avhrr_name,'independent','Ch4')
         self.read_file(avhrr_name,'independent','Ch5')
+
         self.read_file(avhrr_name,'structured','Ch1')
         self.read_file(avhrr_name,'structured','Ch2')
         self.read_file(avhrr_name,'structured','Ch3a')
         self.read_file(avhrr_name,'structured','Ch3b')
         self.read_file(avhrr_name,'structured','Ch4')
         self.read_file(avhrr_name,'structured','Ch5')
+
+        self.read_file(avhrr_name,'measurement','Ch1')
+        self.read_file(avhrr_name,'measurement','Ch2')
+        self.read_file(avhrr_name,'measurement','Ch3a')
+        self.read_file(avhrr_name,'measurement','Ch3b')
+        self.read_file(avhrr_name,'measurement','Ch4')
+        self.read_file(avhrr_name,'measurement','Ch5')
 
 def print_one(instr_name,chan_name,data):
 
@@ -103,6 +145,7 @@ def print_one(instr_name,chan_name,data):
         data['day'][indx[0]],\
         data['hour'][indx[0]],\
         data['minute'][indx[0]]
+
     minval = data['minval'][gd].min()
     gd = (data['maxval'] > 0)
     iindex = np.arange(len(data['maxval']),dtype=np.int32)    
@@ -187,6 +230,13 @@ def print_data(avhrr_name):
     print_one(avhrr_name,'Channel 3b (structured)',d.structured_ch3b)
     print_one(avhrr_name,'Channel 4  (structured)',d.structured_ch4)
     print_one(avhrr_name,'Channel 5  (structured)',d.structured_ch5)
+
+    print_one(avhrr_name,'Channel 1  (measurement)',d.measurement_ch1)
+    print_one(avhrr_name,'Channel 2  (measurement)',d.measurement_ch2)
+    print_one(avhrr_name,'Channel 3a (measurement)',d.measurement_ch3a)
+    print_one(avhrr_name,'Channel 3b (measurement)',d.measurement_ch3b)
+    print_one(avhrr_name,'Channel 4  (measurement)',d.measurement_ch4)
+    print_one(avhrr_name,'Channel 5  (measurement)',d.measurement_ch5)
 
 if __name__ == "__main__":
     print_data(sys.argv[1])

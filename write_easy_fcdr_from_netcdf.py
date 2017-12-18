@@ -32,12 +32,14 @@ from optparse import OptionParser
 class read_netcdf(object):
 
     def add_nan_values(self,values):
-        gd = np.isfinite(values) & (values < -1e20)
+        with np.errstate(invalid='ignore'):
+            gd = np.isfinite(values) & (values < -1e20)
         if np.sum(gd) > 0:
             values[gd] = np.NaN
 
     def scale_values(self,values):
-        gd = (values > -1e20) & np.isfinite(values)
+        with np.errstate(invalid='ignore'):
+            gd = (values > -1e20) & np.isfinite(values)
         if np.sum(gd) > 0:
             values[gd] = values[gd]*100.
 

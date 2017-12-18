@@ -476,10 +476,8 @@ class tle_data(object):
 def __get_filelist(low_time,high_time,avhrr_dir_name):
 
     # MT: 24-10-2017: Import local ECTs to implement additional logical processing
-    # MT: -----
     ect1_time = low_time + datetime.timedelta(seconds=5400) 
     ect2_time = high_time - datetime.timedelta(seconds=5400)
-    # MT: -----
 
     # Make directory name
     dir_name_list = '/group_workspaces/cems2/esacci_sst/input/avhrr/l1b/{0}/v1/{1:04d}/{2:02d}/{3:02d}/NSS.*'.\
