@@ -1,0 +1,1 @@
+bjobs -u all -q short-serial | grep PEND | sed -e 's/ \s*/ /g' | cut -d' ' -f2 | sort | uniq -c | sort -n 
