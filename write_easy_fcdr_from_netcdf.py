@@ -238,7 +238,8 @@ def main(file_in,fileout='None'):
     # Not writing to the whole array is completely OK
     dataset.variables["latitude"].data = data.lat
     dataset.variables["longitude"].data = data.lon
-    dataset.variables["Time"].data = data.time
+# MT: 19-12-2017: changed time variable to lower case (in line with analogous change in writer)
+    dataset.variables["time"].data = data.time
     dataset.variables["satellite_zenith_angle"].data = data.satza
     dataset.variables["solar_zenith_angle"].data = data.solza
     dataset.variables["relative_azimuth_angle"].data = data.relaz
