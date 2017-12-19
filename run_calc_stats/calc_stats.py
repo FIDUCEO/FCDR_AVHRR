@@ -260,15 +260,17 @@ def main():
             i_var = measurement_Ch5[:,:]
 
         stat_array[i-1,0]  = i                                   # variable
-# MT: 03-12-2017: Calculation of fraction of good data
+# MT: 03-12-2017: Calculation of nan fraction
         gd = np.isfinite(i_var)
-        bd = ~np.isfinite(i_var)
-        n_gd = len(gd)
-        n_bd = len(bd)
-        n_i_var = n_gd + n_bd
+        n1 = np.sum(~np.isnan(i_var))
+        n2 = np.sum(np.isnan(i_var))
+
+#        print 'len(gd)=',n1
+#        print 'len(bd)==',n2
+
         if np.sum(gd) > 1000:
 #            stat_array[i-1,1]  = len(i_var[gd].flatten())       
-            stat_array[i-1,1]  = n_gd                            # N
+            stat_array[i-1,1]  = n1                              # N
             stat_array[i-1,2]  = np.min(i_var[gd])               # min
             stat_array[i-1,3]  = np.max(i_var[gd])               # max
             stat_array[i-1,4]  = np.sum(i_var[gd])               # sum
@@ -277,12 +279,12 @@ def main():
             stat_array[i-1,7]  = np.std(i_var[gd])               # st. dev.
             stat_array[i-1,8]  = np.var(i_var[gd])               # variance
             stat_array[i-1,9]  = np.percentile(i_var[gd], 25)    # Q1
+# MT: 21-11-2017: Use Q2 for median
             stat_array[i-1,10]  = np.percentile(i_var[gd], 50)   # Q2
-# MT: 21-11-2017: Add number of NaN as a fraction of vector length
 #            stat_array[i-1,10] = np.median(i_var[gd])           # median
             stat_array[i-1,11] = np.percentile(i_var[gd], 75)    # Q3
-# MT: 21-11-2017: Add fraction of good data
-            stat_array[i-1,12] = n_gd*1./n_i_var                 # N (good data fraction)
+# MT: 21-11-2017: Add nan fraction
+            stat_array[i-1,12] = n2*1./(n1+n2)                   # N (good data fraction)
 
 # Use numpy write to txt
     i=0

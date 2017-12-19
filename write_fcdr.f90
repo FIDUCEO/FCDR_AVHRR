@@ -15,7 +15,8 @@
 ! * A copy of the GNU General Public License should have been supplied along
 ! * with this program; if not, see http://www.gnu.org/licenses/
 ! * ---------------------------------------------------------------------------
-! * MT: 16-11-2017: fix for excess nArgs now applied in equator_to_equator.py
+
+! * MT: 16-11-2017: fix for excess nArgs due to repeat orbits now applied in equator_to_equator.py
 
 PROGRAM Extract_L1b_Data
 

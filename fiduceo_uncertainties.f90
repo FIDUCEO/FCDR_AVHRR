@@ -34,8 +34,7 @@
 ! MT: 11-11-2017: fix problem of value not filling array with 0.05 for u_structured_Ch2
 ! MT: 11-11-2017: fix problem of value not filling array with 0.05 for u_structured_Ch3a
 ! MT: 13-11-2017: allocated nsmoothBB3,4,5 and nsmoothSp3,4,5 to AVHRRout data structure in combine_orbits.f90 so that the calculations don't fail 
-!
-! MT: 11-12-2017: v0.3pre 
+! MT: 19-12-2017: v0.3pre 
 !
 ! Note: Coefs data from CCI are ordered as
 !
@@ -148,8 +147,8 @@ MODULE fiduceo_uncertainties
   !
   ! This is where the FIDUCEO software version number is defined
   !
-  ! MT: 11-12-2017: v0.3pre
-  CHARACTER(LEN=6) :: software_version = '0.3pre'
+  ! MT: 19-12-2017: v0.3pre
+  CHARACTER(LEN=6) :: software_version = '0.4pre'
 
 ! MT: 11-11-2017: Define temp variables to store structured uncertainties on the reflectance channels
   REAL, ALLOCATABLE :: us1(:,:)
@@ -214,19 +213,6 @@ CONTAINS
     ! Get Quality flags
     !
     CALL Get_Quality_Flags(AVHRR,FCDR)
-
-
-!MT: 06-12-2017: debugging ch3a & ch5
-!    write(*,*)'IN: Add_FIDUCEO_Uncert'
-!    write(*,*)'======================'
-!    write(*,*)'twelve_micron_there=',twelve_micron_there
-!    write(100,*)AVHRR%new_array1
-!    write(200,*)AVHRR%new_array2
-!    write(300,*)AVHRR%new_array3a
-!    write(301,*)FCDR%btf3
-!    write(400,*)FCDR%btf4
-!    write(500,*)FCDR%btf5
-
     !
     ! write to NetCDF
     !

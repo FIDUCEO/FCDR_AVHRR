@@ -23,8 +23,10 @@
 ! * MT: 24-10-2017: fix reversed logic in Resize_orbit_equator
 ! * MT: 11-11-2017: added allocation of nmoothBB3,4,5 to fix error caused by their absence in fiduceo_uncertainties.f90
 ! * MT: 11-11-2017: added allocation of nmoothSp3,4,5 to fix error caused by their absence in fiduceo_uncertainties.f90
+! * MT: 08-12-2017: added allocation of nsmoothPRT1,2,3,4 to fix error caused by their absence in fiduceo_uncertainties.f90
 ! * MT: 11-11-2017: write nmoothBB3,4,5 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
 ! * MT: 11-11-2017: write nmoothSp3,4,5 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
+! * MT: 08-12-2017: write nmoothPrt1,2,3,4 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
 ! * MT: 11-12-2017: fix case of sub-orbit segments in Resize_orbit_equator
 
 MODULE Combine_Orbits
