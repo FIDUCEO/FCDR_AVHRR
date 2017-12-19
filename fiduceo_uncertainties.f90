@@ -2034,7 +2034,8 @@ CONTAINS
     call check(nf90_inq_varid(ncid,"solar_zenith_angle",solza_varid))
     call check( nf90_put_var(ncid, solza_varid,  AVHRR%solZA) )
     print*, "time"
-    call check(nf90_inq_varid(ncid,"Time",time_varid))
+!MT: 19-12-2017: "Time" changed to "time" in writer
+    call check(nf90_inq_varid(ncid,"time",time_varid))
     call check( nf90_put_var(ncid, time_varid,  AVHRR%time))! start = start_1, count = count_1) )
     print*, "radiances and BT"
     call check(nf90_inq_varid(ncid,"Ch1_Ref",ch1_ref_varid))

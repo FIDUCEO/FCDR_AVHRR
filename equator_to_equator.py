@@ -573,7 +573,7 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
     except:
         pass
     try:
-        os.symlink('/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/git_version/FCDR_AVHRR/write_easy_fcdr_from_netcdf.py','write_easy_fcdr_from_netcdf.py')
+        os.symlink('/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/write_easy_fcdr_from_netcdf.py','write_easy_fcdr_from_netcdf.py')
     except:
         pass
     try:
