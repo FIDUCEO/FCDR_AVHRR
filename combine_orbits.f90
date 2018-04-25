@@ -18,16 +18,17 @@
 ! *  Module to combine three AVHRR orbits to create one 'good' orbit
 ! * equator to equator
 !
-! * MODIFIED VERSION: M.Taylor University of Reading
-! * MT: 20-10-2017: 'between file3 and file4' --> 'between file4 and file5'
-! * MT: 24-10-2017: fix reversed logic in Resize_orbit_equator
-! * MT: 11-11-2017: added allocation of nmoothBB3,4,5 to fix error caused by their absence in fiduceo_uncertainties.f90
-! * MT: 11-11-2017: added allocation of nmoothSp3,4,5 to fix error caused by their absence in fiduceo_uncertainties.f90
-! * MT: 08-12-2017: added allocation of nsmoothPRT1,2,3,4 to fix error caused by their absence in fiduceo_uncertainties.f90
-! * MT: 11-11-2017: write nmoothBB3,4,5 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
-! * MT: 11-11-2017: write nmoothSp3,4,5 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
-! * MT: 08-12-2017: write nmoothPrt1,2,3,4 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
-! * MT: 11-12-2017: fix case of sub-orbit segments in Resize_orbit_equator
+! MODIFIED VERSION: M.Taylor University of Reading
+! MT: 20-10-2017: 'between file3 and file4' --> 'between file4 and file5'
+! MT: 24-10-2017: fix reversed logic in Resize_orbit_equator
+! MT: 11-11-2017: added allocation of nmoothBB3,4,5 to fix error caused by their absence in fiduceo_uncertainties.f90
+! MT: 11-11-2017: added allocation of nmoothSp3,4,5 to fix error caused by their absence in fiduceo_uncertainties.f90
+! MT: 08-12-2017: added allocation of nsmoothPRT1,2,3,4 to fix error caused by their absence in fiduceo_uncertainties.f90
+! MT: 11-11-2017: write nmoothBB3,4,5 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
+! MT: 11-11-2017: write nmoothSp3,4,5 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
+! MT: 08-12-2017: write nmoothPrt1,2,3,4 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
+! MT: 11-12-2017: fix case of sub-orbit segments in Resize_orbit_equator
+! MT: 09-03-2018: PyGAC geolocation
 
 MODULE Combine_Orbits
   
@@ -38,6 +39,10 @@ MODULE Combine_Orbits
   USE GbcsDateTime
   USE NOAA_LoadAVHRRLevel1B
   USE fiduceo_uncertainties
+
+! MT: routines for handling PyGAC .h5 output files containing updated geolocation
+  USE NETCDF
+  USE HDF5
 
   IMPLICIT NONE
 
@@ -2020,9 +2025,21 @@ CONTAINS
     REAL :: coefs3(7)
     LOGICAL :: remove_file
 
-    !
+    ! PyGAC geolocation variables
+!    CHARACTER(LEN = 48) :: filename
+!    INTEGER :: hh1,hh2,mm1,mm2,ss1,ss2
+!    CHARACTER(LEN = 6) pygac_starttime,pygac_endtime
+!    LOGICAL :: scanline_common
+!    INTEGER :: pygac_scanlinenumber
+!    CHARACTER(LEN = 72) pygac_sunsatangles
+!    CHARACTER(LEN = 69) pygac_qualflags
+!    REAL :: data,pygac_hours,pygac_scanstart,pygac_scanend
+!    REAL :: pygac_Lat,pygac_Lon
+!    REAL :: pygac_relAz,pygac_satAz,pygac_satZa,pygac_solAz,pygac_solZa
+!    INTEGER :: ncid,varid,pygac_missing_scanlines
+!    INTEGER :: ndims_in, nvars_in, ngatts_in, unlimdimid_in
+    
     ! Check to see if we need to uncompress the data
-    !
     remove_file=.FALSE.
     IF( 0 .ne. INDEX(infile,'.gz') )THEN
        WRITE(command_str,'(''cp -f '',a,'' temp_file.'',a,''.gz'')')&
@@ -2053,6 +2070,90 @@ CONTAINS
 
     CALL Load_Imagery(IMG,outputData=AVHRR,use_new_calibration=.FALSE.,&
          out_instr_coefs=out_instr_coefs,use_walton=.FALSE.)
+
+!MT: 19-02-2018: Geolocation update using mapping of PyGAC outputs
+! load the PyGAC qualflags and sunsatangles .h5 files   
+! for intersection of L1B and PyGAC scanLineNumber: 
+! 1) overwrite Lat, Lon in AVHRR_Data
+! 2) overwrite angles in AVHRR_Data 
+! 3) overwrite extracted YYYY, DOY, and calculated UTC_msecs --> hours = UTC_msecs/3600/1000, and time
+! 4) for intersection of L1B and PyGAC scanLineNumber: overwrite Lat, Lon and angles in AVHRR_Data
+! 5) for setdiff of L1B and PyGAC scanLineNumber: set all the above [variables] to _fillValue
+! 6) for PyGAC 'missing_scanlines': set _fillValue
+! 7) for case when PyGAC passes BT data, we also need intersection between L1B _fillValue and scanline_common
+
+!    CALL Get_Pygac(IMG,outputData=AVHRR)
+!    filename = "noaa18_99999_20070412T1108314Z_20070412T1254559Z"
+!    pygac_qualflags = trim("ECC_GAC_qualflags_") // trim(filename) // trim(".h5")
+!    pygac_sunsatangles = trim("ECC_GAC_sunsatangles_") // trim(filename) // trim(".h5") 
+
+!NF90_OPEN               ! open existing netCDF dataset
+!   NF90_INQ_DIMID       ! get dimension IDs
+!   NF90_INQ_VARID       ! get variable IDs
+!   NF90_GET_ATT         ! get attribute values
+!   NF90_GET_VAR         ! get values of variables
+!NF90_CLOSE              ! close netCDF dataset
+
+!call check( NF90_OPEN(pygac_qualflags, NF90_nowrite, ncid) )
+!print *,"ncid=",ncid
+!call check( NF90_INQ_VARID(ncid, "qual_flags", varid) )
+!call check( NF90_GET_VAR(ncid, varid, pygac_starttime) )
+!call check( NF90_GET_ATT(ncid, varid, "starttime", pygac_starttime) )
+!print *,"pygac_starttime=",pygac_starttime
+!print *,"SUCCESS reading ", pygac_qualflags
+!call check( NF90_CLOSE(ncid) )
+
+!call check( NF90_GET_ATT(ncid, NF90_GLOBAL, "starttime", pygac_starttime) )
+!call check( NF90_GET_ATT(ncid, NF90_GLOBAL, "starttime", pygac_endtime) )
+!call check( NF90_GET_ATT(ncid, NF90_GLOBAL, "missing_scanlines", pygac_missing_scanlines) )
+!call check( NF90_GET_ATT(ncid, NF90_GLOBAL, "data", pygac_scanlinenumber) )
+
+!write(900,*)'pygac_starttime=',pygac_starttime
+
+!call check( NF90_OPEN(pygac_sunsatangles, NF90_nowrite, ncid) )
+!pygac_starttime = TRIM(pygac_starttime)
+!pygac_endtime = TRIM(pygac_endtime)
+
+!read (pygac_starttime(1:2),'(I2)') hh1
+!read (pygac_starttime(3:4),'(I2)') mm1
+!read (pygac_starttime(5:6),'(I2)') ss1
+!read (pygac_endtime(1:2),'(I2)') hh2
+!read (pygac_endtime(3:4),'(I2)') mm2
+!read (pygac_endtime(5:6),'(I2)') ss2
+
+!pygac_scanstart = hh1+(mm1*60.0+ss1)/3600.0
+!pygac_scanend = hh2+(mm2*60.0+ss2)/3600.0
+!pygac_scanlinenumber = data(:,1)
+!pygac_hours = pygac_scanstart + (pygac_scanlinenumber - 1) * 0.5/3600
+!pygac_hours[pygac_hours < -30000.0] = nan
+
+!stat = NF90_GET_ATT(ncid2, NF90_GLOBAL, "image1", pygac_solZa)
+!call check(stat)
+!stat = NF90_GET_ATT(ncid2, NF90_GLOBAL, "image2", pygac_satZa)
+!call check(stat)
+!stat = NF90_GET_ATT(ncid2, NF90_GLOBAL, "image3", pygac_relAz)
+!call check(stat)
+!stat = NF90_GET_ATT(ncid2, NF90_GLOBAL, "image4", pygac_solAz)
+!call check(stat)
+!stat = NF90_GET_ATT(ncid2, NF90_GLOBAL, "image5", pygac_satAz)
+!call check(stat)
+!stat = NF90_GET_ATT(ncid2, NF90_GLOBAL, "lat", pygac_Lat)
+!call check(stat)
+!stat = NF90_GET_ATT(ncid2, NF90_GLOBAL, "lon", pygac_Lon)
+!call check(stat)
+
+!pygac_solZa = p_angles['image1']['data'][...].astype('f8')
+!pygac_satZa = p_angles['image2']['data'][...].astype('f8')
+!pygac_relAz = p_angles['image3']['data'][...].astype('f8')
+!pygac_solAz = p_angles['image4']['data'][...].astype('f8')
+!pygac_satAz = p_angles['image5']['data'][...].astype('f8')
+!pygac_lat = p_angles['where']['lat']['data'].value 
+!pygac_lon = p_angles['where']['lon']['data'].value 
+
+!scanline_common = (AVHRR%scanLineNumber == pygac_scanlinenumber)  ! boolean vector result  (/ F, T, T, F, ...  /)
+
+!write(901,*)pygac_scanstart
+!write(902,*)pygac_scanend
 
     IF( remove_file )THEN
        WRITE(command_str,'(''rm -f temp_file.'',a)')&
@@ -2088,5 +2189,16 @@ CONTAINS
 
   END FUNCTION isNaN_Real
 
+  SUBROUTINE check(stat)
+    
+    INTEGER, INTENT (IN) :: stat
+    IF(stat /= nf90_noerr) THEN
+      print *, TRIM(nf90_strerror(stat))
+      stop "Stopped"
+    END IF
+
+  END SUBROUTINE check
+
 END MODULE Combine_Orbits
+
 

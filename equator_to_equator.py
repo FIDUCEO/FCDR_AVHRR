@@ -634,6 +634,7 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
         fp.write(newstr)
 
         for j in range(len(filelist)):
+# MT: 12-04-2018: keep temp files for uncertainty component analysis
             newstr = 'rm -f '+outfile_stem[j]+'*\n'
             fp.write(newstr)
 #        fp.write('rm -f *.h5')

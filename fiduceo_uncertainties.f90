@@ -35,6 +35,7 @@
 ! MT: 11-11-2017: fix problem of value not filling array with 0.05 for u_structured_Ch3a
 ! MT: 13-11-2017: allocated nsmoothBB3,4,5 and nsmoothSp3,4,5 to AVHRRout data structure in combine_orbits.f90 so that the calculations don't fail 
 ! MT: 19-12-2017: v0.3pre 
+! MT: 09-03-2018: v0.5beta 
 !
 ! Note: Coefs data from CCI are ordered as
 !
@@ -148,7 +149,8 @@ MODULE fiduceo_uncertainties
   ! This is where the FIDUCEO software version number is defined
   !
   ! MT: 19-12-2017: v0.3pre
-  CHARACTER(LEN=6) :: software_version = '0.4pre'
+  ! MT: 09-03-2018: v0.5beta
+  CHARACTER(LEN=6) :: software_version = '0.5pre'
 
 ! MT: 11-11-2017: Define temp variables to store structured uncertainties on the reflectance channels
   REAL, ALLOCATABLE :: us1(:,:)
@@ -227,8 +229,8 @@ CONTAINS
     call SYSTEM(TRIM(command_fcdr))
        command_fcdr = 'rm -f '//TRIM(temp_file) !MT: 05-11-2017: comment to keep temp netcdf files
     call SYSTEM(TRIM(command_fcdr))
-!    print*, "remplissage"
-!    ! Which is French for "filling"
+    print*, "remplissage"
+!   Which is French for "filling"
 !    call fill_netcdf(filename_nc,AVHRR,FCDR)
 
   END SUBROUTINE Add_FIDUCEO_Uncert
