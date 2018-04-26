@@ -1,4 +1,4 @@
-# * Copyright (C) 2017 M.Taylor University of Reading                           
+# * Copyright (C) 2018 M.Taylor University of Reading                           
 # * This code was developed for the EC project "Fidelity and Uncertainty in     
 # * Climate Data Records from Earth Observations (FIDUCEO).                     
 # * Grant Agreement: 638822                                                     
