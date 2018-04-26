@@ -219,6 +219,11 @@ CONTAINS
     ! write to NetCDF
     !
     temp_file=TRIM(uuid_in)//'.nc'
+    print *,'**************************************************'
+    print *,'Writing temporary file'
+    print *,TRIM(filename_nc)
+    print *,TRIM(temp_file)
+    print *,'**************************************************'
     CALL Write_Temp_NETCDF(temp_file,AVHRR,FCDR,twelve_micron_there)
 !    CALL Rescale(AVHRR,FCDR)
     IF( 'None' .eq. filename_nc )THEN
@@ -227,8 +232,8 @@ CONTAINS
        command_fcdr ='python2.7 write_easy_fcdr_from_netcdf.py '//TRIM(temp_file)//' '//TRIM(filename_nc)
     ENDIF
     call SYSTEM(TRIM(command_fcdr))
-       command_fcdr = 'rm -f '//TRIM(temp_file) !MT: 05-11-2017: comment to keep temp netcdf files
-    call SYSTEM(TRIM(command_fcdr))
+!    command_fcdr = 'rm -f '//TRIM(temp_file) !MT: 05-11-2017: comment to keep temp netcdf files
+!    call SYSTEM(TRIM(command_fcdr))
     print*, "remplissage"
 !   Which is French for "filling"
 !    call fill_netcdf(filename_nc,AVHRR,FCDR)
@@ -1183,13 +1188,13 @@ CONTAINS
     ! average_per_orbite code
     !
     IF( outData%smoothPRT(i) .ne. NAN_R .and. outData%smoothPRT(i) .gt. 0. )THEN
-       FCDR%Rict_c3(i) = convertRadiance(outData%smoothPRT(i), coefs1(5,1), &
-            coefs1(6,1), coefs1(7,1))
-       FCDR%Rict_c4(i) = convertRadiance(outData%smoothPRT(i), coefs2(5,1), &
-            coefs2(6,1), coefs2(7,1))
+       FCDR%Rict_c3(i) = convertRadiance(outData%smoothPRT(i), DBLE(coefs1(5,1)), &
+            DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
+       FCDR%Rict_c4(i) = convertRadiance(outData%smoothPRT(i), DBLE(coefs2(5,1)), &
+            DBLE(coefs2(6,1)), DBLE(coefs2(7,1)))
        IF( twelve_micron_there )THEN
-          FCDR%Rict_c5(i) = convertRadiance(outData%smoothPRT(i), coefs3(5,1), &
-               coefs3(6,1), coefs3(7,1))
+          FCDR%Rict_c5(i) = convertRadiance(outData%smoothPRT(i), DBLE(coefs3(5,1)), &
+               DBLE(coefs3(6,1)), DBLE(coefs3(7,1)))
        ENDIF
     ENDIF
 
@@ -1697,13 +1702,13 @@ CONTAINS
        !---FIDUCEO : on convertit les radiances en BT
        if  ((outData%new_array3B(j,i) .gt. 0).and. (outData%new_array3B(j,i) .ne. NAN_R) &
             .and. ur3 .ne. NAN_R .and. us3 .ne. NAN_R ) then
-          FCDR%btf3(j,i)=convertBT(outData%new_array3B(j,i),coefs1(5,1), coefs1(6,1), coefs1(7,1))
+          FCDR%btf3(j,i)=convertBT(outData%new_array3B(j,i),DBLE(coefs1(5,1)), DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
           nrmax3=outData%new_array3B(j,i)+ur3
-          trmax3=convertBT(nrmax3,coefs1(5,1), coefs1(6,1), coefs1(7,1))
+          trmax3=convertBT(nrmax3,DBLE(coefs1(5,1)), DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
           nrmin3=outData%new_array3B(j,i)-ur3
           two_sigma = outData%new_array3B(j,i)-2*ur3
           if( two_sigma .gt. 0. )then
-             trmin3=convertBT(nrmin3,coefs1(5,1), coefs1(6,1), coefs1(7,1))
+             trmin3=convertBT(nrmin3,DBLE(coefs1(5,1)), DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
              FCDR%ur3(j,i)=(trmax3-trmin3)/2.
           else
 !             FCDR%ur3(j,i) = trmax3-FCDR%btf3(j,i)
@@ -1717,9 +1722,9 @@ CONTAINS
           nsmax3=outData%new_array3B(j,i)+us3
           nsmin3=outData%new_array3B(j,i)-us3
           two_sigma = outData%new_array3B(j,i)-2*us3
-          tsmax3=convertBT(nsmax3,coefs1(5,1), coefs1(6,1), coefs1(7,1))
+          tsmax3=convertBT(nsmax3,DBLE(coefs1(5,1)), DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
           if( two_sigma .gt. 0. .and. NAN_R .ne. FCDR%ur3(j,i) )then
-             tsmin3=convertBT(nsmin3,coefs1(5,1), coefs1(6,1), coefs1(7,1))
+             tsmin3=convertBT(nsmin3,DBLE(coefs1(5,1)), DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
              FCDR%us3(j,i)=(tsmax3-tsmin3)/2.
           else
 !             FCDR%us3(j,i) = tsmax3-FCDR%btf3(j,i)
@@ -1733,13 +1738,13 @@ CONTAINS
 
        if  ((outData%new_array4(j,i) .gt. 0).and.(outData%new_array4(j,i) .ne. NAN_R) &
             .and. ur4 .ne. NAN_R .and. us4 .ne. NAN_R ) then
-          FCDR%btf4(j,i)=convertBT(outdata%new_array4(j,i),coefs2(5,1), coefs2(6,1), coefs2(7,1))
+          FCDR%btf4(j,i)=convertBT(outdata%new_array4(j,i),DBLE(coefs2(5,1)), DBLE(coefs2(6,1)), DBLE(coefs2(7,1)))
           nrmax4=outdata%new_array4(j,i)+ur4 
-          trmax4=convertBT(nrmax4,coefs2(5,1), coefs2(6,1), coefs2(7,1))
+          trmax4=convertBT(nrmax4,DBLE(coefs2(5,1)), DBLE(coefs2(6,1)), DBLE(coefs2(7,1)))
           nrmin4=outdata%new_array4(j,i)-ur4
           two_sigma = outdata%new_array4(j,i)-2*ur4
           if( two_sigma .gt. 0 )then
-             trmin4=convertBT(nrmin4,coefs2(5,1), coefs2(6,1), coefs2(7,1))
+             trmin4=convertBT(nrmin4,DBLE(coefs2(5,1)), DBLE(coefs2(6,1)), DBLE(coefs2(7,1)))
              FCDR%ur4(j,i)=(trmax4-trmin4)/2.
           else
 !             FCDR%ur4(j,i)=trmax4-FCDR%btf4(j,i)
@@ -1750,11 +1755,11 @@ CONTAINS
              FCDR%btf4(j,i) = NAN_R
           endif
           nsmax4=outdata%new_array4(j,i)+us4
-          tsmax4=convertBT(nsmax4,coefs2(5,1), coefs2(6,1), coefs2(7,1))
+          tsmax4=convertBT(nsmax4,DBLE(coefs2(5,1)), DBLE(coefs2(6,1)), DBLE(coefs2(7,1)))
           nsmin4=outdata%new_array4(j,i)-us4
           two_sigma = outdata%new_array4(j,i)-2*us4
           if( two_sigma .gt. 0  .and. NAN_R .ne. FCDR%ur4(j,i) )then
-             tsmin4=convertBT(nsmin4,coefs2(5,1), coefs2(6,1), coefs2(7,1))
+             tsmin4=convertBT(nsmin4,DBLE(coefs2(5,1)), DBLE(coefs2(6,1)), DBLE(coefs2(7,1)))
              FCDR%us4(j,i)=(tsmax4-tsmin4)/2.
           else
 !             FCDR%us4(j,i)=tsmax4-FCDR%btf4(j,i)
@@ -1769,14 +1774,14 @@ CONTAINS
        IF( twelve_micron_there )THEN
           if  ((outData%new_array5(j,i) .gt. 0).and. (outData%new_array5(j,i) .ne. NAN_R) &
                .and. ur5 .ne. NAN_R .and. us5 .ne. NAN_R ) then
-             FCDR%btf5(j,i)=convertBT(outdata%new_array5(j,i),coefs3(5,1), coefs3(6,1), coefs3(7,1))
+             FCDR%btf5(j,i)=convertBT(outdata%new_array5(j,i),DBLE(coefs3(5,1)), DBLE(coefs3(6,1)), DBLE(coefs3(7,1)))
              nrmax5=outdata%new_array5(j,i)+ur5
-             trmax5=convertBT(nrmax5,coefs3(5,1), coefs3(6,1), coefs3(7,1))
+             trmax5=convertBT(nrmax5,DBLE(coefs3(5,1)), DBLE(coefs3(6,1)), DBLE(coefs3(7,1)))
              nrmin5=outdata%new_array5(j,i)-ur5
-             trmin5=convertBT(nrmin5,coefs3(5,1), coefs3(6,1), coefs3(7,1))
+             trmin5=convertBT(nrmin5,DBLE(coefs3(5,1)), DBLE(coefs3(6,1)), DBLE(coefs3(7,1)))
              two_sigma = outdata%new_array5(j,i)-2*ur5
              if( two_sigma .gt. 0 )then
-                trmin5=convertBT(nrmin5,coefs3(5,1), coefs3(6,1), coefs3(7,1))
+                trmin5=convertBT(nrmin5,DBLE(coefs3(5,1)), DBLE(coefs3(6,1)), DBLE(coefs3(7,1)))
                 FCDR%ur5(j,i)=(trmax5-trmin5)/2.
              else
 !                FCDR%ur5(j,i)=trmax5-FCDR%btf5(j,i)
@@ -1787,11 +1792,11 @@ CONTAINS
                 FCDR%btf5(j,i) = NAN_R
              endif
              nsmax5=outdata%new_array5(j,i)+us5
-             tsmax5=convertBT(nsmax5,coefs3(5,1), coefs3(6,1), coefs3(7,1))
+             tsmax5=convertBT(nsmax5,DBLE(coefs3(5,1)), DBLE(coefs3(6,1)), DBLE(coefs3(7,1)))
              nsmin5=outdata%new_array5(j,i)-us5
              two_sigma = outdata%new_array5(j,i)-2*us5
              if( two_sigma .gt. 0  .and. NAN_R .ne. FCDR%ur5(j,i) )then
-                tsmin5=convertBT(nsmin5,coefs3(5,1), coefs3(6,1), coefs3(7,1))
+                tsmin5=convertBT(nsmin5,DBLE(coefs3(5,1)), DBLE(coefs3(6,1)), DBLE(coefs3(7,1)))
                 FCDR%us5(j,i)=(tsmax5-tsmin5)/2.
              else
 !                FCDR%us5(j,i)=tsmax5-FCDR%btf5(j,i)
