@@ -17,15 +17,15 @@
 # * A copy of the GNU General Public License should have been supplied along                
 # * with this program; if not, see http://www.gnu.org/licenses/                             
 
-# call as: python2.7 quickplot_ascii.py filename, column
+# call as: python2.7 quickplot_dat.py filename
 
-# =======================================
-# PLOT stats over orbit series
-# =======================================
-# Version 1.0
+# ==================================================
+# PLOT 5-point stats for each orbit in sensor series
+# ==================================================
+# Version 0.1
 # 14 December, 2017
 # michael.taylor AT reading DOT ac DOT uk
-# =======================================
+# ==================================================
 
 from  optparse import OptionParser 
 import numpy as np
@@ -95,18 +95,14 @@ def plot_stats(dataset,filename):
     plt.xlabel('Orbit')
     plt.ylabel('Value')
     plt.legend(labels, ncol=4, loc='upper center', columnspacing=1.0, labelspacing=0.0, handletextpad=0.0, handlelength=1.5, fancybox=True, shadow=True)
-#    plt.legend(labels, ncol=4, loc='upper center', bbox_to_anchor=[0.5, 1.1], columnspacing=1.0, labelspacing=0.0, handletextpad=0.0, handlelength=1.5, fancybox=True, shadow=True)
     plt.title(filename)
-#    plt.show()
     plt.savefig('stats_'+filename+'.png')
 
 if __name__ == "__main__":
 
-#    parser = OptionParser('usage: %filename column')
     parser = OptionParser('usage: %filename')
     (options, args) = parser.parse_args()
     filename = args[0]
-#    column = int(args[1])
 
     f = open(filename, 'r') 
     dataset = f.readlines() 
