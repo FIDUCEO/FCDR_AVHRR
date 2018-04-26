@@ -1237,15 +1237,23 @@ CONTAINS
        !
        ! Make sure radiances are output as Marines code expects this
        !
+       IF( walton_cal )THEN
+          CALL Setup_Walton( IMG, AVHRR, walton_str, srfonly=.TRUE.)
+       ENDIF
        pAVHRR => AVHRR
-       CALL Recalibrate_AVHRR(IMG,instr_coefs,pAVHRR,out_radiances=.TRUE.,&
+       CALL Recalibrate_AVHRR(IMG,instr_coefs,pAVHRR,.TRUE.,walton_str,&
             moon_events=.TRUE.,&
             correct_solar_simple=.TRUE.,new_vis_cal=.TRUE.,&
             noise_orbit=.TRUE.,filter_counts=.TRUE.,filter_prt=.TRUE.,&
             dig_noise=.TRUE.,all_noise=.TRUE.)
        
        IF( walton_cal )THEN
-          CALL Calibration_Walton(IMG,AVHRR,.TRUE.,1.,walton_str,walton_cal)
+          CALL Setup_Walton( IMG, AVHRR, walton_str,&
+               scenet_all_instr=.FALSE.,&
+               apply_scenet_bias=.FALSE.)
+          CALL Calibration_Walton(IMG,AVHRR,.TRUE.,1.,&
+               walton_str,.FALSE.,.FALSE.,ict_tinstr=.FALSE.,&
+               apply_scenet_bias=.FALSE.)
        ENDIF
        !
        ! Resize to output
@@ -1264,15 +1272,22 @@ CONTAINS
        !
        ! Make sure radiances are output as Marines code expects this
        !
+       IF( walton_cal )THEN
+          CALL Setup_Walton( IMG, AVHRR, walton_str, srfonly=.TRUE.)
+       ENDIF
        pAVHRR => AVHRR_Total
-       CALL Recalibrate_AVHRR(IMG,instr_coefs,pAVHRR,out_radiances=.TRUE.,&
+       CALL Recalibrate_AVHRR(IMG,instr_coefs,pAVHRR,.TRUE.,walton_str,&
             moon_events=.TRUE.,&
             correct_solar_simple=.TRUE.,new_vis_cal=.TRUE.,&
             noise_orbit=.TRUE.,filter_counts=.TRUE.,filter_prt=.TRUE.,&
             dig_noise=.TRUE.,all_noise=.TRUE.)       
        IF( walton_cal )THEN
-          CALL Calibration_Walton(IMG,AVHRR_Total,.TRUE.,1.,walton_str,&
-               walton_cal)
+          CALL Setup_Walton( IMG, AVHRR, walton_str,&
+               scenet_all_instr=.FALSE.,&
+               apply_scenet_bias=.FALSE.)
+          CALL Calibration_Walton(IMG,AVHRR,.TRUE.,1.,&
+               walton_str,.FALSE.,.FALSE.,ict_tinstr=.FALSE.,&
+               apply_scenet_bias=.FALSE.)
        ENDIF
        IF( split_single_file )THEN
           !
@@ -1688,7 +1703,6 @@ CONTAINS
     CALL Reallocate_Final_outData(pAVHRRout,nsize)
 
     IF( alldata .and. AVHRR%newCalibration_There )THEN
-
        ALLOCATE(AVHRRout%new_calib3(3,AVHRRout%arraySize),&
             AVHRRout%new_calib4(3,AVHRRout%arraySize),&
             AVHRRout%new_calib5(3,AVHRRout%arraySize),&
@@ -1711,13 +1725,6 @@ CONTAINS
             AVHRRout%smoothSp3(AVHRRout%arraySize),&
             AVHRRout%smoothSp4(AVHRRout%arraySize),&
             AVHRRout%smoothSp5(AVHRRout%arraySize),&
-!MT: 11-11-2017: added allocation of nmoothBB3,4,5 to fix error caused by their absence in fiduceo_uncertainties.f90
-!MT: 11-11-2017: added allocation of nmoothSp3,4,5 to fix error caused by their absence in fiduceo_uncertainties.f90
-!MT: 08-12-2017: added allocation of nsmoothPRT1,2,3,4 to fix error caused by their absence in fiduceo_uncertainties.f90
-            AVHRRout%nsmoothPrt1(AVHRRout%arraySize),&
-            AVHRRout%nsmoothPrt2(AVHRRout%arraySize),&
-            AVHRRout%nsmoothPrt3(AVHRRout%arraySize),&
-            AVHRRout%nsmoothPrt4(AVHRRout%arraySize),&
             AVHRRout%nsmoothBB3(AVHRRout%arraySize),&
             AVHRRout%nsmoothBB4(AVHRRout%arraySize),&
             AVHRRout%nsmoothBB5(AVHRRout%arraySize),&
@@ -1758,7 +1765,7 @@ CONTAINS
              CALL Gbcs_Critical(.TRUE.,'Allocating outputData (recal walton)',&
                   'Resize_Orbits','combine_orbits.f90')
           ENDIF
-       ENDIF       
+       ENDIF              
        AVHRRout%new_calib3 = NAN_R
        AVHRRout%new_calib4 = NAN_R
        AVHRRout%new_calib5 = NAN_R
@@ -2004,6 +2011,8 @@ CONTAINS
 
   SUBROUTINE read_file(infile,AVHRR,uuid_in,out_instr_coefs)
 
+    USE IFPORT
+
     CHARACTER(LEN=*), INTENT(IN) :: infile
     TYPE(AVHRR_Data), INTENT(OUT) :: AVHRR
     CHARACTER(LEN=*), INTENT(IN) :: uuid_in
@@ -2011,7 +2020,7 @@ CONTAINS
 
     ! Local variables
     INTEGER :: pid
-    INTEGER :: stat
+    INTEGER :: ostat
     INTEGER :: POS
 
     CHARACTER(LEN=256) :: inDirectory
@@ -2044,13 +2053,13 @@ CONTAINS
     IF( 0 .ne. INDEX(infile,'.gz') )THEN
        WRITE(command_str,'(''cp -f '',a,'' temp_file.'',a,''.gz'')')&
             TRIM(infile),TRIM(uuid_in)
-       CALL SYSTEM(command_str,STATUS=stat)
-       CALL Gbcs_Critical(stat.ne.0,'Cannot copy file to tempfile','Convert',&
+       ostat = SYSTEM(command_str)
+       CALL Gbcs_Critical(ostat.ne.0,'Cannot copy file to tempfile','Convert',&
             'extract_l1b_data.f90')
        WRITE(command_str,'(''gunzip -f temp_file.'',a,''.gz'')')&
             TRIM(uuid_in)
-       CALL SYSTEM(command_str,STATUS=stat)
-       CALL Gbcs_Critical(stat.ne.0,'Cannot gunzip tempfile','Convert',&
+       ostat = SYSTEM(command_str)
+       CALL Gbcs_Critical(ostat.ne.0,'Cannot gunzip tempfile','Convert',&
             'extract_l1b_data.f90')
        inDirectory = './'
        WRITE(inFilename,'(''temp_file.'',a)')TRIM(uuid_in)
@@ -2158,8 +2167,8 @@ CONTAINS
     IF( remove_file )THEN
        WRITE(command_str,'(''rm -f temp_file.'',a)')&
             TRIM(uuid_in)
-       CALL SYSTEM(command_str,STATUS=stat)
-       CALL Gbcs_Critical(stat.ne.0,'Cannot remove tempfile','Convert',&
+       ostat = SYSTEM(command_str)
+       CALL Gbcs_Critical(ostat.ne.0,'Cannot remove tempfile','Convert',&
             'extract_l1b_data.f90')
     ENDIF
 
@@ -2189,11 +2198,11 @@ CONTAINS
 
   END FUNCTION isNaN_Real
 
-  SUBROUTINE check(stat)
+  SUBROUTINE check(ostat)
     
-    INTEGER, INTENT (IN) :: stat
-    IF(stat /= nf90_noerr) THEN
-      print *, TRIM(nf90_strerror(stat))
+    INTEGER, INTENT (IN) :: ostat
+    IF(ostat /= nf90_noerr) THEN
+      print *, TRIM(nf90_strerror(ostat))
       stop "Stopped"
     END IF
 
