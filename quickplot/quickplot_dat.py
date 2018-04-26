@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7                                                                    
+#!/usr/bin/env python2.7  
 
 # * Copyright (C) 2018 M.Taylor University of Reading                                       
 # * This code was developed for the EC project "Fidelity and Uncertainty in                 
@@ -22,10 +22,13 @@
 # ==================================================
 # PLOT 5-point stats for each orbit in sensor series
 # ==================================================
-# Version 0.1
-# 14 December, 2017
+# Version 0.2
+# 26 April, 2018
 # michael.taylor AT reading DOT ac DOT uk
 # ==================================================
+
+# Allow for forward compatibility with python3.x
+from __future__ import print_function
 
 from  optparse import OptionParser 
 import numpy as np
