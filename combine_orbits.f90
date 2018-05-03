@@ -21,14 +21,21 @@
 ! MODIFIED VERSION: M.Taylor University of Reading
 ! MT: 20-10-2017: 'between file3 and file4' --> 'between file4 and file5'
 ! MT: 24-10-2017: fix reversed logic in Resize_orbit_equator
-! MT: 11-11-2017: added allocation of nmoothBB3,4,5 to fix error caused by their absence in fiduceo_uncertainties.f90
-! MT: 11-11-2017: added allocation of nmoothSp3,4,5 to fix error caused by their absence in fiduceo_uncertainties.f90
-! MT: 08-12-2017: added allocation of nsmoothPRT1,2,3,4 to fix error caused by their absence in fiduceo_uncertainties.f90
-! MT: 11-11-2017: write nmoothBB3,4,5 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
-! MT: 11-11-2017: write nmoothSp3,4,5 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
-! MT: 08-12-2017: write nmoothPrt1,2,3,4 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
+! MT: 11-11-2017: added allocation of nmoothBB3,4,5 to fix error caused by 
+!                 their absence in fiduceo_uncertainties.f90
+! MT: 11-11-2017: added allocation of nmoothSp3,4,5 to fix error caused by 
+!                 their absence in fiduceo_uncertainties.f90
+! MT: 08-12-2017: added allocation of nsmoothPRT1,2,3,4 to fix error caused by 
+!                 their absence in fiduceo_uncertainties.f90
+! MT: 11-11-2017: write nmoothBB3,4,5 to AVHRRout data structure to fix error 
+!                 caused by their absence in fiduceo_uncertainties.f90
+! MT: 11-11-2017: write nmoothSp3,4,5 to AVHRRout data structure to fix error 
+!                 caused by their absence in fiduceo_uncertainties.f90
+! MT: 08-12-2017: write nmoothPrt1,2,3,4 to AVHRRout data structure to fix 
+!                 error caused by their absence in fiduceo_uncertainties.f90
 ! MT: 11-12-2017: fix case of sub-orbit segments in Resize_orbit_equator
 ! MT: 09-03-2018: PyGAC geolocation
+! JM: 27-04-2018: Rewrite pyGAC geolocation routines
 
 MODULE Combine_Orbits
   
@@ -1052,7 +1059,8 @@ CONTAINS
 
   SUBROUTINE read_all_data(nFile,file1,file2,file3,file4,file5,uuid_in,&
        AVHRRout,year1,month1,day1,hour1,minute1,year2,month2,day2,&
-       hour2,minute2,output_filename,walton_cal,split_single_file)
+       hour2,minute2,output_filename,walton_cal,split_single_file,&
+       pygac1,pygac2,pygac3,pygac4,pygac5)
 
     INTEGER, INTENT(IN) :: nFile
     CHARACTER(LEN=*), INTENT(IN) :: file1
@@ -1075,10 +1083,16 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: output_filename
     LOGICAL, INTENT(IN) :: walton_cal
     LOGICAL, INTENT(IN) :: split_single_file
+    CHARACTER(LEN=*), INTENT(IN) :: pygac1
+    CHARACTER(LEN=*), INTENT(IN) :: pygac2
+    CHARACTER(LEN=*), INTENT(IN) :: pygac3
+    CHARACTER(LEN=*), INTENT(IN) :: pygac4
+    CHARACTER(LEN=*), INTENT(IN) :: pygac5
 
     ! Local variables
     TYPE(Imagery) :: IMG
     TYPE(AVHRR_Data), TARGET :: AVHRR
+    TYPE(AVHRR_Data), TARGET :: AVHRRtmp
     TYPE(AVHRR_Data), TARGET :: AVHRR_Total
     TYPE(AVHRR_Instrument_Coefs) :: instr_coefs
     INTEGER :: start_pos, stop_pos
@@ -1093,14 +1107,15 @@ CONTAINS
     !
     ! Setup GbcsDataPath
     !
-    IMG%GbcsDataPath = '/group_workspaces/cems/nceo_uor/users/jmittaz/AVHRR/code/git/gbcs_new_calibration/dat_cci/'
+    IMG%GbcsDataPath = '/group_workspaces/cems/nceo_uor/users/jmittaz/AVHRR/&
+         &code/git/gbcs_new_calibration/dat_cci/'
 
     AVHRR%newCalibration_there = .FALSE.
     AVHRR_Total%newCalibration_there = .FALSE.
 !    instr = get_instr(file1)
     AVHRR_Total%arraySize = 0
     IF( nFile .eq. 1 )THEN
-       CALL read_file(file1,AVHRR_Total,uuid_in,out_instr_coefs=instr_coefs)
+       CALL read_file(file1,AVHRR_Total,uuid_in,pygac1,out_instr_coefs=instr_coefs)
        IF( .not. AVHRR_Total%valid_data_there )THEN
           RETURN
        ENDIF
@@ -1109,9 +1124,9 @@ CONTAINS
           CALL Gbcs_Critical(.TRUE.,'No overlap between file1 and file2',&
                'read_all_data','extract_l1b_data.f90')
        ENDIF
-       CALL read_file(file1,AVHRR_Total,uuid_in,out_instr_coefs=instr_coefs)
+       CALL read_file(file1,AVHRR_Total,uuid_in,pygac1,out_instr_coefs=instr_coefs)
        IF( AVHRR_Total%valid_data_there )THEN
-          CALL read_file(file2,AVHRR,uuid_in)
+          CALL read_file(file2,AVHRR,uuid_in,pygac2)
           IF( AVHRR%valid_data_there )THEN
              CALL merge_avhrr(AVHRR_Total,AVHRR)
           ENDIF
@@ -1124,9 +1139,9 @@ CONTAINS
           CALL Gbcs_Critical(.TRUE.,'No overlap between file1 and file2',&
                'read_all_data','extract_l1b_data.f90')
        ENDIF
-       CALL read_file(file1,AVHRR_Total,uuid_in,out_instr_coefs=instr_coefs)
+       CALL read_file(file1,AVHRR_Total,uuid_in,pygac1,out_instr_coefs=instr_coefs)
        IF( AVHRR_Total%valid_data_there )THEN
-          CALL read_file(file2,AVHRR,uuid_in)
+          CALL read_file(file2,AVHRR,uuid_in,pygac2)
           IF( AVHRR%valid_data_there )THEN
              CALL merge_avhrr(AVHRR_Total,AVHRR)
           ENDIF
@@ -1135,7 +1150,7 @@ CONTAINS
              CALL Gbcs_Critical(.TRUE.,'No overlap between file2 and file3',&
                'read_all_data','extract_l1b_data.f90')
           ENDIF
-          CALL read_file(file3,AVHRR,uuid_in)
+          CALL read_file(file3,AVHRR,uuid_in,pygac3)
           IF( AVHRR%valid_data_there )THEN
              CALL merge_avhrr(AVHRR_Total,AVHRR)
           ENDIF
@@ -1146,9 +1161,9 @@ CONTAINS
           CALL Gbcs_Critical(.TRUE.,'No overlap between file1 and file2',&
                'read_all_data','extract_l1b_data.f90')
        ENDIF
-       CALL read_file(file1,AVHRR_Total,uuid_in,out_instr_coefs=instr_coefs)
+       CALL read_file(file1,AVHRR_Total,uuid_in,pygac1,out_instr_coefs=instr_coefs)
        IF( AVHRR_Total%valid_data_there )THEN
-          CALL read_file(file2,AVHRR,uuid_in)
+          CALL read_file(file2,AVHRR,uuid_in,pygac2)
           IF( AVHRR%valid_data_there )THEN
              CALL merge_avhrr(AVHRR_Total,AVHRR)
           ENDIF
@@ -1157,7 +1172,7 @@ CONTAINS
              CALL Gbcs_Critical(.TRUE.,'No overlap between file2 and file3',&
                   'read_all_data','extract_l1b_data.f90')
           ENDIF
-          CALL read_file(file3,AVHRR,uuid_in)
+          CALL read_file(file3,AVHRR,uuid_in,pygac3)
           IF( AVHRR%valid_data_there )THEN
              CALL merge_avhrr(AVHRR_Total,AVHRR)
           ENDIF
@@ -1166,7 +1181,7 @@ CONTAINS
              CALL Gbcs_Critical(.TRUE.,'No overlap between file3 and file4',&
                   'read_all_data','extract_l1b_data.f90')
           ENDIF
-          CALL read_file(file4,AVHRR,uuid_in)
+          CALL read_file(file4,AVHRR,uuid_in,pygac4)
           IF( AVHRR%valid_data_there )THEN
              CALL merge_avhrr(AVHRR_Total,AVHRR)
           ENDIF
@@ -1177,9 +1192,9 @@ CONTAINS
           CALL Gbcs_Critical(.TRUE.,'No overlap between file1 and file2',&
                'read_all_data','extract_l1b_data.f90')
        ENDIF
-       CALL read_file(file1,AVHRR_Total,uuid_in,out_instr_coefs=instr_coefs)
+       CALL read_file(file1,AVHRR_Total,uuid_in,pygac1,out_instr_coefs=instr_coefs)
        IF( AVHRR_Total%valid_data_there )THEN
-          CALL read_file(file2,AVHRR,uuid_in)
+          CALL read_file(file2,AVHRR,uuid_in,pygac2)
           IF( AVHRR%valid_data_there )THEN
              CALL merge_avhrr(AVHRR_Total,AVHRR)
           ENDIF
@@ -1188,7 +1203,7 @@ CONTAINS
              CALL Gbcs_Critical(.TRUE.,'No overlap between file2 and file3',&
                   'read_all_data','extract_l1b_data.f90')
           ENDIF
-          CALL read_file(file3,AVHRR,uuid_in)
+          CALL read_file(file3,AVHRR,uuid_in,pygac3)
           IF( AVHRR%valid_data_there )THEN
              CALL merge_avhrr(AVHRR_Total,AVHRR)
           ENDIF
@@ -1197,7 +1212,7 @@ CONTAINS
              CALL Gbcs_Critical(.TRUE.,'No overlap between file3 and file4',&
                   'read_all_data','extract_l1b_data.f90')
           ENDIF
-          CALL read_file(file4,AVHRR,uuid_in)
+          CALL read_file(file4,AVHRR,uuid_in,pygac4)
           IF( AVHRR%valid_data_there )THEN
              CALL merge_avhrr(AVHRR_Total,AVHRR)
           ENDIF
@@ -1207,7 +1222,7 @@ CONTAINS
              CALL Gbcs_Critical(.TRUE.,'No overlap between file4 and file5',&
                   'read_all_data','extract_l1b_data.f90') 
           ENDIF
-          CALL read_file(file5,AVHRR,uuid_in)
+          CALL read_file(file5,AVHRR,uuid_in,pygac5)
           IF( AVHRR%valid_data_there )THEN
              CALL merge_avhrr(AVHRR_Total,AVHRR)
           ENDIF
@@ -1234,9 +1249,12 @@ CONTAINS
           CALL Gbcs_Critical(.TRUE.,'No data available',&
                'read_all_data','combine_orbits.f90')
        ENDIF
+
        !
        ! Make sure radiances are output as Marines code expects this
        !
+       IMG%GbcsDataPath = '/group_workspaces/cems/nceo_uor/users/jmittaz/&
+            &AVHRR/code/git/gbcs_new_calibration/dat_cci/'
        IF( walton_cal )THEN
           CALL Setup_Walton( IMG, AVHRR, walton_str, srfonly=.TRUE.)
        ENDIF
@@ -1245,21 +1263,25 @@ CONTAINS
             moon_events=.TRUE.,&
             correct_solar_simple=.TRUE.,new_vis_cal=.TRUE.,&
             noise_orbit=.TRUE.,filter_counts=.TRUE.,filter_prt=.TRUE.,&
-            dig_noise=.TRUE.,all_noise=.TRUE.)
+            dig_noise=.TRUE.,all_noise=.TRUE.,&
+            correctict=.TRUE.,applyict=.TRUE.,walton=.TRUE.,&
+            tinstrapply=.FALSE.)
        
        IF( walton_cal )THEN
           CALL Setup_Walton( IMG, AVHRR, walton_str,&
                scenet_all_instr=.FALSE.,&
-               apply_scenet_bias=.FALSE.)
+               apply_scenet_bias=.TRUE.)
           CALL Calibration_Walton(IMG,AVHRR,.TRUE.,1.,&
-               walton_str,.FALSE.,.FALSE.,ict_tinstr=.FALSE.,&
-               apply_scenet_bias=.FALSE.)
+               walton_str,.TRUE.,.TRUE.,ict_tinstr=.FALSE.,&
+               apply_scenet_bias=.TRUE.)
        ENDIF
        !
        ! Resize to output
        !
-       CALL Resize_Orbit(AVHRR,AVHRRout,start_pos,stop_pos,all=.TRUE.)
+       CALL Resize_Orbit(AVHRR,AVHRRtmp,start_pos,stop_pos,all=.TRUE.)
+       CALL fill_missing_lines(AVHRRtmp,AVHRRout)
        CALL Deallocate_OutData(AVHRR)
+       CALL Deallocate_OutData(AVHRRtmp)
        !
        ! Add in FIDUCEO uncertainties
        !
@@ -1297,7 +1319,10 @@ CONTAINS
                year1,month1,day1,hour1,minute1,&
                year1,month2,day2,hour2,minute2,&
                trim_data,trim_low,trim_high)       
-          CALL Resize_Orbit(AVHRRout,AVHRR,start_pos,stop_pos,all=.TRUE.)
+          CALL Resize_Orbit(AVHRRout,AVHRRtmp,start_pos,stop_pos,all=.TRUE.)
+          CALL fill_missing_lines(AVHRRtmp,AVHRR)
+          CALL Deallocate_OutData(AVHRRout)
+          CALL Deallocate_OutData(AVHRRtmp)
           !
           ! Add in FIDUCEO uncertainties
           !
@@ -1307,10 +1332,13 @@ CONTAINS
           !
           ! Output complete orbit with no equator splitting
           !
+          CALL fill_missing_lines(AVHRR_Total,AVHRRout)
+          CALL Deallocate_OutData(AVHRR_Total)
+          !
           ! Add in FIDUCEO uncertainties
           !
-          CALL Add_FIDUCEO_Uncert(AVHRR_Total,uuid_in,output_filename)
-          CALL Deallocate_OutData(AVHRR_Total)
+          CALL Add_FIDUCEO_Uncert(AVHRRout,uuid_in,output_filename)
+          CALL Deallocate_OutData(AVHRRout)
        ENDIF
     ENDIF
 
@@ -1663,44 +1691,14 @@ CONTAINS
 
   END SUBROUTINE Resize_Orbit_Equator
 
-  SUBROUTINE Resize_Orbit(AVHRR,AVHRRout,startpos,endpos,all)
+  SUBROUTINE Allocate_NewCal( AVHRR, AVHRRout, alldata )
 
     TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
-    TYPE(AVHRR_Data), INTENT(OUT), TARGET :: AVHRRout
-    INTEGER, INTENT(IN) :: startpos
-    INTEGER, INTENT(IN) :: endpos
-    LOGICAL, INTENT(IN), OPTIONAL :: all
+    TYPE(AVHRR_Data), INTENT(INOUT) :: AVHRRout
+    LOGICAL, INTENT(IN) :: alldata
 
     ! Local variables
-    INTEGER :: I,J,K
-    INTEGER :: nsize
     INTEGER :: STAT
-    LOGICAL :: alldata
-    TYPE(AVHRR_Data), POINTER :: pAVHRRout
-    INTEGER :: mem_scale
-
-    pAVHRRout => AVHRRout
-
-    IF( PRESENT(all) )THEN
-       alldata = all
-    ELSE
-       alldata = .TRUE.
-    ENDIF
-
-    !
-    ! Allocate right size of output
-    !
-    AVHRRout%walton_there = .FALSE.
-    CALL Allocate_OutData(AVHRR%nelem,pAVHRRout)
-    nsize = endpos-startpos+1
-    IF( nsize .gt. MEMORY_ALLOC_STEP )THEN
-       CALL Gbcs_Warning(.TRUE.,&
-            'Having to increase memory usage in output structure',&
-            'Resize_Orbit','combine_orbits.f90')
-       mem_scale = (nsize/MEMORY_ALLOC_STEP)*MEMORY_ALLOC_STEP
-       CALL Reallocate_OutData(pAVHRRout,mem_scale)
-    ENDIF
-    CALL Reallocate_Final_outData(pAVHRRout,nsize)
 
     IF( alldata .and. AVHRR%newCalibration_There )THEN
        ALLOCATE(AVHRRout%new_calib3(3,AVHRRout%arraySize),&
@@ -1751,10 +1749,13 @@ CONTAINS
             AVHRRout%new_array5_error(AVHRR%nelem,AVHRRout%arraySize),&
             AVHRRout%noise_cnts(6,AVHRRout%arraySize),&
             AVHRRout%noise_cnts_cal(6,AVHRRout%arraySize),&
+            AVHRRout%ict_prt_gain_value(AVHRRout%arraySize),&
+            AVHRRout%prt_correction(AVHRRout%arraySize),&
+            AVHRRout%prt_ict_temp(AVHRRout%arraySize),&
             STAT=STAT)
        IF( 0 .ne. STAT )THEN
           CALL Gbcs_Critical(.TRUE.,'Allocating outputData (recal)',&
-               'Resize_Orbits','combine_orbits.f90')
+               'Allocate_NewCal','combine_orbits.f90')
        ENDIF
        IF( AVHRR%walton_there )THEN
           ALLOCATE(AVHRRout%array3B_error(AVHRR%nelem,AVHRRout%arraySize),&
@@ -1763,7 +1764,7 @@ CONTAINS
                STAT=STAT)
           IF( 0 .ne. STAT )THEN
              CALL Gbcs_Critical(.TRUE.,'Allocating outputData (recal walton)',&
-                  'Resize_Orbits','combine_orbits.f90')
+                  'Allocate_NewCal','combine_orbits.f90')
           ENDIF
        ENDIF              
        AVHRRout%new_calib3 = NAN_R
@@ -1788,8 +1789,6 @@ CONTAINS
        AVHRRout%smoothSp3 = NAN_R
        AVHRRout%smoothSp4 = NAN_R
        AVHRRout%smoothSp5 = NAN_R
-!MT: 11-11-2017: added allocation of nmoothBB3,4,5 to fix error caused by their absence in fiduceo_uncertainties.f90
-!MT: 11-11-2017: added allocation of nmoothSp3,4,5 to fix error caused by their absence in fiduceo_uncertainties.f90
        AVHRRout%nsmoothBB3 = 0
        AVHRRout%nsmoothBB4 = 0
        AVHRRout%nsmoothBB5 = 0
@@ -1821,21 +1820,103 @@ CONTAINS
           AVHRRout%array4_error = NAN_R
           AVHRRout%array5_error = NAN_R
        ENDIF
+       AVHRRout%ict_prt_gain_value = NAN_R
+       AVHRRout%prt_correction = NAN_R
+       AVHRRout%prt_ict_temp = NAN_R
 
-       AVHRRout%newCalibration_There = AVHRR%newCalibration_There
-       AVHRRout%orbital_temperature = AVHRR%orbital_temperature
-       AVHRRout%new_cal_coefs3 = AVHRR%new_cal_coefs3
-       AVHRRout%new_cal_coefs4 = AVHRR%new_cal_coefs4
-       AVHRRout%new_cal_coefs5 = AVHRR%new_cal_coefs5
-       AVHRRout%gain_stdev = AVHRR%gain_stdev
-       AVHRRout%earthshine_eta = AVHRR%earthshine_eta
-       AVHRRout%poly_coefs3 = AVHRR%poly_coefs3
-       AVHRRout%poly_coefs4 = AVHRR%poly_coefs4
-       AVHRRout%poly_coefs5 = AVHRR%poly_coefs5
-       AVHRRout%gain_maxdev = AVHRR%gain_maxdev
+    END IF
+
+  END SUBROUTINE Allocate_NewCal
+
+  SUBROUTINE Allocate_OldCal(AVHRR,pAVHRRout,startpos,endpos)
+
+    TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
+    TYPE(AVHRR_Data), INTENT(INOUT), POINTER :: pAVHRRout
+    INTEGER, INTENT(IN) :: startpos
+    INTEGER, INTENT(IN) :: endpos
+
+    ! Local variables
+    INTEGER :: I
+    INTEGER :: nsize
+    INTEGER :: mem_scale
+
+    CALL Allocate_OutData(AVHRR%nelem,pAVHRRout)
+    nsize = endpos-startpos+1
+    IF( nsize .gt. MEMORY_ALLOC_STEP )THEN
+       CALL Gbcs_Warning(.TRUE.,&
+            'Having to increase memory usage in output structure',&
+            'Resize_Orbit','combine_orbits.f90')
+       mem_scale = (nsize/MEMORY_ALLOC_STEP)*MEMORY_ALLOC_STEP
+       CALL Reallocate_OutData(pAVHRRout,mem_scale)
+    ENDIF
+    CALL Reallocate_Final_outData(pAVHRRout,nsize)
+
+  END SUBROUTINE Allocate_OldCal
+
+  SUBROUTINE Resize_Orbit(AVHRR,AVHRRout,startpos,endpos,all)
+
+    TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
+    TYPE(AVHRR_Data), INTENT(OUT), TARGET :: AVHRRout
+    INTEGER, INTENT(IN) :: startpos
+    INTEGER, INTENT(IN) :: endpos
+    LOGICAL, INTENT(IN), OPTIONAL :: all
+
+    ! Local variables
+    INTEGER :: I,J,K
+    INTEGER :: nsize
+    INTEGER :: STAT
+    LOGICAL :: alldata
+    TYPE(AVHRR_Data), POINTER :: pAVHRRout
+    INTEGER :: mem_scale
+
+    pAVHRRout => AVHRRout
+
+    IF( PRESENT(all) )THEN
+       alldata = all
+    ELSE
+       alldata = .TRUE.
+    ENDIF
+
+    !
+    ! Allocate right size of output
+    !
+    AVHRRout%walton_there = .FALSE.
+    CALL Allocate_OldCal( AVHRR, pAVHRRout,startpos,endpos)
+    !
+    ! Set all data to bad
+    !
+    DO I=1,AVHRRout%arraySize
+       CALL INIT_OutData_Scanline(AVHRRout,I)
+    END DO
+
+    IF( alldata .and. AVHRR%newCalibration_There )THEN
+       !
+       ! Allocate newcal arrays and fill
+       !
+       CALL Allocate_NewCal( AVHRR, AVHRRout, alldata )
 
     ENDIF
 
+    CALL Copy_Top_Data(AVHRR,AVHRRout,startpos,endpos)
+
+    K = 0
+    DO I=startpos,endpos
+       K=K+1
+       CALL Copy_All_Scan(AVHRR,AVHRRout,I,K,alldata)
+    END DO
+
+  END SUBROUTINE Resize_Orbit
+
+  !
+  ! This is data which is not allocated
+  !
+  SUBROUTINE Copy_Top_Data(AVHRR,AVHRRout,startpos,endpos)
+
+    TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
+    TYPE(AVHRR_Data), INTENT(INout) :: AVHRRout
+    INTEGER, INTENT(IN) :: startpos
+    INTEGER, INTENT(IN) :: endpos
+    
     AVHRRout%isGAC = AVHRR%isGAC
     AVHRRout%dataFilled = AVHRR%dataFilled
     AVHRRout%AVHRR_No = AVHRR%AVHRR_No
@@ -1845,177 +1926,211 @@ CONTAINS
     AVHRRout%stop_valid = (endpos-startpos)+1
     AVHRRout%valid_data_there = AVHRR%valid_data_there
     AVHRRout%walton_there = AVHRR%walton_there
-    K = 0
-    DO I=startpos,endpos
-       K=K+1
-       AVHRRout%scanLineNumber(K) = AVHRR%scanLineNumber(I)
-       AVHRRout%badTop(K) = AVHRR%badTop(I)
-       AVHRRout%badTime(K) = AVHRR%badTime(I)
-       AVHRRout%badNavigation(K) = AVHRR%badNavigation(I)
-       AVHRRout%badCalibration(K) = AVHRR%badCalibration(I)
-       AVHRRout%transition3A3B(K) = AVHRR%transition3A3B(I)
-       AVHRRout%Lon(:,K) = AVHRR%Lon(:,I)
-       AVHRRout%Lat(:,K) = AVHRR%Lat(:,I)
-       AVHRRout%satZA(:,K) = AVHRR%satZA(:,I)
-       AVHRRout%solZA(:,K) = AVHRR%solZA(:,I)
-       AVHRRout%relAz(:,K) = AVHRR%relAz(:,I)
-       AVHRRout%Counts1(:,K) = AVHRR%Counts1(:,I)
-       AVHRRout%Counts2(:,K) = AVHRR%Counts2(:,I)
-       AVHRRout%Counts3(:,K) = AVHRR%Counts3(:,I)
-       AVHRRout%Counts4(:,K) = AVHRR%Counts4(:,I)
-       AVHRRout%Counts5(:,K) = AVHRR%Counts5(:,I)
-       AVHRRout%array1(:,K) = AVHRR%array1(:,I)
-       AVHRRout%array2(:,K) = AVHRR%array2(:,I)
-       AVHRRout%array3A(:,K) = AVHRR%array3A(:,I)
-       AVHRRout%array3B(:,K) = AVHRR%array3B(:,I)
-       AVHRRout%array4(:,K) = AVHRR%array4(:,I)
-       AVHRRout%array5(:,K) = AVHRR%array5(:,I)
-       AVHRRout%year(K) = AVHRR%year(I)
-       AVHRRout%month(K) = AVHRR%month(I)
-       AVHRRout%day(K) = AVHRR%day(I)
-       AVHRRout%dayno(K) = AVHRR%dayno(I)
-       AVHRRout%hours(K) = AVHRR%hours(I)
-       AVHRRout%UTC_msecs(K) = AVHRR%UTC_msecs(I)
-       AVHRRout%time(K) = AVHRR%time(I)
-       AVHRRout%prt1(K) = AVHRR%prt1(I)
-       AVHRRout%prt2(K) = AVHRR%prt2(I)
-       AVHRRout%prt3(K) = AVHRR%prt3(I)
-       AVHRRout%prt4(K) = AVHRR%prt4(I)
-       AVHRRout%prt1Counts(K) = AVHRR%prt1Counts(I)
-       AVHRRout%prt2Counts(K) = AVHRR%prt2Counts(I)
-       AVHRRout%prt3Counts(K) = AVHRR%prt3Counts(I)
-       AVHRRout%prt4Counts(K) = AVHRR%prt4Counts(I)
-       AVHRRout%prt1CountsAll(:,K) = AVHRR%prt1CountsAll(:,I)
-       AVHRRout%prt2CountsAll(:,K) = AVHRR%prt2CountsAll(:,I)
-       AVHRRout%prt3CountsAll(:,K) = AVHRR%prt3CountsAll(:,I)
-       AVHRRout%prt4CountsAll(:,K) = AVHRR%prt4CountsAll(:,I)
-       AVHRRout%bb3(K) = AVHRR%bb3(I)
-       AVHRRout%bb4(K) = AVHRR%bb4(I)
-       AVHRRout%bb5(K) = AVHRR%bb5(I)
-       AVHRRout%sp3(K) = AVHRR%sp3(I)
-       AVHRRout%sp4(K) = AVHRR%sp4(I)
-       AVHRRout%sp5(K) = AVHRR%sp5(I)
-       AVHRRout%bbodyFilter3(:,K) = AVHRR%bbodyFilter3(:,I)
-       AVHRRout%bbodyFilter4(:,K) = AVHRR%bbodyFilter4(:,I)
-       AVHRRout%bbodyFilter5(:,K) = AVHRR%bbodyFilter5(:,I)
-       AVHRRout%spaceFilter1(:,K) = AVHRR%spaceFilter1(:,I)
-       AVHRRout%spaceFilter2(:,K) = AVHRR%spaceFilter2(:,I)
-       AVHRRout%spaceFilter3a(:,K) = AVHRR%spaceFilter3a(:,I)
-       AVHRRout%spaceFilter3(:,K) = AVHRR%spaceFilter3(:,I)
-       AVHRRout%spaceFilter4(:,K) = AVHRR%spaceFilter4(:,I)
-       AVHRRout%spaceFilter5(:,K) = AVHRR%spaceFilter5(:,I)
-       AVHRRout%patch(K) = AVHRR%patch(I)
-       AVHRRout%patchExtended(K) = AVHRR%patchExtended(I)
-       AVHRRout%Radiator(K) = AVHRR%Radiator(I)
-       AVHRRout%Cooler(K) = AVHRR%Cooler(I)
-       AVHRRout%a_d_conv(K) = AVHRR%a_d_conv(I)
-       AVHRRout%motor(K) = AVHRR%motor(I)
-       AVHRRout%motorCurrent(K) = AVHRR%motorCurrent(I)
-       AVHRRout%electronics(K) = AVHRR%electronics(I)
-       AVHRRout%baseplate(K) = AVHRR%baseplate(I)
-       AVHRRout%calib1(:,K) = AVHRR%calib1(:,I)
-       AVHRRout%calib1_2(:,K) = AVHRR%calib1_2(:,I)
-       AVHRRout%calib1_intercept(K) = AVHRR%calib1_intercept(I)
-       AVHRRout%calib2(:,K) = AVHRR%calib2(:,I)
-       AVHRRout%calib2_2(:,K) = AVHRR%calib2_2(:,I)
-       AVHRRout%calib2_intercept(K) = AVHRR%calib2_intercept(I)
-       AVHRRout%calib3A(:,K) = AVHRR%calib3A(:,I)
-       AVHRRout%calib3A_2(:,K) = AVHRR%calib3A_2(:,I)
-       AVHRRout%calib3A_intercept(K) = AVHRR%calib3A_intercept(I)
-       AVHRRout%calib3(:,K) = AVHRR%calib3(:,I)
-       AVHRRout%calib4(:,K) = AVHRR%calib4(:,I)
-       AVHRRout%calib5(:,K) = AVHRR%calib5(:,I)
-       AVHRRout%clavr_mask(:,K) = AVHRR%clavr_mask(:,I)
-       AVHRRout%clavrx_mask(:,K) = AVHRR%clavrx_mask(:,I)
-       AVHRRout%clavrx_prb(:,K) = AVHRR%clavrx_prb(:,I)
-       AVHRRout%orig_solar_contamination_3B(K) = &
-            AVHRR%orig_solar_contamination_3B(I)
-       AVHRRout%orig_solar_contamination_4(K) = &
-            AVHRR%orig_solar_contamination_4(I)
-       AVHRRout%orig_solar_contamination_5(K) = &
-            AVHRR%orig_solar_contamination_5(I)
-       AVHRRout%satelliteAltitude(K) = AVHRR%satelliteAltitude(I)
+    AVHRRout%walton_bias_correction = AVHRR%walton_bias_correction
+    AVHRRout%walton_ict_corrected = AVHRR%walton_ict_corrected
+    AVHRRout%walton_bias_corr_uncert = AVHRR%walton_bias_corr_uncert
+    AVHRRout%newCalibration_There = AVHRR%newCalibration_There
+    AVHRRout%orbital_temperature = AVHRR%orbital_temperature
+    AVHRRout%new_cal_coefs3 = AVHRR%new_cal_coefs3
+    AVHRRout%new_cal_coefs4 = AVHRR%new_cal_coefs4
+    AVHRRout%new_cal_coefs5 = AVHRR%new_cal_coefs5
+    AVHRRout%gain_stdev = AVHRR%gain_stdev
+    AVHRRout%earthshine_eta = AVHRR%earthshine_eta
+    AVHRRout%poly_coefs3 = AVHRR%poly_coefs3
+    AVHRRout%poly_coefs4 = AVHRR%poly_coefs4
+    AVHRRout%poly_coefs5 = AVHRR%poly_coefs5
+    AVHRRout%gain_maxdev = AVHRR%gain_maxdev
+    AVHRRout%satelliteAlt_There = AVHRR%satelliteAlt_There
+    AVHRRout%scan_line_delta_time = AVHRR%scan_line_delta_time
+    AVHRRout%time_yearstart = AVHRR%time_yearstart
+    AVHRRout%CCI_Bias_Uncertainty_3b = AVHRR%CCI_Bias_Uncertainty_3b
+    AVHRRout%CCI_Bias_Uncertainty_4 = AVHRR%CCI_Bias_Uncertainty_4
+    AVHRRout%CCI_Bias_Uncertainty_5 = AVHRR%CCI_Bias_Uncertainty_5
+    AVHRRout%ict_model_uncert = AVHRR%ict_model_uncert
+    AVHRRout%ict_model_stdev = AVHRR%ict_model_stdev
+    AVHRRout%ict_plane_uncert = AVHRR%ict_plane_uncert
+    AVHRRout%ict_model_params = AVHRR%ict_model_params
+    AVHRRout%ict_prt_offset = AVHRR%ict_prt_offset
 
-       IF( AVHRR%walton_there )THEN
-          AVHRRout%array3B_error(:,K) = AVHRR%array3B_error(:,I)
-          AVHRRout%array4_error(:,K) = AVHRR%array4_error(:,I)
-          AVHRRout%array5_error(:,K) = AVHRR%array5_error(:,I)
-       ENDIF
-       
-       !
-       ! If new calbration there
-       !
-       IF( alldata .and. AVHRR%newCalibration_There )THEN
-          AVHRRout%new_calib3(:,K) = AVHRR%new_calib3(:,I)
-          AVHRRout%new_calib4(:,K) = AVHRR%new_calib4(:,I)
-          AVHRRout%new_calib5(:,K) = AVHRR%new_calib5(:,I)
-          AVHRRout%smoothPrt1(K) = AVHRR%smoothPrt1(I)
-          AVHRRout%smoothPrt2(K) = AVHRR%smoothPrt2(I)
-          AVHRRout%smoothPrt3(K) = AVHRR%smoothPrt3(I)
-          AVHRRout%smoothPrt4(K) = AVHRR%smoothPrt4(I)
-          AVHRRout%nsmoothPrt1(K) = AVHRR%nsmoothPrt1(I)
-          AVHRRout%nsmoothPrt2(K) = AVHRR%nsmoothPrt2(I)
-          AVHRRout%nsmoothPrt3(K) = AVHRR%nsmoothPrt3(I)
-          AVHRRout%nsmoothPrt4(K) = AVHRR%nsmoothPrt4(I)
-          AVHRRout%smoothPrt1Cnts(K) = AVHRR%smoothPrt1Cnts(I)
-          AVHRRout%smoothPrt2Cnts(K) = AVHRR%smoothPrt2Cnts(I)
-          AVHRRout%smoothPrt3Cnts(K) = AVHRR%smoothPrt3Cnts(I)
-          AVHRRout%smoothPrt4Cnts(K) = AVHRR%smoothPrt4Cnts(I)
-          AVHRRout%smoothPrt(K) = AVHRR%smoothPrt(I)
-          AVHRRout%smoothBB3(K) = AVHRR%smoothBB3(I)
-          AVHRRout%smoothBB4(K) = AVHRR%smoothBB4(I)
-          AVHRRout%smoothBB5(K) = AVHRR%smoothBB5(I)
-          AVHRRout%smoothSp3(K) = AVHRR%smoothSp3(I)
-          AVHRRout%smoothSp4(K) = AVHRR%smoothSp4(I)
-          AVHRRout%smoothSp5(K) = AVHRR%smoothSp5(I)
-!MT: 11-11-2017: write nmoothBB3,4,5 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
-!MT: 11-11-2017: write nmoothSp3,4,5 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
-!MT: 08-12-2017: write nmoothPrt1,2,3,4 to AVHRRout data structure to fix error caused by their absence in fiduceo_uncertainties.f90
-          AVHRRout%nsmoothPrt1(K) = AVHRR%nsmoothPrt1(I)
-          AVHRRout%nsmoothPrt2(K) = AVHRR%nsmoothPrt2(I)
-          AVHRRout%nsmoothPrt3(K) = AVHRR%nsmoothPrt3(I)
-          AVHRRout%nsmoothPrt4(K) = AVHRR%nsmoothPrt4(I)
-          AVHRRout%nsmoothBB3(K) = AVHRR%nsmoothBB3(I)
-          AVHRRout%nsmoothBB4(K) = AVHRR%nsmoothBB4(I)
-          AVHRRout%nsmoothBB5(K) = AVHRR%nsmoothBB5(I)
-          AVHRRout%nsmoothSp3(K) = AVHRR%nsmoothSp3(I)
-          AVHRRout%nsmoothSp4(K) = AVHRR%nsmoothSp4(I)
-          AVHRRout%nsmoothSp5(K) = AVHRR%nsmoothSp5(I)
-          AVHRRout%Interpolated(K) = AVHRR%Interpolated(I)
-          AVHRRout%solar_contamination_failure(K) = &
-               AVHRR%solar_contamination_failure(I)
-          AVHRRout%solar_contamination_3B(K) = AVHRR%solar_contamination_3B(I)
-          AVHRRout%solar_contamination_4(K) = AVHRR%solar_contamination_4(I)
-          AVHRRout%solar_contamination_5(K) = AVHRR%solar_contamination_5(I)
-          AVHRRout%moon_contamination(K) = AVHRR%moon_contamination(I)
-          AVHRRout%new_array1(:,K) = AVHRR%new_array1(:,I)
-          AVHRRout%new_array2(:,K) = AVHRR%new_array2(:,I)
-          AVHRRout%new_array3A(:,K) = AVHRR%new_array3A(:,I)
-          AVHRRout%new_array3B(:,K) = AVHRR%new_array3B(:,I)
-          AVHRRout%new_array4(:,K) = AVHRR%new_array4(:,I)
-          AVHRRout%new_array5(:,K) = AVHRR%new_array5(:,I)
-          AVHRRout%new_array1_error(:,K) = AVHRR%new_array1_error(:,I)
-          AVHRRout%new_array2_error(:,K) = AVHRR%new_array2_error(:,I)
-          AVHRRout%new_array3A_error(:,K) = AVHRR%new_array3A_error(:,I)
-          AVHRRout%new_array3B_error(:,K) = AVHRR%new_array3B_error(:,I)
-          AVHRRout%new_array4_error(:,K) = AVHRR%new_array4_error(:,I)
-          AVHRRout%new_array5_error(:,K) = AVHRR%new_array5_error(:,I)
-          AVHRRout%noise_cnts(:,K) = AVHRR%noise_cnts(:,I)
-          AVHRRout%noise_cnts_cal(:,K) = AVHRR%noise_cnts_cal(:,I)
+  END SUBROUTINE Copy_Top_Data
 
-       ENDIF
+  !
+  ! Copy all data from one to another structure
+  !
+  SUBROUTINE Copy_All_Scan(AVHRR,AVHRRout,I,K,alldata)
+    
+    TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
+    TYPE(AVHRR_Data), INTENT(INOUT) :: AVHRRout
+    INTEGER, INTENT(IN) :: I
+    INTEGER, INTENT(IN) :: K
+    LOGICAL, INTENT(IN) :: alldata
 
-    END DO
+    AVHRRout%scanLineNumber(K) = AVHRR%scanLineNumber(I)
+    AVHRRout%badTop(K) = AVHRR%badTop(I)
+    AVHRRout%badTime(K) = AVHRR%badTime(I)
+    AVHRRout%badNavigation(K) = AVHRR%badNavigation(I)
+    AVHRRout%badCalibration(K) = AVHRR%badCalibration(I)
+    AVHRRout%transition3A3B(K) = AVHRR%transition3A3B(I)
+    AVHRRout%Lon(:,K) = AVHRR%Lon(:,I)
+    AVHRRout%Lat(:,K) = AVHRR%Lat(:,I)
+    AVHRRout%satZA(:,K) = AVHRR%satZA(:,I)
+    AVHRRout%solZA(:,K) = AVHRR%solZA(:,I)
+    AVHRRout%relAz(:,K) = AVHRR%relAz(:,I)
+    AVHRRout%Counts1(:,K) = AVHRR%Counts1(:,I)
+    AVHRRout%Counts2(:,K) = AVHRR%Counts2(:,I)
+    AVHRRout%Counts3(:,K) = AVHRR%Counts3(:,I)
+    AVHRRout%Counts4(:,K) = AVHRR%Counts4(:,I)
+    AVHRRout%Counts5(:,K) = AVHRR%Counts5(:,I)
+    AVHRRout%array1(:,K) = AVHRR%array1(:,I)
+    AVHRRout%array2(:,K) = AVHRR%array2(:,I)
+    AVHRRout%array3A(:,K) = AVHRR%array3A(:,I)
+    AVHRRout%array3B(:,K) = AVHRR%array3B(:,I)
+    AVHRRout%array4(:,K) = AVHRR%array4(:,I)
+    AVHRRout%array5(:,K) = AVHRR%array5(:,I)
+    AVHRRout%year(K) = AVHRR%year(I)
+    AVHRRout%month(K) = AVHRR%month(I)
+    AVHRRout%day(K) = AVHRR%day(I)
+    AVHRRout%dayno(K) = AVHRR%dayno(I)
+    AVHRRout%hours(K) = AVHRR%hours(I)
+    AVHRRout%UTC_msecs(K) = AVHRR%UTC_msecs(I)
+    AVHRRout%time(K) = AVHRR%time(I)
+    AVHRRout%prt1(K) = AVHRR%prt1(I)
+    AVHRRout%prt2(K) = AVHRR%prt2(I)
+    AVHRRout%prt3(K) = AVHRR%prt3(I)
+    AVHRRout%prt4(K) = AVHRR%prt4(I)
+    AVHRRout%prt1Counts(K) = AVHRR%prt1Counts(I)
+    AVHRRout%prt2Counts(K) = AVHRR%prt2Counts(I)
+    AVHRRout%prt3Counts(K) = AVHRR%prt3Counts(I)
+    AVHRRout%prt4Counts(K) = AVHRR%prt4Counts(I)
+    AVHRRout%prt1CountsAll(:,K) = AVHRR%prt1CountsAll(:,I)
+    AVHRRout%prt2CountsAll(:,K) = AVHRR%prt2CountsAll(:,I)
+    AVHRRout%prt3CountsAll(:,K) = AVHRR%prt3CountsAll(:,I)
+    AVHRRout%prt4CountsAll(:,K) = AVHRR%prt4CountsAll(:,I)
+    AVHRRout%bb3(K) = AVHRR%bb3(I)
+    AVHRRout%bb4(K) = AVHRR%bb4(I)
+    AVHRRout%bb5(K) = AVHRR%bb5(I)
+    AVHRRout%sp3(K) = AVHRR%sp3(I)
+    AVHRRout%sp4(K) = AVHRR%sp4(I)
+    AVHRRout%sp5(K) = AVHRR%sp5(I)
+    AVHRRout%bbodyFilter3(:,K) = AVHRR%bbodyFilter3(:,I)
+    AVHRRout%bbodyFilter4(:,K) = AVHRR%bbodyFilter4(:,I)
+    AVHRRout%bbodyFilter5(:,K) = AVHRR%bbodyFilter5(:,I)
+    AVHRRout%spaceFilter1(:,K) = AVHRR%spaceFilter1(:,I)
+    AVHRRout%spaceFilter2(:,K) = AVHRR%spaceFilter2(:,I)
+    AVHRRout%spaceFilter3a(:,K) = AVHRR%spaceFilter3a(:,I)
+    AVHRRout%spaceFilter3(:,K) = AVHRR%spaceFilter3(:,I)
+    AVHRRout%spaceFilter4(:,K) = AVHRR%spaceFilter4(:,I)
+    AVHRRout%spaceFilter5(:,K) = AVHRR%spaceFilter5(:,I)
+    AVHRRout%patch(K) = AVHRR%patch(I)
+    AVHRRout%patchExtended(K) = AVHRR%patchExtended(I)
+    AVHRRout%Radiator(K) = AVHRR%Radiator(I)
+    AVHRRout%Cooler(K) = AVHRR%Cooler(I)
+    AVHRRout%a_d_conv(K) = AVHRR%a_d_conv(I)
+    AVHRRout%motor(K) = AVHRR%motor(I)
+    AVHRRout%motorCurrent(K) = AVHRR%motorCurrent(I)
+    AVHRRout%electronics(K) = AVHRR%electronics(I)
+    AVHRRout%baseplate(K) = AVHRR%baseplate(I)
+    AVHRRout%calib1(:,K) = AVHRR%calib1(:,I)
+    AVHRRout%calib1_2(:,K) = AVHRR%calib1_2(:,I)
+    AVHRRout%calib1_intercept(K) = AVHRR%calib1_intercept(I)
+    AVHRRout%calib2(:,K) = AVHRR%calib2(:,I)
+    AVHRRout%calib2_2(:,K) = AVHRR%calib2_2(:,I)
+    AVHRRout%calib2_intercept(K) = AVHRR%calib2_intercept(I)
+    AVHRRout%calib3A(:,K) = AVHRR%calib3A(:,I)
+    AVHRRout%calib3A_2(:,K) = AVHRR%calib3A_2(:,I)
+    AVHRRout%calib3A_intercept(K) = AVHRR%calib3A_intercept(I)
+    AVHRRout%calib3(:,K) = AVHRR%calib3(:,I)
+    AVHRRout%calib4(:,K) = AVHRR%calib4(:,I)
+    AVHRRout%calib5(:,K) = AVHRR%calib5(:,I)
+    AVHRRout%clavr_mask(:,K) = AVHRR%clavr_mask(:,I)
+    AVHRRout%clavrx_mask(:,K) = AVHRR%clavrx_mask(:,I)
+    AVHRRout%clavrx_prb(:,K) = AVHRR%clavrx_prb(:,I)
+    AVHRRout%orig_solar_contamination_3B(K) = &
+         AVHRR%orig_solar_contamination_3B(I)
+    AVHRRout%orig_solar_contamination_4(K) = &
+         AVHRR%orig_solar_contamination_4(I)
+    AVHRRout%orig_solar_contamination_5(K) = &
+         AVHRR%orig_solar_contamination_5(I)
+    AVHRRout%satelliteAltitude(K) = AVHRR%satelliteAltitude(I)
+    
+    IF( AVHRR%walton_there )THEN
+       AVHRRout%array3B_error(:,K) = AVHRR%array3B_error(:,I)
+       AVHRRout%array4_error(:,K) = AVHRR%array4_error(:,I)
+       AVHRRout%array5_error(:,K) = AVHRR%array5_error(:,I)
+    ENDIF
+    
+    !
+    ! If new calbration there
+    !
+    IF( alldata .and. AVHRR%newCalibration_There )THEN
+       AVHRRout%new_calib3(:,K) = AVHRR%new_calib3(:,I)
+       AVHRRout%new_calib4(:,K) = AVHRR%new_calib4(:,I)
+       AVHRRout%new_calib5(:,K) = AVHRR%new_calib5(:,I)
+       AVHRRout%smoothPrt1(K) = AVHRR%smoothPrt1(I)
+       AVHRRout%smoothPrt2(K) = AVHRR%smoothPrt2(I)
+       AVHRRout%smoothPrt3(K) = AVHRR%smoothPrt3(I)
+       AVHRRout%smoothPrt4(K) = AVHRR%smoothPrt4(I)
+       AVHRRout%nsmoothPrt1(K) = AVHRR%nsmoothPrt1(I)
+       AVHRRout%nsmoothPrt2(K) = AVHRR%nsmoothPrt2(I)
+       AVHRRout%nsmoothPrt3(K) = AVHRR%nsmoothPrt3(I)
+       AVHRRout%nsmoothPrt4(K) = AVHRR%nsmoothPrt4(I)
+       AVHRRout%smoothPrt1Cnts(K) = AVHRR%smoothPrt1Cnts(I)
+       AVHRRout%smoothPrt2Cnts(K) = AVHRR%smoothPrt2Cnts(I)
+       AVHRRout%smoothPrt3Cnts(K) = AVHRR%smoothPrt3Cnts(I)
+       AVHRRout%smoothPrt4Cnts(K) = AVHRR%smoothPrt4Cnts(I)
+       AVHRRout%smoothPrt(K) = AVHRR%smoothPrt(I)
+       AVHRRout%smoothBB3(K) = AVHRR%smoothBB3(I)
+       AVHRRout%smoothBB4(K) = AVHRR%smoothBB4(I)
+       AVHRRout%smoothBB5(K) = AVHRR%smoothBB5(I)
+       AVHRRout%smoothSp3(K) = AVHRR%smoothSp3(I)
+       AVHRRout%smoothSp4(K) = AVHRR%smoothSp4(I)
+       AVHRRout%smoothSp5(K) = AVHRR%smoothSp5(I)
+       AVHRRout%nsmoothPrt1(K) = AVHRR%nsmoothPrt1(I)
+       AVHRRout%nsmoothPrt2(K) = AVHRR%nsmoothPrt2(I)
+       AVHRRout%nsmoothPrt3(K) = AVHRR%nsmoothPrt3(I)
+       AVHRRout%nsmoothPrt4(K) = AVHRR%nsmoothPrt4(I)
+       AVHRRout%nsmoothBB3(K) = AVHRR%nsmoothBB3(I)
+       AVHRRout%nsmoothBB4(K) = AVHRR%nsmoothBB4(I)
+       AVHRRout%nsmoothBB5(K) = AVHRR%nsmoothBB5(I)
+       AVHRRout%nsmoothSp3(K) = AVHRR%nsmoothSp3(I)
+       AVHRRout%nsmoothSp4(K) = AVHRR%nsmoothSp4(I)
+       AVHRRout%nsmoothSp5(K) = AVHRR%nsmoothSp5(I)
+       AVHRRout%Interpolated(K) = AVHRR%Interpolated(I)
+       AVHRRout%solar_contamination_failure(K) = &
+            AVHRR%solar_contamination_failure(I)
+       AVHRRout%solar_contamination_3B(K) = AVHRR%solar_contamination_3B(I)
+       AVHRRout%solar_contamination_4(K) = AVHRR%solar_contamination_4(I)
+       AVHRRout%solar_contamination_5(K) = AVHRR%solar_contamination_5(I)
+       AVHRRout%moon_contamination(K) = AVHRR%moon_contamination(I)
+       AVHRRout%new_array1(:,K) = AVHRR%new_array1(:,I)
+       AVHRRout%new_array2(:,K) = AVHRR%new_array2(:,I)
+       AVHRRout%new_array3A(:,K) = AVHRR%new_array3A(:,I)
+       AVHRRout%new_array3B(:,K) = AVHRR%new_array3B(:,I)
+       AVHRRout%new_array4(:,K) = AVHRR%new_array4(:,I)
+       AVHRRout%new_array5(:,K) = AVHRR%new_array5(:,I)
+       AVHRRout%new_array1_error(:,K) = AVHRR%new_array1_error(:,I)
+       AVHRRout%new_array2_error(:,K) = AVHRR%new_array2_error(:,I)
+       AVHRRout%new_array3A_error(:,K) = AVHRR%new_array3A_error(:,I)
+       AVHRRout%new_array3B_error(:,K) = AVHRR%new_array3B_error(:,I)
+       AVHRRout%new_array4_error(:,K) = AVHRR%new_array4_error(:,I)
+       AVHRRout%new_array5_error(:,K) = AVHRR%new_array5_error(:,I)
+       AVHRRout%noise_cnts(:,K) = AVHRR%noise_cnts(:,I)
+       AVHRRout%noise_cnts_cal(:,K) = AVHRR%noise_cnts_cal(:,I)
+       AVHRRout%ict_prt_gain_value(K) = AVHRR%ict_prt_gain_value(I)
+       AVHRRout%prt_correction(K) = AVHRR%prt_correction(I)
+       AVHRRout%prt_ict_temp(K) = AVHRR%prt_ict_temp(I)
+    ENDIF
 
-  END SUBROUTINE Resize_Orbit
+  END SUBROUTINE Copy_All_Scan
 
-  SUBROUTINE read_file(infile,AVHRR,uuid_in,out_instr_coefs)
+  SUBROUTINE read_file(infile,AVHRR,uuid_in,pygac_stem,out_instr_coefs)
 
     USE IFPORT
 
     CHARACTER(LEN=*), INTENT(IN) :: infile
-    TYPE(AVHRR_Data), INTENT(OUT) :: AVHRR
+    TYPE(AVHRR_Data), TARGET, INTENT(OUT) :: AVHRR
     CHARACTER(LEN=*), INTENT(IN) :: uuid_in
+    CHARACTER(LEN=*), INTENT(IN) :: pygac_stem
     TYPE(AVHRR_Instrument_Coefs), INTENT(out), OPTIONAL :: out_instr_coefs
 
     ! Local variables
@@ -2029,25 +2144,12 @@ CONTAINS
     CHARACTER(LEN=256) :: command_str
 
     TYPE(Imagery) :: IMG
+    TYPE(AVHRR_Data), POINTER :: pAVHRR
     REAL :: coefs1(7)
     REAL :: coefs2(7)
     REAL :: coefs3(7)
     LOGICAL :: remove_file
 
-    ! PyGAC geolocation variables
-!    CHARACTER(LEN = 48) :: filename
-!    INTEGER :: hh1,hh2,mm1,mm2,ss1,ss2
-!    CHARACTER(LEN = 6) pygac_starttime,pygac_endtime
-!    LOGICAL :: scanline_common
-!    INTEGER :: pygac_scanlinenumber
-!    CHARACTER(LEN = 72) pygac_sunsatangles
-!    CHARACTER(LEN = 69) pygac_qualflags
-!    REAL :: data,pygac_hours,pygac_scanstart,pygac_scanend
-!    REAL :: pygac_Lat,pygac_Lon
-!    REAL :: pygac_relAz,pygac_satAz,pygac_satZa,pygac_solAz,pygac_solZa
-!    INTEGER :: ncid,varid,pygac_missing_scanlines
-!    INTEGER :: ndims_in, nvars_in, ngatts_in, unlimdimid_in
-    
     ! Check to see if we need to uncompress the data
     remove_file=.FALSE.
     IF( 0 .ne. INDEX(infile,'.gz') )THEN
@@ -2077,92 +2179,13 @@ CONTAINS
     IMG%DataDir = TRIM(inDirectory)
     IMG%DataFile = TRIM(inFilename)
 
+    IMG%GbcsDataPath = '/group_workspaces/cems/nceo_uor/users/jmittaz/AVHRR/&
+         &code/git/gbcs_new_calibration/dat_cci/'
     CALL Load_Imagery(IMG,outputData=AVHRR,use_new_calibration=.FALSE.,&
          out_instr_coefs=out_instr_coefs,use_walton=.FALSE.)
 
-!MT: 19-02-2018: Geolocation update using mapping of PyGAC outputs
-! load the PyGAC qualflags and sunsatangles .h5 files   
-! for intersection of L1B and PyGAC scanLineNumber: 
-! 1) overwrite Lat, Lon in AVHRR_Data
-! 2) overwrite angles in AVHRR_Data 
-! 3) overwrite extracted YYYY, DOY, and calculated UTC_msecs --> hours = UTC_msecs/3600/1000, and time
-! 4) for intersection of L1B and PyGAC scanLineNumber: overwrite Lat, Lon and angles in AVHRR_Data
-! 5) for setdiff of L1B and PyGAC scanLineNumber: set all the above [variables] to _fillValue
-! 6) for PyGAC 'missing_scanlines': set _fillValue
-! 7) for case when PyGAC passes BT data, we also need intersection between L1B _fillValue and scanline_common
-
-!    CALL Get_Pygac(IMG,outputData=AVHRR)
-!    filename = "noaa18_99999_20070412T1108314Z_20070412T1254559Z"
-!    pygac_qualflags = trim("ECC_GAC_qualflags_") // trim(filename) // trim(".h5")
-!    pygac_sunsatangles = trim("ECC_GAC_sunsatangles_") // trim(filename) // trim(".h5") 
-
-!NF90_OPEN               ! open existing netCDF dataset
-!   NF90_INQ_DIMID       ! get dimension IDs
-!   NF90_INQ_VARID       ! get variable IDs
-!   NF90_GET_ATT         ! get attribute values
-!   NF90_GET_VAR         ! get values of variables
-!NF90_CLOSE              ! close netCDF dataset
-
-!call check( NF90_OPEN(pygac_qualflags, NF90_nowrite, ncid) )
-!print *,"ncid=",ncid
-!call check( NF90_INQ_VARID(ncid, "qual_flags", varid) )
-!call check( NF90_GET_VAR(ncid, varid, pygac_starttime) )
-!call check( NF90_GET_ATT(ncid, varid, "starttime", pygac_starttime) )
-!print *,"pygac_starttime=",pygac_starttime
-!print *,"SUCCESS reading ", pygac_qualflags
-!call check( NF90_CLOSE(ncid) )
-
-!call check( NF90_GET_ATT(ncid, NF90_GLOBAL, "starttime", pygac_starttime) )
-!call check( NF90_GET_ATT(ncid, NF90_GLOBAL, "starttime", pygac_endtime) )
-!call check( NF90_GET_ATT(ncid, NF90_GLOBAL, "missing_scanlines", pygac_missing_scanlines) )
-!call check( NF90_GET_ATT(ncid, NF90_GLOBAL, "data", pygac_scanlinenumber) )
-
-!write(900,*)'pygac_starttime=',pygac_starttime
-
-!call check( NF90_OPEN(pygac_sunsatangles, NF90_nowrite, ncid) )
-!pygac_starttime = TRIM(pygac_starttime)
-!pygac_endtime = TRIM(pygac_endtime)
-
-!read (pygac_starttime(1:2),'(I2)') hh1
-!read (pygac_starttime(3:4),'(I2)') mm1
-!read (pygac_starttime(5:6),'(I2)') ss1
-!read (pygac_endtime(1:2),'(I2)') hh2
-!read (pygac_endtime(3:4),'(I2)') mm2
-!read (pygac_endtime(5:6),'(I2)') ss2
-
-!pygac_scanstart = hh1+(mm1*60.0+ss1)/3600.0
-!pygac_scanend = hh2+(mm2*60.0+ss2)/3600.0
-!pygac_scanlinenumber = data(:,1)
-!pygac_hours = pygac_scanstart + (pygac_scanlinenumber - 1) * 0.5/3600
-!pygac_hours[pygac_hours < -30000.0] = nan
-
-!stat = NF90_GET_ATT(ncid2, NF90_GLOBAL, "image1", pygac_solZa)
-!call check(stat)
-!stat = NF90_GET_ATT(ncid2, NF90_GLOBAL, "image2", pygac_satZa)
-!call check(stat)
-!stat = NF90_GET_ATT(ncid2, NF90_GLOBAL, "image3", pygac_relAz)
-!call check(stat)
-!stat = NF90_GET_ATT(ncid2, NF90_GLOBAL, "image4", pygac_solAz)
-!call check(stat)
-!stat = NF90_GET_ATT(ncid2, NF90_GLOBAL, "image5", pygac_satAz)
-!call check(stat)
-!stat = NF90_GET_ATT(ncid2, NF90_GLOBAL, "lat", pygac_Lat)
-!call check(stat)
-!stat = NF90_GET_ATT(ncid2, NF90_GLOBAL, "lon", pygac_Lon)
-!call check(stat)
-
-!pygac_solZa = p_angles['image1']['data'][...].astype('f8')
-!pygac_satZa = p_angles['image2']['data'][...].astype('f8')
-!pygac_relAz = p_angles['image3']['data'][...].astype('f8')
-!pygac_solAz = p_angles['image4']['data'][...].astype('f8')
-!pygac_satAz = p_angles['image5']['data'][...].astype('f8')
-!pygac_lat = p_angles['where']['lat']['data'].value 
-!pygac_lon = p_angles['where']['lon']['data'].value 
-
-!scanline_common = (AVHRR%scanLineNumber == pygac_scanlinenumber)  ! boolean vector result  (/ F, T, T, F, ...  /)
-
-!write(901,*)pygac_scanstart
-!write(902,*)pygac_scanend
+    pAVHRR => AVHRR
+    CALL Overlay_PyGAC_Data(pygac_stem,pAVHRR)
 
     IF( remove_file )THEN
        WRITE(command_str,'(''rm -f temp_file.'',a)')&
@@ -2173,7 +2196,919 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE read_file
+
+  !
+  ! Read pyGAC data and overwrite AVHRR information
+  !
+  SUBROUTINE Overlay_PyGAC_Data(pygac_stem,AVHRR)
+
+    USE GbcsDateTime
+
+    CHARACTER(LEN=*), INTENT(IN) :: pygac_stem
+    TYPE(AVHRR_Data), POINTER, INTENT(INOUT) :: AVHRR
+
+    ! Local data
+    INTEGER :: I,J,K
+    INTEGER :: pos
+    INTEGER :: ncid
+    INTEGER :: ostat
+    INTEGER :: lat_id
+    INTEGER :: grp_lat_id
+    INTEGER :: nx
+    INTEGER :: ny
+    INTEGER :: qnx
+    INTEGER :: qny
+    INTEGER :: type
+    INTEGER :: nmissing
+    INTEGER :: scanline_step
+    LOGICAL :: found
+    REAL :: gain
+    REAL :: offset
+    REAL, ALLOCATABLE :: lat(:,:)
+    REAL, ALLOCATABLE :: lon(:,:)
+    REAL, ALLOCATABLE :: satza(:,:)
+    REAL, ALLOCATABLE :: solza(:,:)
+    REAL, ALLOCATABLE :: relaz(:,:)
+    REAL, ALLOCATABLE :: ch1(:,:)
+    REAL, ALLOCATABLE :: ch2(:,:)
+    REAL, ALLOCATABLE :: ch3a(:,:)
+    REAL, ALLOCATABLE :: ch3b(:,:)
+    REAL, ALLOCATABLE :: ch4(:,:)
+    REAL, ALLOCATABLE :: ch5(:,:)
+    REAL, ALLOCATABLE :: temp_output(:,:)
+    INTEGER(GbcsInt2), ALLOCATABLE :: qualflags(:,:)
+    CHARACTER(LEN=256) :: filename
+    CHARACTER(LEN=15) :: timestr(4)
+    TYPE(DateTime) :: start_time
+    TYPE(DateTime) :: stop_time
+    REAL(GbcsDble) :: start_time_sec
+    REAL(GbcsDble) :: time_delta
+    REAL(GbcsDble) :: start_time_gbcs
+    REAL(GbcsDble) :: new_time
+    TYPE(DateTime) :: new_time_gbcs
+    REAL :: hours
+    LOGICAL :: ch3a_there
+    LOGICAL :: ch5_there
+
+    !
+    ! Input name will be of form ECC_GAC_*_noaa*_start/end.h5
+    ! where first * can be avhrr, qualflags,sunsatangles
+    !
+    ! lat/lon in avhrr version
+    ! scanline numbering in qualflags
+    ! angles in sunsatangles
+    !
+    ! Find _GAC_sunsatangles_ for lat/lon/angles
+    !
+    pos = INDEX(pygac_stem,'_GAC_avhrr_')
+    IF( 0 .eq. pos )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot find _GAC_avhrr_ in pyGAC filename',&
+            'Overlay_PyGAC_Data','combine_orbits.f90')
+    END IF
+
+    !
+    ! Get Refl/BTs so we can check for fill values as there is extra 
+    ! pyGAC filtering for scan motor errors where data is set to fill
+    !
+    filename = pygac_stem(1:pos-1)//'_GAC_avhrr_'//&
+         &pygac_stem(pos+11:LEN_TRIM(pygac_stem))
+
+    ostat = NF90_OPEN(TRIM(filename),NF90_NOWRITE,ncid)
+    CALL check(ostat)
+
+    CALL Get_Data_Grps(ncid,'None','Channel 1 reflectance',ch1,nx,ny,&
+         tag_check=.FALSE.)
+    CALL Get_Data_Grps(ncid,'None','Channel 2 reflectance',ch2,nx,ny,&
+         tag_check=.FALSE.)
+    CALL Get_Data_Grps(ncid,'None','Channel 3a reflectance',ch3a,nx,ny,&
+         tag_check=.FALSE.)
+    ch3a_there = .FALSE.
+    IF( ALLOCATED(ch3a) )THEN
+       ch3a_there = .TRUE.
+    ENDIF
+    CALL Get_Data_Grps(ncid,'None','Channel 3b brightness temperature',&
+         ch3b,nx,ny,tag_check=.FALSE.)
+    CALL Get_Data_Grps(ncid,'None','Channel 4 brightness temperature',&
+         ch4,nx,ny,tag_check=.FALSE.)
+    CALL Get_Data_Grps(ncid,'None','Channel 5 brightness temperature',&
+         ch5,nx,ny,tag_check=.FALSE.)
+    ch5_there = .FALSE.
+    IF( ALLOCATED(ch5) )THEN
+       ch5_there = .TRUE.
+    ENDIF
+
+    ostat = NF90_CLOSE(ncid)
+    CALL check(ostat)
+
+    !
+    ! Filename to get lat/lon
+    !
+    filename = pygac_stem(1:pos-1)//'_GAC_sunsatangles_'//&
+         &pygac_stem(pos+11:LEN_TRIM(pygac_stem))
+
+    ostat = NF90_OPEN(TRIM(filename),NF90_NOWRITE,ncid)
+    CALL check(ostat)
+
+    !
+    ! Get variables
+    !
+    CALL Get_Data_Grps(ncid,'where','Latitude',lat,nx,ny,gettime=timestr)    
+
+    !
+    ! Get rest of variables in this file
+    !
+    CALL Get_Data_Grps(ncid,'where','Longitude',lon,nx,ny)
+    CALL Get_Data_Grps(ncid,'None','Satellite zenith angle',satza,nx,ny)
+    CALL Get_Data_Grps(ncid,'None','Solar zenith angle',solza,nx,ny)
+    CALL Get_Data_Grps(ncid,'None','Relative satellite-sun azimuth angle',&
+         relaz,nx,ny)
+
+    !
+    ! Close file
+    !
+    ostat = NF90_CLOSE(ncid)
+    CALL check(ostat)
+
+    !
+    ! Read in quality flags
+    !
+    !
+    ! Filename to get lat/lon
+    !
+    filename = pygac_stem(1:pos-1)//'_GAC_qualflags_'//&
+         &pygac_stem(pos+11:LEN_TRIM(pygac_stem))
+
+    ostat = NF90_OPEN(TRIM(filename),NF90_NOWRITE,ncid)
+    CALL check(ostat)
+
+    !
+    ! Get variables
+    !
+    CALL Get_Data_Grps(ncid,'None','Scanline quality flags',&
+         temp_output,qnx,qny,short_output=qualflags,short_type=.TRUE.)
+
+    !
+    ! Close file
+    !
+    ostat = NF90_CLOSE(ncid)
+    CALL check(ostat)
+
+    !
+    ! Setup time in pygac frame - uses first and last scanline number from
+    ! qualflags
+    !
+    CALL Setup_PyGAC_Time(AVHRR%time_yearstart,timestr,&
+         qualflags(1,1),qualflags(1,ny),start_time,&
+         stop_time,start_time_sec,time_delta,start_time_gbcs)
+    !
+    ! Copy over lat/lon/angles
+    ! Use first entry of qualflags as scanline number
+    !
+    AVHRR%scan_line_delta_time = time_delta
+    nmissing = 0
+    DO I=1,AVHRR%arraySize
+       found = .FALSE.
+       InnerLoop: DO J=1,qny
+          IF( qualflags(1,J) .eq. AVHRR%scanLineNumber(I) )THEN
+             !
+             ! Found matching line
+             !
+             found = .TRUE.
+             !
+             ! Copy over data including updated time
+             !
+             AVHRR%Lon(:,I) = lon(:,J)
+             AVHRR%Lat(:,I) = lat(:,J)
+             AVHRR%satZA(:,I) = satza(:,J)
+             AVHRR%solZA(:,I) = solza(:,J)
+             AVHRR%relAz(:,I) = relaz(:,J)
+             scanline_step = (qualflags(1,J)-qualflags(1,1))
+             AVHRR%Time(I) = start_time_sec + scanline_step*time_delta
+             new_time = start_time_gbcs + scanline_step*time_delta/86400.d0
+             new_time_gbcs = JD_to_Date(new_time)
+             AVHRR%year(I) = new_time_gbcs%year
+             AVHRR%month(I) = new_time_gbcs%month
+             AVHRR%day(I) = new_time_gbcs%day
+             hours = new_time_gbcs%hour + new_time_gbcs%minute/60. + &
+                  new_time_gbcs%seconds/3600. + &
+                  new_time_gbcs%sec1000/3600000.
+             AVHRR%hours(I) = hours
+             AVHRR%UTC_msecs(I) = INT((hours/24.)*86400000.)
+             !
+             ! Check to see if there is bad data in pyGAC values
+             ! They do extra flagging
+             !
+             DO K=1,AVHRR%nelem
+                IF( ch1(K,J) .eq. NAN_R )THEN
+                   AVHRR%counts1(K,I) = NAN_R
+                ENDIF
+                IF( ch2(K,J) .eq. NAN_R )THEN
+                   AVHRR%counts2(K,I) = NAN_R
+                ENDIF
+                IF( ch3a_there )THEN
+                   IF( AVHRR%array3A(K,I) .gt. 0. )THEN
+                      IF( ch3a(K,J) .eq. NAN_R )THEN
+                         AVHRR%counts3(K,I) = NAN_R
+                      ENDIF
+                   ENDIF
+                ENDIF
+                IF( AVHRR%array3B(K,I) .gt. 0. )THEN
+                   IF( ch3b(K,J) .eq. NAN_R )THEN
+                      AVHRR%counts3(K,I) = NAN_R
+                   ENDIF
+                ENDIF
+                IF( ch4(K,J) .eq. NAN_R )THEN
+                   AVHRR%counts4(K,I) = NAN_R
+                ENDIF
+                IF( ch5_there )THEN
+                   IF( ch4(K,J) .eq. NAN_R )THEN
+                      AVHRR%counts4(K,I) = NAN_R
+                   ENDIF
+                ENDIF
+             END DO
+          ENDIF
+       END DO InnerLoop
+       IF( .not. found )THEN
+          nmissing = nmissing+1
+          !
+          ! Set time to bad to be used as a check when gap filling
+          !
+          AVHRR%Time(I) = -1e30
+          AVHRR%year(I) = -1
+          AVHRR%month(I) = -1
+          AVHRR%day(I) = -1
+          AVHRR%hours(I) = -1
+          AVHRR%UTC_msecs(I) = -1
+       ENDIF
+    END DO
+    WRITE(*,*)'PyGAC comparison Number of missing lines : ',nmissing
+
+    DEALLOCATE(lon,lat,solza,satza,relaz,ch1,ch2,ch3b,ch4)
+    IF( ch3a_there )THEN
+       DEALLOCATE(ch3a)
+    ENDIF
+    IF( ch5_there )THEN
+       DEALLOCATE(ch5)
+    ENDIF
+        
+  END SUBROUTINE Overlay_PyGAC_Data
+
+  SUBROUTINE Get_Data_Grps(ncid,top_name,tag_name,output,nx,ny,short_output,&
+       short_type,gettime,tag_check)
+
+    INTEGER, INTENT(IN) :: ncid
+    CHARACTER(LEN=*), INTENT(IN) :: top_name
+    CHARACTER(LEN=*), INTENT(IN) :: tag_name
+    REAL, ALLOCATABLE, INTENT(OUT) :: output(:,:)
+    INTEGER, INTENT(OUT) :: nx
+    INTEGER, INTENT(OUT) :: ny
+    INTEGER(GbcsInt2), ALLOCATABLE, INTENT(OUT), OPTIONAL :: short_output(:,:)
+    LOGICAL, INTENT(IN), OPTIONAL :: short_type
+    CHARACTER(LEN=*), INTENT(OUT), OPTIONAL :: gettime(4)
+    LOGICAL, INTENT(IN), OPTIONAL :: tag_check
+
+    ! Local variables
+    INTEGER :: I,J
+    INTEGER :: ostat
+    INTEGER :: grp_id
+    INTEGER :: var_id
+    INTEGER :: type
+    INTEGER(GbcsInt2), ALLOCATABLE :: var_short(:,:)
+    INTEGER(GbcsInt4), ALLOCATABLE :: var_int(:,:)
+    REAL :: gain
+    REAL :: offset
+    INTEGER(GbcsInt2) :: missingdata_short
+    INTEGER(GbcsInt2) :: nodata_short
+    INTEGER(GbcsInt4) :: missingdata_int
+    INTEGER(GbcsInt4) :: nodata_int
+    REAL :: missingdata_real
+    REAL :: nodata_real
+    LOGICAL :: shorttype
+    LOGICAL :: ok
+    LOGICAL :: check_ok
+
+    IF( PRESENT(short_type) )THEN
+       shorttype = short_type
+    ELSE
+       shorttype = .FALSE.
+    ENDIF
+
+    IF( PRESENT(tag_check) )THEN
+       check_ok = tag_check
+    ELSE
+       check_ok = .TRUE.
+    ENDIF
+    CALL Get_Array_Grps(ncid,top_name,tag_name,grp_id,var_id,nx,ny,&
+         type,gain,offset,missingdata_short,nodata_short,&
+         missingdata_int,nodata_int,missingdata_real,nodata_real,&
+         ok,gettime=gettime)
+    IF( check_ok .and. .not. ok )THEN
+       WRITE(*,'(''tag_name = '',a)')TRIM(tag_name)
+       CALL Gbcs_Critical(.TRUE.,'Cannot find tag_name','Get_Data_Grps',&
+            'combin_orbits.f90')
+    ELSE IF( .not. ok )THEN
+       RETURN
+    ENDIF
+    IF( .not. shorttype )THEN
+       ALLOCATE(output(nx,ny),STAT=ostat)
+    ELSE
+       IF( .not. PRESENT(short_output) )THEN
+          CALL Gbcs_Critical(.TRUE.,'Optional short_output not present',&
+               'Get_Data_Grps','combine_orbits.f90')
+       ENDIF
+       ALLOCATE(short_output(nx,ny),STAT=ostat)
+    ENDIF
+    IF( 0 .ne. ostat )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot allocate main array',&
+            'Get_Data_Grps','combine_orbits.f90')
+    ENDIF
+    !
+    ! Depending on type of variable, read in and scale to float
+    !
+    IF( type .eq. NF90_SHORT )THEN
+       ALLOCATE(var_short(nx,ny),STAT=ostat)
+       IF( 0 .ne. ostat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot allocate var_short array',&
+               'Get_Data_Grps','combine_orbits.f90')
+       ENDIF
+       ostat = NF90_GET_VAR(grp_id,var_id,var_short)
+       CALL check(ostat)
+       IF( shorttype )THEN
+          DO I=1,ny
+             DO J=1,nx
+                IF( var_short(J,I) .eq. missingdata_short .or. &
+                     var_short(J,I) .eq. nodata_short )THEN
+                   short_output(J,I) = NAN_I
+                ELSE
+                   short_output(J,I) = var_short(J,I)
+                ENDIF
+             END DO
+          END DO
+       ELSE
+          DO I=1,ny
+             DO J=1,nx
+                IF( var_short(J,I) .eq. missingdata_short .or. &
+                     var_short(J,I) .eq. nodata_short )THEN
+                   output(J,I) = NAN_R
+                ELSE
+                   output(J,I) = offset + gain*var_short(J,I)
+                ENDIF
+             END DO
+          END DO
+       ENDIF
+       DEALLOCATE(var_short)
+    ELSE IF( type .eq. NF90_INT )THEN
+       ALLOCATE(var_int(nx,ny),STAT=ostat)
+       IF( 0 .ne. ostat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot allocate var_short array',&
+               'Get_Data_Grps','combine_orbits.f90')
+       ENDIF
+       ostat = NF90_GET_VAR(grp_id,var_id,var_int)
+       CALL check(ostat)
+       DO I=1,ny
+          DO J=1,nx
+             IF( var_int(J,I) .eq. missingdata_int .or. &
+                  var_int(J,I) .eq. nodata_int )THEN
+                output(J,I) = NAN_R
+             ELSE
+                output(J,I) = offset + gain*var_int(J,I)
+             ENDIF
+          END DO
+       END DO       
+       DEALLOCATE(var_int)
+    ELSE IF( type .eq. NF90_FLOAT )THEN
+       ostat = NF90_GET_VAR(grp_id,var_id,output)
+       CALL check(ostat)
+       DO I=1,ny
+          DO J=1,nx
+             IF( output(J,I) .eq. missingdata_real .or. &
+                  output(J,I) .eq. nodata_real )THEN
+                output(J,I) = NAN_R
+             ENDIF
+          END DO
+       END DO       
+    ENDIF
+
+  END SUBROUTINE Get_Data_Grps
+
+  !
+  ! Note stored in groups so need group based reader
+  !
+  SUBROUTINE Get_Array_Grps(ncid,top_name,tag_name,grp_id,data_id,nx,ny,type,&
+       gain,offset,missingdata_short,nodata_short,&
+       missingdata_int,nodata_int,missingdata_real,nodata_real,ok,gettime)
+    
+    INTEGER, INTENT(IN) :: ncid
+    CHARACTER(LEN=*), INTENT(IN) :: top_name
+    CHARACTER(LEN=*), INTENT(IN) :: tag_name
+    INTEGER, INTENT(OUT) :: grp_id
+    INTEGER, INTENT(OUT) :: data_id
+    INTEGER, INTENT(OUT) :: nx
+    INTEGER, INTENT(OUT) :: ny
+    INTEGER, INTENT(OUT) :: type
+    REAL, INTENT(OUT) :: gain
+    REAL, INTENT(OUT) :: offset
+    INTEGER(GbcsInt2), INTENT(OUT) :: missingdata_short
+    INTEGER(GbcsInt2), INTENT(OUT) :: nodata_short
+    INTEGER(GbcsInt4), INTENT(OUT) :: missingdata_int
+    INTEGER(GbcsInt4), INTENT(OUT) :: nodata_int
+    REAL, INTENT(OUT) :: missingdata_real
+    REAL, INTENT(OUT) :: nodata_real
+    LOGICAL, INTENT(OUT) :: ok
+    CHARACTER(LEN=*), INTENT(OUT), OPTIONAL :: gettime(4)
+
+    ! Local variables
+    INTEGER :: I,J
+    INTEGER :: ostat
+    INTEGER, PARAMETER :: max_ngrps=100
+    INTEGER :: top_group_id
+    INTEGER :: low_id
+    INTEGER :: ntop
+    INTEGER :: ntop_low
+    INTEGER :: ngrps
+    INTEGER :: n_attr
+    INTEGER :: top_ncids(max_ngrps)
+    INTEGER :: low_ncids(max_ngrps)
+    INTEGER :: attr_ncid(max_ngrps)
+    INTEGER :: include_parents
+    CHARACTER(LEN=NF90_MAX_NAME) :: name
+    CHARACTER(LEN=NF90_MAX_NAME) :: values
+
+    ok = .TRUE.
+    !
+    ! Get list of groups
+    !
+    ostat = NF90_INQ_GRPS(ncid,ntop,top_ncids)
+    CALL check(ostat)
+
+    IF( top_name .ne. 'None' )THEN
+       !
+       ! Loop round groups to find top input tag
+       !
+       top_group_id=-1
+       DO I=1,ntop
+          ostat = NF90_INQ_GRPNAME(top_ncids(I),name) 
+          CALL check(ostat)
+          IF( TRIM(name) .eq. TRIM(top_name) )THEN
+             top_group_id = top_ncids(I)
+             EXIT
+          ENDIF
+       END DO
+       IF( -1 .eq. top_group_id )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot top_group_id',&
+               'Get_Array_Grps','combine_orbits.f90')
+       ENDIF
+    ELSE
+       top_group_id = -1
+    ENDIF
+
+    !
+    ! Get lower level ids - below where if present
+    !
+    IF( -1 .ne. top_group_id )THEN
+       ostat = NF90_INQ_GRPS(top_group_id,ntop_low,low_ncids)
+       CALL check(ostat)
+    ELSE
+       ntop_low = ntop
+       low_ncids = top_ncids
+    ENDIF
+
+    !
+    ! Loop round groups to find lower level input tag
+    !
+    data_id=-1
+    nx = -1
+    ny = -1
+    low_loop: DO I=1,ntop_low
+       ! 
+       ! Get name from what group - dataset name
+       !
+       ostat = NF90_INQ_GRPS(low_ncids(I),n_attr,attr_ncid)
+       CALL check(ostat)
+       IF( 0 .eq. n_attr )THEN
+          CALL Get_Grp_Attr(low_ncids(I),NF90_GLOBAL,tag_name,&
+               gain,offset,type,grp_id,&
+               data_id,missingdata_short,nodata_short,&
+               missingdata_int,nodata_int,&
+               missingdata_real,nodata_real,nx,ny,gettime=gettime)
+          IF( -1 .ne. data_id )THEN
+             EXIT low_loop
+          ENDIF
+       ELSE
+          DO J=1,n_attr
+             ostat = NF90_INQ_GRPNAME(attr_ncid(J),name) 
+             CALL check(ostat)
+             IF( name .eq. 'what' )THEN
+                CALL Get_Grp_Attr(low_ncids(I),attr_ncid(J),tag_name,&
+                     gain,offset,type,grp_id,&
+                     data_id,missingdata_short,nodata_short,&
+                     missingdata_int,nodata_int,&
+                     missingdata_real,nodata_real,nx,ny,gettime=gettime)
+                IF( -1 .ne. data_id )THEN
+                   EXIT low_loop
+                ENDIF
+             ENDIF
+          END DO
+       ENDIF
+    END DO low_loop
+    IF( -1 .eq. data_id )THEN
+       ok = .FALSE.
+!       CALL Gbcs_Critical(.TRUE.,'Cannot get data_id',&
+!            'Get_Array_Grps','combine_orbits.f90')
+    ENDIF    
+
+  END SUBROUTINE Get_Array_Grps
   
+  SUBROUTINE Get_Grp_Attr(top_ncid,ncid,tag_name,gain,offset,type,grp_id,&
+       data_id,missingdata_short,nodata_short,missingdata_int,nodata_int,&
+       missingdata_real,nodata_real,nx,ny,gettime)
+
+    INTEGER, INTENT(IN) :: top_ncid
+    INTEGER, INTENT(IN) :: ncid
+    CHARACTER(LEN=*), INTENT(IN) :: tag_name
+    REAL, INTENT(OUT) :: gain
+    REAL, INTENT(OUT) :: offset
+    INTEGER, INTENT(OUT) :: type
+    INTEGER, INTENT(OUT) :: grp_id
+    INTEGER, INTENT(OUT) :: data_id
+    INTEGER(GbcsInt2), INTENT(OUT) :: missingdata_short
+    INTEGER(GbcsInt2), INTENT(OUT) :: nodata_short
+    INTEGER(GbcsInt4), INTENT(OUT) :: missingdata_int
+    INTEGER(GbcsInt4), INTENT(OUT) :: nodata_int
+    REAL, INTENT(OUT) :: missingdata_real
+    REAL, INTENT(OUT) :: nodata_real
+    INTEGER, INTENT(OUT) :: nx
+    INTEGER, INTENT(OUT) :: ny
+    CHARACTER(LEN=*), INTENT(OUT), OPTIONAL :: gettime(4)
+
+    ! Local variables
+    INTEGER, PARAMETER :: max_ngrps=100
+    INTEGER :: ndims
+    INTEGER :: nc_id
+    INTEGER :: ostat
+    INTEGER :: dim_ids(max_ngrps)
+    INTEGER :: itemp
+    CHARACTER(LEN=NF90_MAX_NAME) :: values
+    CHARACTER(LEN=NF90_MAX_NAME) :: dim_name
+
+    missingdata_short = -32001
+    nodata_short = -32001
+    missingdata_int = -999999
+    nodata_int = -999999
+    missingdata_real = NAN_R
+    nodata_real = NAN_R
+
+    grp_id = top_ncid
+    data_id = -1
+
+    IF( ncid .ne. NF90_GLOBAL )THEN
+       ostat = NF90_GET_ATT(ncid, NF90_GLOBAL, 'dataset_name', values)
+       nc_id = ncid
+    ELSE
+       ostat = NF90_GET_ATT(top_ncid, NF90_GLOBAL, 'dataset_name', values)
+       nc_id = top_ncid
+    ENDIF
+    !
+    ! If not found move one
+    !
+    IF( NF90_NOERR .ne. ostat )THEN
+       RETURN
+    ENDIF
+    IF( values .eq. tag_name )THEN
+       !
+       ! Get gain and offset attributes
+       !
+       ostat = NF90_GET_ATT(nc_id, NF90_GLOBAL, &
+            'gain', gain)
+       CALL check(ostat)
+       ostat = NF90_GET_ATT(nc_id, NF90_GLOBAL, &
+            'offset', offset)
+       CALL check(ostat)
+       !
+       ! Get pointer to data array and group_id
+       !
+       ostat = NF90_INQ_VARID(top_ncid,'data',data_id)
+       CALL check(ostat)
+
+       !
+       ! Get data type and dimensions for data
+       !
+       ostat = NF90_INQUIRE_VARIABLE(top_ncid,data_id,xtype=type,&
+            ndims=ndims,dimids=dim_ids)
+       CALL check(ostat)
+
+       IF( ndims .eq. 2 )THEN
+          !
+          ! Get dimension sizes
+          !
+          ! Note x/y switch due to file definition
+          !
+          ostat = NF90_INQUIRE_DIMENSION(top_ncid,dim_ids(1),dim_name,ny)
+          CALL check(ostat)
+          ostat = NF90_INQUIRE_DIMENSION(top_ncid,dim_ids(2),dim_name,nx)
+          CALL check(ostat)
+          !
+          ! Sometimes seems we have a switch
+          !
+          IF( nx .ne. 409 )THEN
+             itemp = nx
+             nx = ny
+             ny = itemp
+          ENDIF
+          !
+          ! Get relevant missing data numbers
+          !
+          IF( type .eq. NF90_SHORT )THEN
+             ostat = NF90_GET_ATT(nc_id, NF90_GLOBAL, &
+                  'missingdata', missingdata_short)
+             CALL check(ostat)
+             ostat = NF90_GET_ATT(nc_id, NF90_GLOBAL, &
+                  'nodata', nodata_short)
+             CALL check(ostat)
+          ELSE IF( type .eq. NF90_INT )THEN
+             ostat = NF90_GET_ATT(nc_id, NF90_GLOBAL, &
+                  'missingdata', missingdata_int)
+             CALL check(ostat)
+             ostat = NF90_GET_ATT(nc_id, NF90_GLOBAL, &
+                  'nodata', nodata_int)
+             CALL check(ostat)
+          ELSE IF( type .eq. NF90_FLOAT )THEN
+             ostat = NF90_GET_ATT(nc_id, NF90_GLOBAL, &
+                  'missingdata', missingdata_real)
+             CALL check(ostat)
+             ostat = NF90_GET_ATT(nc_id, NF90_GLOBAL, &
+                  'nodata', nodata_real)
+             CALL check(ostat)
+          ENDIF
+          
+          !
+          ! If requested get the time strings
+          !
+          IF( PRESENT(gettime) )THEN
+             ostat = NF90_GET_ATT(nc_id, NF90_GLOBAL, &
+                  'startdate', gettime(1))
+             CALL check(ostat)
+             ostat = NF90_GET_ATT(nc_id, NF90_GLOBAL, &
+                  'starttime', gettime(2))
+             CALL check(ostat)
+             ostat = NF90_GET_ATT(nc_id, NF90_GLOBAL, &
+                  'enddate', gettime(3))
+             CALL check(ostat)
+             ostat = NF90_GET_ATT(nc_id, NF90_GLOBAL, &
+                  'endtime', gettime(4))
+             CALL check(ostat)
+          ENDIF
+       ELSE
+          CALL Gbcs_Critical(.TRUE.,'Only 2d data arrays supported',&
+               'Get_Grp_Attr','combine_orbits.f90')
+       ENDIF
+    END IF
+
+  END SUBROUTINE Get_Grp_Attr
+
+  SUBROUTINE fill_missing_lines(AVHRR,AVHRRout)
+
+    TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
+    TYPE(AVHRR_Data), INTENT(OUT), TARGET :: AVHRRout
+
+    ! Local variables
+    INTEGER :: I
+    INTEGER :: K
+    INTEGER :: II
+    INTEGER :: start_line
+    INTEGER :: stop_line
+    INTEGER :: ntotal
+    INTEGER :: nmissing
+    INTEGER :: nmissing_total
+    TYPE(AVHRR_Data), POINTER :: pAVHRRout
+
+    ! Find how many lines needed for output
+    start_line = -1
+    startLoop: DO I=1,AVHRR%arraySize
+       IF( AVHRR%year(I) .gt. 0 )THEN
+          start_line = I
+          EXIT startLoop
+       END IF
+    END DO startLoop
+    IF( start_line .lt. 1 )THEN
+       CALL Gbcs_Critical(.TRUE.,'No good data found','fill_missing_lines',&
+            'combine_orbits.f90')
+    ENDIF
+
+    stop_line = -1
+    startLoop2: DO I=AVHRR%arraySize,1,-1
+       IF( AVHRR%year(I) .gt. 0 )THEN
+          stop_line = I
+          EXIT startLoop2
+       END IF
+    END DO startLoop2
+    IF( stop_line .lt. 1 )THEN
+       CALL Gbcs_Critical(.TRUE.,'No good data found','fill_missing_lines',&
+            'combine_orbits.f90')
+    ENDIF
+
+    ! How many lines needed in output
+    ntotal = NINT(((AVHRR%time(stop_line)-AVHRR%time(start_line))/&
+             AVHRR%scan_line_delta_time))+1
+
+    ! Allocate output structure
+    pAVHRRout => AVHRRout
+    CALL Allocate_OldCal( AVHRR, pAVHRRout,start_line,start_line+ntotal-1)
+    !
+    ! Set all data to bad
+    !
+    DO I=1,AVHRRout%arraySize
+       CALL INIT_OutData_Scanline(AVHRRout,I)
+    END DO
+    !
+    ! New cal if needed
+    !
+    IF( AVHRR%newCalibration_There )THEN
+       CALL Allocate_NewCal(AVHRR,AVHRRout,.TRUE.)
+    ENDIF
+
+    CALL Copy_Top_Data(AVHRR,AVHRRout,1,ntotal)
+
+    nmissing_total = 0
+    K=0
+    I=start_line
+    DO WHILE(I .le. stop_line)
+       !
+       ! If pyGAC copied data there, copy line and see if there is a 
+       ! data gap
+       !
+       IF( AVHRR%year(I) .gt. 0 )THEN
+          K=K+1
+          IF( K .gt. AVHRRout%arraySize )THEN
+             CALL Gbcs_Critical(.TRUE.,'K > arraySize',&
+                  'fill_missing_lines','combine_orbits.f90')
+          ENDIF
+          CALL Copy_All_Scan(AVHRR,AVHRRout,I,K,.TRUE.)
+          !
+          ! Check time to next scan line
+          !
+          II=I
+          SearchLoop: DO WHILE(I .lt. stop_line )
+             IF( AVHRR%year(I+1) .gt. 0 )THEN
+                nmissing = NINT((AVHRR%time(I+1)-AVHRR%time(II))/&
+                     AVHRR%scan_line_delta_time)-1
+                IF( 0 .lt. nmissing )THEN
+                   !
+                   ! We have missing scanlines skip and move on
+                   !
+                   K=K+nmissing
+                   nmissing_total = nmissing_total + nmissing
+                ENDIF
+                EXIT SearchLoop
+             ELSE
+                I=I+1
+             ENDIF
+          END DO SearchLoop
+       ElSE
+          K=K+1
+       ENDIF
+       I=I+1
+    END DO
+
+    WRITE(*,'(''  Number of missing scanlines added = '',i5)')nmissing_total
+
+  END SUBROUTINE fill_missing_lines
+
+  SUBROUTINE Setup_PyGAC_Time(time_yearstart,timestr,start_scnline,&
+       stop_scnline,start_time,stop_time,start_time_sec,time_delta,&
+       start_time_gbcs)
+
+    INTEGER, INTENT(IN) :: time_yearstart
+    CHARACTER(LEN=*), INTENT(IN) :: timestr(4)
+    INTEGER(GbcsInt2), INTENT(IN) :: start_scnline
+    INTEGER(GbcsInt2), INTENT(IN) :: stop_scnline
+    TYPE(DateTime), INTENT(OUT) :: start_time
+    TYPE(DateTime), INTENT(OUT) :: stop_time
+    REAL(GbcsDble), INTENT(OUT) :: start_time_sec
+    REAL(GbcsDble), INTENT(OUT) :: time_delta
+    REAL(GbcsDble), INTENT(OUT) :: start_time_gbcs
+
+    ! Local variables
+    INTEGER :: IOS
+    INTEGER :: dayno
+    INTEGER :: microsec
+    REAL :: hours
+    REAL(GbcsDble) :: stop_time_sec
+    CHARACTER(LEN=15) :: timestr_entry
+    
+    timestr_entry = timestr(1)
+    READ(timestr_entry(1:4),*,IOSTAT=IOS)start_time%year
+    IF( 0 .ne. IOS )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot parse start year',&
+            'Setup_PyGAC_Time','combine_orbits.f90')
+    ENDIF
+    READ(timestr_entry(5:6),*,IOSTAT=IOS)start_time%month
+    IF( 0 .ne. IOS )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot parse start month',&
+            'Setup_PyGAC_Time','combine_orbits.f90')
+    ENDIF
+    READ(timestr_entry(7:8),*,IOSTAT=IOS)start_time%day
+    IF( 0 .ne. IOS )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot parse start day',&
+            'Setup_PyGAC_Time','combine_orbits.f90')
+    ENDIF
+    timestr_entry = timestr(2)
+    READ(timestr_entry(1:2),*,IOSTAT=IOS)start_time%hour
+    IF( 0 .ne. IOS )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot parse start hour',&
+            'Setup_PyGAC_Time','combine_orbits.f90')
+    ENDIF
+    READ(timestr_entry(3:4),*,IOSTAT=IOS)start_time%minute
+    IF( 0 .ne. IOS )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot parse start minute',&
+            'Setup_PyGAC_Time','combine_orbits.f90')
+    ENDIF
+    READ(timestr_entry(5:6),*,IOSTAT=IOS)start_time%seconds
+    IF( 0 .ne. IOS )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot parse start second',&
+            'Setup_PyGAC_Time','combine_orbits.f90')
+    ENDIF
+    READ(timestr_entry(8:13),*,IOSTAT=IOS)microsec
+    IF( 0 .ne. IOS )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot parse start microsecond',&
+            'Setup_PyGAC_Time','combine_orbits.f90')
+    ENDIF
+    start_time%sec1000 = INT((microsec/1e6)*1e3)
+    start_time%utc_offset = 0
+
+    timestr_entry = timestr(3)
+    READ(timestr_entry(1:4),*,IOSTAT=IOS)stop_time%year
+    IF( 0 .ne. IOS )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot parse stop year',&
+            'Setup_PyGAC_Time','combine_orbits.f90')
+    ENDIF
+    READ(timestr_entry(5:6),*,IOSTAT=IOS)stop_time%month
+    IF( 0 .ne. IOS )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot parse stop month',&
+            'Setup_PyGAC_Time','combine_orbits.f90')
+    ENDIF
+    READ(timestr_entry(7:8),*,IOSTAT=IOS)stop_time%day
+    IF( 0 .ne. IOS )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot parse stop day',&
+            'Setup_PyGAC_Time','combine_orbits.f90')
+    ENDIF
+    timestr_entry = timestr(4)
+    READ(timestr_entry(1:2),*,IOSTAT=IOS)stop_time%hour
+    IF( 0 .ne. IOS )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot parse stop hour',&
+            'Setup_PyGAC_Time','combine_orbits.f90')
+    ENDIF
+    READ(timestr_entry(3:4),*,IOSTAT=IOS)stop_time%minute
+    IF( 0 .ne. IOS )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot parse stop minute',&
+            'Setup_PyGAC_Time','combine_orbits.f90')
+    ENDIF
+    READ(timestr_entry(5:6),*,IOSTAT=IOS)stop_time%seconds
+    IF( 0 .ne. IOS )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot parse stop seconds',&
+            'Setup_PyGAC_Time','combine_orbits.f90')
+    ENDIF
+    READ(timestr_entry(8:13),*,IOSTAT=IOS)microsec
+    IF( 0 .ne. IOS )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot parse start microsecond',&
+            'Setup_PyGAC_Time','combine_orbits.f90')
+    ENDIF
+    stop_time%sec1000 = INT((microsec/1e6)*1e3)
+    stop_time%utc_offset = 0
+
+    dayno = Day_Of_Year(start_time%year,start_time%month,start_time%day)
+    hours = start_time%hour + start_time%minute/60. + &
+         start_time%seconds/3600.+start_time%sec1000/3600000.
+    start_time_sec = get_date_time(start_time%year,dayno,hours,time_yearstart)
+
+    dayno = Day_Of_Year(stop_time%year,stop_time%month,stop_time%day)
+    hours = stop_time%hour + stop_time%minute/60. + &
+         stop_time%seconds/3600.+stop_time%sec1000/3600000.
+    stop_time_sec = get_date_time(stop_time%year,dayno,hours,time_yearstart)
+
+    time_delta = (stop_time_sec - start_time_sec)/&
+         (1.*(stop_scnline-start_scnline-1))
+    !
+    ! Make sure time delta is 0.5 seconds
+    !
+    IF( ABS(INT(1000*time_delta+0.5)-500) .gt. 1 )THEN
+       print *,'NY:',(stop_scnline-start_scnline)+1
+       print *,'start_time:',start_time
+       print *,' stop_time:',stop_time
+       print *,'Time delta = ',time_delta
+       CALL Gbcs_Critical(.TRUE.,'time delta != 0.5 secs',&
+            'Setup_PyGAC_Time','combine_orbits.f90')
+    ENDIF
+
+    !
+    ! Force time delta to be 0.5 seconds
+    !
+    time_delta = 0.5
+
+    start_time_gbcs = Date_to_JD(start_time)
+
+  END SUBROUTINE Setup_PyGAC_Time
+
   LOGICAL FUNCTION isNaN_Dble( inval )
 
     REAL(GbcsDBle), INTENT(IN) :: inval
@@ -2202,7 +3137,7 @@ CONTAINS
     
     INTEGER, INTENT (IN) :: ostat
     IF(ostat /= nf90_noerr) THEN
-      print *, TRIM(nf90_strerror(ostat))
+      WRITE(*,*)TRIM(nf90_strerror(ostat))
       stop "Stopped"
     END IF
 
