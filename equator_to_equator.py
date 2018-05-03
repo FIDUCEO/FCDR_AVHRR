@@ -569,23 +569,23 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
     os.chdir(outdir)
     # Make link to make_fcdr.exe
     try:
-        os.symlink('/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/make_fcdr.exe','make_fcdr.exe')
+        os.symlink('/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/Mike/FCDR_AVHRR/make_fcdr.exe','make_fcdr.exe')
     except:
         pass
     try:
-        os.symlink('/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/write_easy_fcdr_from_netcdf.py','write_easy_fcdr_from_netcdf.py')
+        os.symlink('/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/Mike/FCDR_AVHRR/write_easy_fcdr_from_netcdf.py','write_easy_fcdr_from_netcdf.py')
     except:
         pass
     try:
-        os.symlink('/home/users/mtaylor/pyenv/pygac/lib/python2.7/site-packages/pygac/gac_run.py','gac_run.py')
+        os.symlink('/home/users/jpdmittaz/Python/jpdm/lib/python2.7/site-packages/pygac/gac_run.py','gac_run.py')
     except:
         pass
     # Write script files
     outfile = 'run.{0:06d}.sh'.format(i)
     file_log = 'run.{0:06d}.log'.format(i)
     with open(outfile,'w') as fp:
-        fp.write('. /home/users/mtaylor/pyenv/pygac/bin/activate\n')
-        fp.write('export PYGAC_CONFIG_FILE=/home/users/mtaylor/pyenv/pygac/pygac.cfg\n')
+        fp.write('. /home/users/jpdmittaz/Python/jpdm/bin/activate\n')
+        fp.write('export PYGAC_CONFIG_FILE=/home/users/jpdmittaz/pygac.cfg\n')
         outfile_stem = []
         for j in range(len(filelist)):
             # Convert listed data via pygac
@@ -609,10 +609,36 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
                 newstr = 'cp -f {0} {1}\n'.format(filelist[j],\
                                                       out_file_stem)
                 fp.write(newstr)
+            # Make temporary directory to run pygac in
+            # This is so we can find the output filename
+            tempDir = uuid.uuid4()
+            newstr = 'mkdir -p {0}\n'.format(tempDir)
+            fp.write(newstr)
+            newstr = 'cd {0}\n'.format(tempDir)
+            fp.write(newstr)
+            newstr = 'ln -s ../{0} .\n'.format(out_file_stem)
+            fp.write(newstr)
+            fp.write('ln -s ../gac_run.py\n')
             newstr = 'python2.7 gac_run.py {0} 0 0\n'.\
                 format(out_file_stem)
-# Removed for pre-beta for speed since we're not using the files yet
-#            fp.write(newstr)
+            fp.write(newstr)
+            # Find first pygac file name (_avhrr_ case)
+            newstr='pygac{0:1d}=`ls ECC_GAC_avhrr*.h5`\n'.format(j+1)
+            fp.write(newstr)
+            # Find second pygac file name (_avhrr_ case)
+            newstr='pygac{0:1d}_2=`ls ECC_GAC_qualflags*.h5`\n'.format(j+1)
+            fp.write(newstr)
+            # Find third pygac file name (_avhrr_ case)
+            newstr='pygac{0:1d}_3=`ls ECC_GAC_sunsatangles*.h5`\n'.format(j+1)
+            fp.write(newstr)
+            # copy pygac files back up            
+            fp.write('mv -f ECC_GAC_*.h5 ..\n')
+            # cd up a level
+            fp.write('cd ..\n')
+            # remove temporary directory
+            newstr='rm -rf {0}\n'.format(tempDir)
+            fp.write(newstr)
+            # Get output filename
             outfile_stem.append(out_file_stem)
         # Write merge command with all files                    
         newstr = './make_fcdr.exe '+str(uuid.uuid4())+' '+\
@@ -628,8 +654,19 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
             newstr = newstr + ' Y'
         else:
             newstr = newstr + ' N'
+        newstr = newstr + ' {0:2d}'.format(len(filelist))
         for j in range(len(filelist)):
             newstr = newstr+' '+outfile_stem[j]
+        if len(filelist) == 1:
+            newstr = newstr+' ${pygac1}'
+        elif len(filelist) == 2:
+            newstr = newstr+' ${pygac1} ${pygac2}'
+        elif len(filelist) == 3:
+            newstr = newstr+' ${pygac1} ${pygac2} ${pygac3}'
+        elif len(filelist) == 4:
+            newstr = newstr+' ${pygac1} ${pygac2} ${pygac3} ${pygac4}'
+        elif len(filelist) == 5:
+            newstr = newstr+' ${pygac1} ${pygac2} ${pygac3} ${pygac4} ${pygac5}'
         newstr = newstr+'\n'
         fp.write(newstr)
 
@@ -641,13 +678,33 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
 #        fp.write('rm -f make_fcdr.exe')
 #        fp.write('rm -f gac_run.py')
 #        fp.write('rm -f write_easy_fcdr_from_netcdf.py')
+            if 0 == j:
+                fp.write('rm -f ${pygac1}\n')
+                fp.write('rm -f ${pygac1_2}\n')
+                fp.write('rm -f ${pygac1_3}\n')
+            elif 1 == j:
+                fp.write('rm -f ${pygac2}\n')
+                fp.write('rm -f ${pygac2_2}\n')
+                fp.write('rm -f ${pygac2_3}\n')
+            elif 2 == j:
+                fp.write('rm -f ${pygac3}\n')
+                fp.write('rm -f ${pygac3_2}\n')
+                fp.write('rm -f ${pygac3_3}\n')
+            elif 3 == j:
+                fp.write('rm -f ${pygac4}\n')
+                fp.write('rm -f ${pygac4_2}\n')
+                fp.write('rm -f ${pygac4_3}\n')
+            elif 4 == j:
+                fp.write('rm -f ${pygac5}\n')
+                fp.write('rm -f ${pygac5_2}\n')
+                fp.write('rm -f ${pygac5_3}\n')
 
     # submit jobs
     os.chmod(outfile,stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
     job_name='./'+outfile
     job = ['bsub','-q', 'short-serial','-W', '01:00','-oo', file_log, job_name]
     # Actually submit jobs
-    subprocess.call(job)
+#    subprocess.call(job)
     os.chdir(curr_dir)
 
 # Write all shell command scripts for complete day
