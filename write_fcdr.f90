@@ -41,6 +41,7 @@ CONTAINS
     CHARACTER(LEN=256) :: file4
     CHARACTER(LEN=256) :: file5
     CHARACTER(LEN=256) :: ofile
+    CHARACTER(LEN=256) :: n_file
     CHARACTER(LEN=256) :: uuid_in
     CHARACTER(LEN=256) :: instr_str
     CHARACTER(LEN=256) :: y1
@@ -63,6 +64,12 @@ CONTAINS
     LOGICAL :: first_segment
     LOGICAL :: new_filename
     LOGICAL :: split_single_file
+    CHARACTER(LEN=256) :: pygac1
+    CHARACTER(LEN=256) :: pygac2
+    CHARACTER(LEN=256) :: pygac3
+    CHARACTER(LEN=256) :: pygac4
+    CHARACTER(LEN=256) :: pygac5
+    INTEGER :: IOS
 
 !MT: 26-10-2017: extract list of input arguments: 
 !    INTEGER :: i
@@ -75,12 +82,13 @@ CONTAINS
 !    ENDDO
 
     nArgs = COMMAND_ARGUMENT_COUNT()
-    IF( 14 .gt. nArgs .or. 19 .le. nArgs )THEN
+    IF( 15 .gt. nArgs .or. 25 .le. nArgs )THEN
        write(*,*)'nArgs=',nArgs
        CALL Gbcs_Critical(.TRUE.,&
             'USAGE: ./extract_l1b_data.exe uuid outfile eq_year1 eq_month1 &
             &eq_day1 eq_hour1 eq_min1 eq_year2 eq_month2 eq_day2 eq_hour2 &
-            &eq_min2 split_single file1 (file2) (file3) (file4) (file5)',&
+            &eq_min2 split_single nfile file1 (file2) (file3) (file4) (file5) &
+            & pygac1 (pygac2) (pygac3) (pygac4) (pygac5)',&
             'Main','extract_l1b_data.f90')
     ENDIF
 
@@ -162,43 +170,176 @@ CONTAINS
             'Main','extract_l1b_data.f90')
     ENDIF
 
-    CALL GET_COMMAND_ARGUMENT(14,file1,STATUS=stat)
+    CALL GET_COMMAND_ARGUMENT(14,n_file,STATUS=stat)
     IF( 0 .ne. stat )THEN
-       CALL Gbcs_Critical(.TRUE.,'Cannot get file1 command line argument',&
+       CALL Gbcs_Critical(.TRUE.,'Cannot get n_file command line argument',&
             'Main','extract_l1b_data.f90')
     ENDIF
-    nfiles = 1
+    READ(n_file,*,IOSTAT=IOS)nfiles
+    IF( 0 .ne. IOS )THEN
+       CALL Gbcs_Critical(.TRUE.,'n_file cannot be parsed',&
+            'Main','extract_l1b_data.f90')
+    ENDIF
 
-    IF( nArgs .gt. 14 )THEN
-       CALL GET_COMMAND_ARGUMENT(15,file2,STATUS=stat)
+    IF( nArgs .ne. 14+nfiles*2 )THEN
+       CALL Gbcs_Critical(.TRUE.,'nFiles not match no of input files/pygac',&
+            'Main','extract_l1b_data.f90')
+    ENDIF
+
+    IF( 1 .eq. nfiles )THEN
+       CALL GET_COMMAND_ARGUMENT(15,file1,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get file1 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(16,pygac1,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get pygac1 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+    ELSE IF( 2 .eq. nfiles )THEN
+       CALL GET_COMMAND_ARGUMENT(15,file1,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get file1 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(16,file2,STATUS=stat)
        IF( 0 .ne. stat )THEN
           CALL Gbcs_Critical(.TRUE.,'Cannot get file2 command line argument',&
                'Main','extract_l1b_data.f90')
        ENDIF
-       nfiles = 2
-       IF( nArgs .gt. 15 )THEN
-          CALL GET_COMMAND_ARGUMENT(16,file3,STATUS=stat)
-          IF( 0 .ne. stat )THEN
-             CALL Gbcs_Critical(.TRUE.,'Cannot get file3 command line argument',&
-                  'Main','extract_l1b_data.f90')
-          ENDIF
-          nfiles = 3
-          IF( nArgs .gt. 16 )THEN
-             CALL GET_COMMAND_ARGUMENT(17,file4,STATUS=stat)
-             IF( 0 .ne. stat )THEN
-                CALL Gbcs_Critical(.TRUE.,'Cannot get file4 command line argument',&
-                     'Main','extract_l1b_data.f90')
-             ENDIF
-             nfiles = 4
-             IF( nArgs .gt. 17 )THEN
-                CALL GET_COMMAND_ARGUMENT(18,file5,STATUS=stat)
-                IF( 0 .ne. stat )THEN
-                   CALL Gbcs_Critical(.TRUE.,'Cannot get file5 command line argument',&
-                        'Main','extract_l1b_data.f90')
-                ENDIF
-                nfiles = 5
-             ENDIF
-          ENDIF
+       CALL GET_COMMAND_ARGUMENT(17,pygac1,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get pygac1 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(18,pygac2,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get pygac2 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+    ELSE IF( 3 .eq. nfiles )THEN
+       CALL GET_COMMAND_ARGUMENT(15,file1,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get file1 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(16,file2,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get file2 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(17,file3,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get file3 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(18,pygac1,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get pygac1 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(19,pygac2,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get pygac2 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(20,pygac3,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get pygac2 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+    ELSE IF( 4 .eq. nfiles )THEN
+       CALL GET_COMMAND_ARGUMENT(15,file1,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get file1 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(16,file2,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get file2 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(17,file3,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get file3 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(18,file4,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get file4 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(19,pygac1,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get pygac1 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(20,pygac2,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get pygac2 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(21,pygac3,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get pygac3 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(22,pygac4,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get pygac4 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+    ELSE IF( 5 .eq. nfiles )THEN
+       CALL GET_COMMAND_ARGUMENT(15,file1,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get file1 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(16,file2,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get file2 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(17,file3,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get file3 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(18,file4,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get file4 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(19,file5,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get file5 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(20,pygac1,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get pygac1 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(21,pygac2,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get pygac2 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(22,pygac3,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get pygac3 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(23,pygac4,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get pygac4 command line argument',&
+               'Main','extract_l1b_data.f90')
+       ENDIF
+       CALL GET_COMMAND_ARGUMENT(24,pygac5,STATUS=stat)
+       IF( 0 .ne. stat )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot get pygac5 command line argument',&
+               'Main','extract_l1b_data.f90')
        ENDIF
     ENDIF
 
@@ -283,7 +424,8 @@ CONTAINS
     !
     CALL read_all_data(nfiles,file1,file2,file3,file4,file5,uuid_in,&
          AVHRR,year1,month1,day1,hour1,minute1,year2,month2,day2,hour2,&
-         minute2,ofile,.TRUE.,split_single_file)
+         minute2,ofile,.TRUE.,split_single_file,pygac1,pygac2,pygac3,&
+         pygac4,pygac5)
     !
     ! Deallocate structure
     !
