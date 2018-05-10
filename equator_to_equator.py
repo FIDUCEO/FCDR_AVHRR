@@ -38,6 +38,8 @@ import glob
 import uuid
 import stat
 import subprocess
+import gzip
+import bz2
 from  optparse import OptionParser
 
 # Get AVHRR type from filename
@@ -593,21 +595,53 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
             str_tuple = os.path.splitext(base)
             out_file_stem = str_tuple[0]+'.'+str(uuid.uuid4())
             # Deal with different compressions
+            gzip_file = False
+            bzip_file = False
             if str_tuple[1] == '.gz':
                 newstr = 'cp -f {0} {1}.gz\n'.format(filelist[j],\
                                                          out_file_stem)
                 fp.write(newstr)
                 newstr = 'gunzip -f {0}.gz\n'.format(out_file_stem)
                 fp.write(newstr)
+                gzip_file = True
             elif str_tuple[1] == '.bz2':
                 newstr = 'cp -f {0} {1}.bz2\n'.format(filelist[j],\
                                                           out_file_stem)
                 fp.write(newstr)
                 newstr = 'bunzip2 -f {0}.bz2\n'.format(out_file_stem)
                 fp.write(newstr)
+                bzip_file = True
             else:
                 newstr = 'cp -f {0} {1}\n'.format(filelist[j],\
                                                       out_file_stem)
+                fp.write(newstr)
+            # Check to see if we have an archive header and remove if
+            # necessary            
+            if gzip_file:
+                with gzip.open(filelist[j],'r') as fphead:
+                    header = fphead.read(512)
+            elif bzip_file:
+                with bz2.BZ2File(filelist[j],'r') as fphead:
+                    header = fphead.read(512)
+            else:
+                with open(filelist[j],'r') as fphead:
+                    header = fphead.read(512)
+            #
+            # Look for ALL in Lat/Lon start/stop fields of archive
+            # header
+            #
+            if "ALL" == header[75:78] and "ALL" == header[78:81] and \
+                    "ALL" == header[81:84] and "ALL" == header[85:88]:
+                newstr='echo "Removing NOAA CLASS Header"\n'
+                fp.write(newstr)
+                #
+                # Remove leading 512 bytes from file
+                #
+                newstr='dd skip=1 ibs=512 if={0} of={0}.tmp\n'.\
+                    format(out_file_stem)
+                fp.write(newstr)
+                newstr='mv -f {0}.tmp {0}\n'.\
+                    format(out_file_stem)
                 fp.write(newstr)
             # Make temporary directory to run pygac in
             # This is so we can find the output filename
