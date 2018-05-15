@@ -125,9 +125,11 @@ CONTAINS
          AVHRR_New%badTime(POS2)
     AVHRR%badNavigation(POS1) = &
          AVHRR_New%badNavigation(POS2)
-    AVHRR%badCalibration(POS2) = &
+    AVHRR%badCalibration(POS1) = &
          AVHRR_New%badCalibration(POS2)
-    AVHRR%Lon(:,POS2) = &
+    AVHRR%missingLines(POS1) = &
+         AVHRR_New%missingLines(POS2)
+    AVHRR%Lon(:,POS1) = &
          AVHRR_New%Lon(:,POS2)
     AVHRR%Lat(:,POS1) = &
          AVHRR_New%Lat(:,POS2)
@@ -594,6 +596,8 @@ CONTAINS
             AVHRR_New%badNavigation(first_position:AVHRR_New%arraySize)
        AVHRR%badCalibration(last_position:AVHRR%arraySize) = &
             AVHRR_New%badCalibration(first_position:AVHRR_New%arraySize)
+       AVHRR%missingLines(last_position:AVHRR%arraySize) = &
+            AVHRR_New%missingLines(first_position:AVHRR_New%arraySize)
        AVHRR%Lon(:,last_position:AVHRR%arraySize) = &
             AVHRR_New%Lon(:,first_position:AVHRR_New%arraySize)
        AVHRR%Lat(:,last_position:AVHRR%arraySize) = &
@@ -1060,7 +1064,7 @@ CONTAINS
   SUBROUTINE read_all_data(nFile,file1,file2,file3,file4,file5,uuid_in,&
        AVHRRout,year1,month1,day1,hour1,minute1,year2,month2,day2,&
        hour2,minute2,output_filename,walton_cal,split_single_file,&
-       pygac1,pygac2,pygac3,pygac4,pygac5)
+       pygac1,pygac2,pygac3,pygac4,pygac5,gbcs_l1c_output)
 
     INTEGER, INTENT(IN) :: nFile
     CHARACTER(LEN=*), INTENT(IN) :: file1
@@ -1088,6 +1092,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: pygac3
     CHARACTER(LEN=*), INTENT(IN) :: pygac4
     CHARACTER(LEN=*), INTENT(IN) :: pygac5
+    LOGICAL, INTENT(IN), OPTIONAL :: gbcs_l1c_output
 
     ! Local variables
     TYPE(Imagery) :: IMG
@@ -1285,7 +1290,8 @@ CONTAINS
        !
        ! Add in FIDUCEO uncertainties
        !
-       CALL Add_FIDUCEO_Uncert(AVHRRout,uuid_in,output_filename)
+       CALL Add_FIDUCEO_Uncert(AVHRRout,uuid_in,output_filename,&
+            gbcs_l1c_output=gbcs_l1c_output)
        CALL Deallocate_OutData(AVHRRout)    
     ELSE
        !
@@ -1326,7 +1332,8 @@ CONTAINS
           !
           ! Add in FIDUCEO uncertainties
           !
-          CALL Add_FIDUCEO_Uncert(AVHRR,uuid_in,output_filename)
+          CALL Add_FIDUCEO_Uncert(AVHRR,uuid_in,output_filename,&
+            gbcs_l1c_output=gbcs_l1c_output)
           CALL Deallocate_OutData(AVHRR)
        ELSE
           !
@@ -1337,7 +1344,8 @@ CONTAINS
           !
           ! Add in FIDUCEO uncertainties
           !
-          CALL Add_FIDUCEO_Uncert(AVHRRout,uuid_in,output_filename)
+          CALL Add_FIDUCEO_Uncert(AVHRRout,uuid_in,output_filename,&
+               gbcs_l1c_output=gbcs_l1c_output)
           CALL Deallocate_OutData(AVHRRout)
        ENDIF
     ENDIF
@@ -1925,6 +1933,7 @@ CONTAINS
     AVHRRout%start_valid = 1
     AVHRRout%stop_valid = (endpos-startpos)+1
     AVHRRout%valid_data_there = AVHRR%valid_data_there
+    AVHRRout%scan_line_delta_time = AVHRR%scan_line_delta_time
     AVHRRout%walton_there = AVHRR%walton_there
     AVHRRout%walton_bias_correction = AVHRR%walton_bias_correction
     AVHRRout%walton_ict_corrected = AVHRR%walton_ict_corrected
@@ -1965,11 +1974,13 @@ CONTAINS
     INTEGER, INTENT(IN) :: K
     LOGICAL, INTENT(IN) :: alldata
 
-    AVHRRout%scanLineNumber(K) = AVHRR%scanLineNumber(I)
+!    AVHRRout%scanLineNumber(K) = AVHRR%scanLineNumber(I)
+    AVHRRout%scanLineNumber(K) = K
     AVHRRout%badTop(K) = AVHRR%badTop(I)
     AVHRRout%badTime(K) = AVHRR%badTime(I)
     AVHRRout%badNavigation(K) = AVHRR%badNavigation(I)
     AVHRRout%badCalibration(K) = AVHRR%badCalibration(I)
+    AVHRRout%missingLines(K) = AVHRR%missingLines(I)
     AVHRRout%transition3A3B(K) = AVHRR%transition3A3B(I)
     AVHRRout%Lon(:,K) = AVHRR%Lon(:,I)
     AVHRRout%Lat(:,K) = AVHRR%Lat(:,I)
@@ -2874,6 +2885,7 @@ CONTAINS
     ! Local variables
     INTEGER :: I
     INTEGER :: K
+    INTEGER :: KK
     INTEGER :: II
     INTEGER :: start_line
     INTEGER :: stop_line
@@ -2920,6 +2932,7 @@ CONTAINS
     DO I=1,AVHRRout%arraySize
        CALL INIT_OutData_Scanline(AVHRRout,I)
     END DO
+    AVHRRout%missingLines = .TRUE.
     !
     ! New cal if needed
     !
@@ -2944,6 +2957,7 @@ CONTAINS
                   'fill_missing_lines','combine_orbits.f90')
           ENDIF
           CALL Copy_All_Scan(AVHRR,AVHRRout,I,K,.TRUE.)
+          AVHRRout%missingLines(K) = .FALSE.
           !
           ! Check time to next scan line
           !
@@ -2953,9 +2967,6 @@ CONTAINS
                 nmissing = NINT((AVHRR%time(I+1)-AVHRR%time(II))/&
                      AVHRR%scan_line_delta_time)-1
                 IF( 0 .lt. nmissing )THEN
-                   !
-                   ! We have missing scanlines skip and move on
-                   !
                    K=K+nmissing
                    nmissing_total = nmissing_total + nmissing
                 ENDIF
