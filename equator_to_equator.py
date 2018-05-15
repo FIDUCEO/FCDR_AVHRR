@@ -559,7 +559,8 @@ def __find_avhrr_list_good(filelist,year,month,day,instr):
 # Makes dir structure and shell script for submission
 # This is for a single run
 def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
-                           equ_time1,equ_time2,split_single,test=False):
+                           equ_time1,equ_time2,split_single,test=False,\
+                           gbcs_l1c_arg='N'):
     
     curr_dir = os.getcwd()
     # Check to see if we've already made this directory
@@ -676,7 +677,7 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
             outfile_stem.append(out_file_stem)
         # Write merge command with all files                    
         newstr = './make_fcdr.exe '+str(uuid.uuid4())+' '+\
-            instr+' '
+            instr+' '+gbcs_l1c_arg+' '
         # Add equator crossing time estimates
         newstr = newstr + '{0:04d} {1:02d} {2:02d} {3:02d} {4:02d} '.\
             format(equ_time1.year,equ_time1.month,equ_time1.day,\
@@ -742,7 +743,8 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
     os.chdir(curr_dir)
 
 # Write all shell command scripts for complete day
-def write_commands(instr,year,month,day,timestep=60,test=False):
+def write_commands(instr,year,month,day,timestep=60,test=False,\
+                       gbcs_l1c_args='N'):
     
     # Get equator crossing times in the day
     t = tle_data(instr,year,month,day)
@@ -766,23 +768,25 @@ def write_commands(instr,year,month,day,timestep=60,test=False):
                                                                instr)
             make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,\
                                    eqtr,t.times[eqtr],t.times[eqtr+1],\
-                                   split_single,test=test)
+                                   split_single,test=test,\
+                                   gbcs_l1c_args=gbcs_l1c_args)
             nwrites=nwrites+1
 
     print 'Number of command files : ',nwrites
 
 if __name__ == "__main__":
 
-    parser = OptionParser("usage: %prog instr year month day split_single_file (test=Y/N)")
+    parser = OptionParser("usage: %prog instr year month day split_single_file GBCS_L1C(Y/N) (test=Y/N)")
     (options, args) = parser.parse_args()
-    if len(args) != 5 and len(args) != 6:
+    if len(args) != 6 and len(args) != 7:
         parser.error("incorrect number of arguments")
     year = int(args[1])
     month = int(args[2])
     day = int(args[3])
     split_single_file = args[4]
-    if len(args) == 6:
-        if args[5] == 'Y':
+    gbcs_l1c_args = args[5]
+    if len(args) == 7:
+        if args[6] == 'Y':
             test=True
         else:
             test=False
@@ -794,5 +798,6 @@ if __name__ == "__main__":
     else:
         split_single=False
 
-    write_commands(args[0],year,month,day,split_single,test=test)
+    write_commands(args[0],year,month,day,split_single,test=test,\
+                       gbcs_l1c_args=gbcs_l1c_args)
 
