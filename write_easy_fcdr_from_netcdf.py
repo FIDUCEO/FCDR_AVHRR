@@ -64,10 +64,10 @@ class read_netcdf(object):
         gd = (year > 1900) & (day > 0) & (month > 0) & (hours >= 0)
         if 0 == np.sum(gd):
             raise Exception('No good data in netcdf')
-        yr = year[gd]
-        mn = month[gd]
-        dy = day[gd]
-        temp = hours[gd]
+        yr = year[:]
+        mn = month[:]
+        dy = day[:]
+        temp = hours[:]
         hour = temp.astype(np.int)
         temp = (temp - hour)*60.
         minute = temp.astype(np.int)
@@ -76,141 +76,91 @@ class read_netcdf(object):
         microsec = ((temp-second)*1e6).astype(np.int)
         self.date_time = []
         for i in range(len(hour)):
-            self.date_time.append(datetime.datetime(yr[i],mn[i],dy[i],hour[i],minute[i],second[i],microsec[i]))
+            if gd[i]:
+                self.date_time.append(datetime.datetime(yr[i],mn[i],dy[i],hour[i],minute[i],second[i],microsec[i]))
+            else:
+                self.date_time.append(datetime.datetime(1,1,1,0,0,0,0))
         self.time = netCDF4.date2num(self.date_time,'seconds since 1970-01-01')
-        lat = ncid.variables['latitude'][:,:]
-        self.lat = lat[gd,:]
-        lon = ncid.variables['longitude'][:,:]
-        self.lon = lon[gd,:]
-        satza = ncid.variables['satza'][:,:]
-        self.satza = satza[gd,:]
-        solza = ncid.variables['solza'][:,:]
-        self.solza = solza[gd,:]
-        relaz = ncid.variables['relaz'][:,:]
-        self.relaz = relaz[gd,:]
-        ch1 = ncid.variables['ch1'][:,:]
-        self.ch1 = ch1[gd,:]
-        ch2 = ncid.variables['ch2'][:,:]
-        self.ch2 = ch2[gd,:]
-        ch3a = ncid.variables['ch3a'][:,:]
-        self.ch3a = ch3a[gd,:]
+        self.lat = ncid.variables['latitude'][:,:]
+        self.lon = ncid.variables['longitude'][:,:]
+        self.satza = ncid.variables['satza'][:,:]
+        self.solza = ncid.variables['solza'][:,:]
+        self.relaz = ncid.variables['relaz'][:,:]
+        self.ch1 = ncid.variables['ch1'][:,:]
+        self.ch2 = ncid.variables['ch2'][:,:]
+        self.ch3a = ncid.variables['ch3a'][:,:]
         self.ch3a_there=False
         if np.ma.is_masked(self.ch3a):
             if np.any(~self.ch3a.mask):
                 self.ch3a_there=True
         if np.any(np.isfinite(self.ch3a)):
             self.ch3a_there=True            
-        ch3b = ncid.variables['ch3b'][:,:]
-        self.ch3b = ch3b[gd,:]
-        ch4 = ncid.variables['ch4'][:,:]
-        self.ch4 = ch4[gd,:]
+        self.ch3b = ncid.variables['ch3b'][:,:]
+        self.ch4 = ncid.variables['ch4'][:,:]
         try:
-            ch5 = ncid.variables['ch5'][:,:]
-            self.ch5 = ch5[gd,:]
+            self.ch5 = ncid.variables['ch5'][:,:]
             self.ch5_there = True
         except:
             self.ch5_there = False
-        u_random_ch1 = ncid.variables['ch1_random'][:,:]
-        self.u_random_ch1 = u_random_ch1[gd,:]
-        u_random_ch2 = ncid.variables['ch2_random'][:,:]
-        self.u_random_ch2 = u_random_ch2[gd,:]
+        self.u_random_ch1 = ncid.variables['ch1_random'][:,:]
+        self.u_random_ch2 = ncid.variables['ch2_random'][:,:]
         if self.ch3a_there:
-            u_random_ch3a = ncid.variables['ch3a_random'][:,:]
-            self.u_random_ch3a = u_random_ch3a[gd,:]
-        u_random_ch3b = ncid.variables['ch3b_random'][:,:]
-        self.u_random_ch3b = u_random_ch3b[gd,:]
-        u_random_ch4 = ncid.variables['ch4_random'][:,:]
-        self.u_random_ch4 = u_random_ch4[gd,:]
+            self.u_random_ch3a = ncid.variables['ch3a_random'][:,:]
+        self.u_random_ch3b = ncid.variables['ch3b_random'][:,:]
+        self.u_random_ch4 = ncid.variables['ch4_random'][:,:]
         if self.ch5_there:
-            u_random_ch5 = ncid.variables['ch5_random'][:,:]
-            self.u_random_ch5 = u_random_ch5[gd,:]
-        u_non_random_ch1 = ncid.variables['ch1_non_random'][:,:]
-        self.u_non_random_ch1 = u_non_random_ch1[gd,:]
-        u_non_random_ch2 = ncid.variables['ch2_non_random'][:,:]
-        self.u_non_random_ch2 = u_non_random_ch2[gd,:]
+            self.u_random_ch5 = ncid.variables['ch5_random'][:,:]
+        self.u_non_random_ch1 = ncid.variables['ch1_non_random'][:,:]
+        self.u_non_random_ch2 = ncid.variables['ch2_non_random'][:,:]
         if self.ch3a_there:
-            u_non_random_ch3a = ncid.variables['ch3a_non_random'][:,:]
-            self.u_non_random_ch3a = u_non_random_ch3a[gd,:]
-        u_non_random_ch3b = ncid.variables['ch3b_non_random'][:,:]
-        self.u_non_random_ch3b = u_non_random_ch3b[gd,:]
-        u_non_random_ch4 = ncid.variables['ch4_non_random'][:,:]
-        self.u_non_random_ch4 = u_non_random_ch4[gd,:]
+            self.u_non_random_ch3a = ncid.variables['ch3a_non_random'][:,:]
+        self.u_non_random_ch3b = ncid.variables['ch3b_non_random'][:,:]
+        self.u_non_random_ch4 = ncid.variables['ch4_non_random'][:,:]
         if self.ch5_there:
-            u_non_random_ch5 = ncid.variables['ch5_non_random'][:,:]
-            self.u_non_random_ch5 = u_non_random_ch5[gd,:]
-        u_common_ch3b = ncid.variables['ch3b_common'][:,:]
-        self.u_common_ch3b = u_common_ch3b[gd,:]
-        u_common_ch4 = ncid.variables['ch4_common'][:,:]
-        self.u_common_ch4 = u_common_ch4[gd,:]
+            self.u_non_random_ch5 = ncid.variables['ch5_non_random'][:,:]
+        self.u_common_ch3b = ncid.variables['ch3b_common'][:,:]
+        self.u_common_ch4 = ncid.variables['ch4_common'][:,:]
         if self.ch5_there:
-            u_common_ch5 = ncid.variables['ch5_common'][:,:]
-            self.u_common_ch5 = u_common_ch5[gd,:]
-        u_common_ch1 = ncid.variables['ch1_common'][:,:]
-        self.u_common_ch1 = u_common_ch1[gd,:]
-        u_common_ch2 = ncid.variables['ch2_common'][:,:]
-        self.u_common_ch2 = u_common_ch2[gd,:]
+            self.u_common_ch5 = ncid.variables['ch5_common'][:,:]
+        self.u_common_ch1 = ncid.variables['ch1_common'][:,:]
+        self.u_common_ch2 = ncid.variables['ch2_common'][:,:]
         if self.ch3a_there:
-            u_common_ch3a = ncid.variables['ch3a_common'][:,:]
-            self.u_common_ch5 = u_common_ch3a[gd,:]
-        scan_qual = ncid.variables['quality_scanline_bitmask'][:]
-        chan_qual = ncid.variables['quality_channel_bitmask'][:,:]
-        self.scan_qual = scan_qual[gd]
-        self.chan_qual = chan_qual[gd,:]
-        dBT3_over_dT = ncid.variables['dBT3_over_dT'][:,:]
-        self.dBT3_over_dT = dBT3_over_dT[gd,:]
-        dBT4_over_dT = ncid.variables['dBT4_over_dT'][:,:]
-        self.dBT4_over_dT = dBT4_over_dT[gd,:]
+            self.u_common_ch3a = ncid.variables['ch3a_common'][:,:]
+        self.scan_qual = ncid.variables['quality_scanline_bitmask'][:]
+        self.chan_qual = ncid.variables['quality_channel_bitmask'][:,:]
+        self.dBT3_over_dT = ncid.variables['dBT3_over_dT'][:,:]
+        self.dBT4_over_dT = ncid.variables['dBT4_over_dT'][:,:]
         if self.ch5_there:
-            dBT5_over_dT = ncid.variables['dBT5_over_dT'][:,:]
-            self.dBT5_over_dT = dBT5_over_dT[gd,:]
-        dRe1_over_dCS = ncid.variables['dRe1_over_dCS'][:,:]
-        self.dRe1_over_dCS = dRe1_over_dCS[gd,:]
-        dRe2_over_dCS = ncid.variables['dRe2_over_dCS'][:,:]
-        self.dRe2_over_dCS = dRe2_over_dCS[gd,:]
+            self.dBT5_over_dT = ncid.variables['dBT5_over_dT'][:,:]
+        self.dRe1_over_dCS = ncid.variables['dRe1_over_dCS'][:,:]
+        self.dRe2_over_dCS = ncid.variables['dRe2_over_dCS'][:,:]
         if self.ch3a_there:
-            dRe3a_over_dCS = ncid.variables['dRe3a_over_dCS'][:,:]
-            self.dRe3a_over_dCS = dRe3a_over_dCS[gd,:]
-        dBT3_over_dCS = ncid.variables['dBT3_over_dCS'][:,:]
-        self.dBT3_over_dCS = dBT3_over_dCS[gd,:]
-        dBT4_over_dCS = ncid.variables['dBT4_over_dCS'][:,:]
-        self.dBT4_over_dCS = dBT4_over_dCS[gd,:]
+            self.dRe3a_over_dCS = ncid.variables['dRe3a_over_dCS'][:,:]
+        self.dBT3_over_dCS = ncid.variables['dBT3_over_dCS'][:,:]
+        self.dBT4_over_dCS = ncid.variables['dBT4_over_dCS'][:,:]
         if self.ch5_there:
-            dBT5_over_dCS = ncid.variables['dBT5_over_dCS'][:,:]
-            self.dBT5_over_dCS = dBT5_over_dCS[gd,:]
-        dBT3_over_dCICT = ncid.variables['dBT3_over_dCICT'][:,:]
-        self.dBT3_over_dCICT = dBT3_over_dCICT[gd,:]
-        dBT4_over_dCICT = ncid.variables['dBT4_over_dCICT'][:,:]
-        self.dBT4_over_dCICT = dBT4_over_dCICT[gd,:]
+            self.dBT5_over_dCS = ncid.variables['dBT5_over_dCS'][:,:]
+        self.dBT3_over_dCICT = ncid.variables['dBT3_over_dCICT'][:,:]
+        self.dBT4_over_dCICT = ncid.variables['dBT4_over_dCICT'][:,:]
         if self.ch5_there:
-            dBT5_over_dCICT = ncid.variables['dBT5_over_dCICT'][:,:]
-            self.dBT5_over_dCICT = dBT5_over_dCICT[gd,:]
-        smoothPRT = ncid.variables['dBT5_over_dCICT'][:]
-        self.smoothPRT = smoothPRT[gd]
+            self.dBT5_over_dCICT = ncid.variables['dBT5_over_dCICT'][:,:]
+        self.smoothPRT = ncid.variables['dBT5_over_dCICT'][:]
         self.cal_cnts_noise = ncid.variables['cal_cnts_noise'][:]
         self.cnts_noise = ncid.variables['cnts_noise'][:]
         self.spatial_correlation_scale = ncid.spatial_correlation_scale
         self.ICT_Temperature_Uncertainty = ncid.ICT_Temperature_Uncertainty
         self.noaa_string = ncid.noaa_string
         self.orbital_temperature = ncid.orbital_temperature
-        scanline = ncid.variables['scanline'][:]
-        self.scanline = scanline[gd]
-        orig_scanline = ncid.variables['orig_scanline'][:]
-        self.orig_scanline = orig_scanline[gd] 
+        self.scanline = ncid.variables['scanline'][:]
+        self.orig_scanline = ncid.variables['orig_scanline'][:]
 
-        badNav = ncid.variables['badNavigation'][:]
-        self.badNav = badNav[gd]
-        badCal = ncid.variables['badCalibration'][:]
-        self.badCal = badCal[gd]
-        badTime = ncid.variables['badTime'][:]
-        self.badTime = badTime[gd]
-        missingLines = ncid.variables['missingLines'][:]
-        self.missingLines = missingLines[gd]
-        solar3 = ncid.variables['solar_contam_3b'][:]
-        self.solar3 = solar3[gd]
-        solar4 = ncid.variables['solar_contam_4'][:]
-        self.solar4 = solar4[gd]
-        solar5 = ncid.variables['solar_contam_5'][:]
-        self.solar5 = solar5[gd]
+        self.badNav = ncid.variables['badNavigation'][:]
+        self.badCal = ncid.variables['badCalibration'][:]
+        self.badTime = ncid.variables['badTime'][:]
+        self.missingLines = ncid.variables['missingLines'][:]
+        self.solar3 = ncid.variables['solar_contam_3b'][:]
+        self.solar4 = ncid.variables['solar_contam_4'][:]
+        self.solar5 = ncid.variables['solar_contam_5'][:]
 
         self.nx = self.lat.shape[1]
         self.ny = self.lat.shape[0]
