@@ -15,7 +15,10 @@
 # * more details.                                                              
 # *                                                                             
 # * A copy of the GNU General Public License should have been supplied along    
-# * with this program; if not, see http://www.gnu.org/licenses/                  
+# * with this program; if not, see http://www.gnu.org/licenses/ 
+#
+# Modified by JMittaz to deal with updated interfaces
+#
 
 
 import numpy as np
@@ -62,7 +65,7 @@ def run_equator_to_equator(name):
             for day in range(1,maxday+1):
                 directory = '/group_workspaces/cems2/esacci_sst/input/avhrr/l1b/{0}/v1/{1:04d}/{2:02d}/{3:02d}'.format(dirname,year,month,day)
                 if os.path.isdir(directory):
-                    command='python2.7 equator_to_equator.py {0} {1:04d} {2:02d} {3:02d} Y'.format(name,year,month,day)
+                    command='python2.7 equator_to_equator.py {0} {1:04d} {2:02d} {3:02d} Y N Y N N Y'.format(name,year,month,day)
                     subprocess.call(command,shell=True)
 
 if __name__ == "__main__":
