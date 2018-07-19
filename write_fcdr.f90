@@ -79,6 +79,7 @@ CONTAINS
     LOGICAL :: gbcs_l1c_cal
     LOGICAL :: keep_temp
     LOGICAL :: write_fcdr
+    LOGICAL :: fiduceo_cal
 
 !MT: 26-10-2017: extract list of input arguments: 
 !    INTEGER :: i
@@ -97,7 +98,7 @@ CONTAINS
             'USAGE: ./extract_l1b_data.exe uuid outfile gbcs_l1c(Y/N/C) &
             &eq_year1 eq_month1 &
             &eq_day1 eq_hour1 eq_min1 eq_year2 eq_month2 eq_day2 eq_hour2 &
-            &eq_min2 split_single walton_only keep_temp write_fcdr &
+            &eq_min2 split_single walton_only(Y/N/F) keep_temp write_fcdr &
             &nfile file1 (file2) (file3) &
             &(file4) (file5) pygac1 (pygac2) (pygac3) (pygac4) (pygac5)',&
             'Main','extract_l1b_data.f90')
@@ -408,8 +409,14 @@ CONTAINS
 
     IF( 'Y' .eq. walt_only .or. 'y' .eq. walt_only )THEN
        walton_only = .TRUE.
-    ELSE
+       fiduceo_cal = .FALSE.
+    ELSE 
        walton_only = .FALSE.
+       IF( walt_only .eq. 'F' .or. walt_only .eq. 'f' )THEN
+          fiduceo_cal = .TRUE.
+       ELSE
+          fiduceo_cal = .FALSE.
+       ENDIF
     ENDIF
 
     IF( 'Y' .eq. keeptemp .or. 'y' .eq. keeptemp )THEN
@@ -487,7 +494,7 @@ CONTAINS
     !
     CALL read_all_data(nfiles,file1,file2,file3,file4,file5,uuid_in,&
          AVHRR,year1,month1,day1,hour1,minute1,year2,month2,day2,hour2,&
-         minute2,ofile,.TRUE.,split_single_file,pygac1,pygac2,pygac3,&
+         minute2,ofile,.not.fiduceo_cal,split_single_file,pygac1,pygac2,pygac3,&
          pygac4,pygac5,gbcs_l1c_output=gbcs_l1c,gbcs_l1c_cal=gbcs_l1c_cal,&
          walton_only=walton_only,keep_temp=keep_temp,write_fcdr=write_fcdr)
     !
