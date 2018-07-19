@@ -37,7 +37,7 @@ GBCSOBJECTS = GbcsKinds.o GbcsBaseTypes.o GbcsConstants.o simpledict.o GbcsStrin
 	GbcsTimeSpace.o GbcsSystemTools.o GbcsInterpolators.o GbcsForecastModel.o \
 	GbcsMatrixOps.o GbcsPDFLoaders.o \
 	GbcsScattPhysics.o GbcsCleanUp.o \
-	GbcsPixelLoaders.o AVHRR_Filter_Data.o AVHRR_Amoeba_Fit.o AVHRR_ICTContamination.o NOAA_LoadAVHRRLevel1B.o GbcsImageUtil.o \
+	GbcsPixelLoaders.o AVHRR_Filter_Data.o AVHRR_Amoeba_Fit.o AVHRR_ICTContamination.o FIDUCEO_Calibration.o NOAA_LoadAVHRRLevel1B.o GbcsImageUtil.o \
 	epr_wrapper_c.o epr_wrapper.o ARC_ATSR1.o ARC_L1bCorrection.o ARC_ATSRVarNEdT.o ARC_LoadImagery.o
 
 OBJECTS = $(GBCSOBJECTS) fiduceo_uncertainties.o combine_orbits.o
