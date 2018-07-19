@@ -576,7 +576,7 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
                            equ_time1,equ_time2,split_single,spawn_job,\
                            test=False,gbcs_l1c_args='N',\
                            walton_only=False,keep_temp=False,\
-                           write_fcdr=True):
+                           write_fcdr=True,walton_cal=False):
     
     curr_dir = os.getcwd()
     # Check to see if we've already made this directory
@@ -713,10 +713,13 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
             newstr = newstr + ' Y'
         else:
             newstr = newstr + ' N'
-        if walton_only:
-            newstr = newstr + ' Y'
+        if walton_cal:
+            if walton_only:
+                newstr = newstr + ' Y'
+            else:
+                newstr = newstr + ' N'
         else:
-            newstr = newstr + ' N'
+            newstr = newstr + ' F'
         if keep_temp:
             newstr = newstr + ' Y'
         else:
@@ -785,7 +788,8 @@ def write_commands(instr,year,month,day,split_single,spawn_job,\
                        gbcs_l1c_args='N',\
                        walton_only=False,\
                        keep_temp=False,\
-                       write_fcdr=True):
+                       write_fcdr=True.\
+                       walton_cal=False):
     
     # Get equator crossing times in the day
     t = tle_data(instr,year,month,day)
@@ -814,14 +818,14 @@ def write_commands(instr,year,month,day,split_single,spawn_job,\
                                    split_single,spawn_job,test=test,\
                                    gbcs_l1c_args=gbcs_l1c_args,\
                                    walton_only=walton_only,keep_temp=keep_temp,\
-                                   write_fcdr=write_fcdr)
+                                   write_fcdr=write_fcdr,walton_cal=walton_cal)
             nwrites=nwrites+1
 
     print 'Number of command files : ',nwrites
 
 if __name__ == "__main__":
 
-    parser = OptionParser("usage: %prog instr year month day split_single_file GBCS_L1C(Y/N/C) Spawn_Jobs(Y/N) walton_only(Y/N) keep_temp(Y/N) write_fcdr{Y/N) (test=Y/N)")
+    parser = OptionParser("usage: %prog instr year month day split_single_file GBCS_L1C(Y/N/C) Spawn_Jobs(Y/N) walton_only(Y/N/F) keep_temp(Y/N) write_fcdr{Y/N) (test=Y/N)")
     (options, args) = parser.parse_args()
     if len(args) != 10 and len(args) != 11:
         parser.error("incorrect number of arguments")
@@ -834,10 +838,13 @@ if __name__ == "__main__":
         spawn_job=True
     else:
         spawn_job=False
+    walton_cal=True
     if args[7] == 'Y':
         walton_only=True
     else:
         walton_only=False
+        if args[7] == 'F':
+            walcon_cal=False
     if args[8] == 'Y':
         keep_temp=True
     else:
@@ -861,5 +868,6 @@ if __name__ == "__main__":
 
     write_commands(args[0],year,month,day,split_single,spawn_job,test=test,\
                        gbcs_l1c_args=gbcs_l1c_args,walton_only=walton_only,\
-                       keep_temp=keep_temp,write_fcdr=write_fcdr)
+                       keep_temp=keep_temp,write_fcdr=write_fcdr,\
+                       walton_cal=walton_cal)
 
