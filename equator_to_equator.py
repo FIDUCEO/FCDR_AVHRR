@@ -77,13 +77,19 @@ def get_avhrr_dir_name(avhrr_name):
         avhrr_dir_name = 'AVHRRMTA_G'
     elif 'METOPB' == avhrr_name:
         avhrr_dir_name = 'AVHRRMTB_G'
+    else:
+        print avhrr_name
+        raise Exception,"Cannot find avhrr_name"
     return avhrr_dir_name
 
 # Get information from filename
 class get_file_data(object):
 
     # Get AVHRR type from filename
-    def get_avhrr_type(self,filename):
+    def get_avhrr_type(self,infilename):
+
+        filesp = os.path.split(infilename)
+        filename = filesp[1]
 
         # Extract instrument part of filename
         avhrr_name=filename[9:11]
@@ -136,6 +142,10 @@ class get_file_data(object):
         elif 'M1' == avhrr_name:
             self.avhrr_dir_name = 'AVHRRMTB_G'
             self.instr = 'METOPB'
+        else:
+            print 'get_avhrr_type'
+            print 'avhrr_name = ',avhrr_name
+            raise Exception,"Cannot find avhrr_name"
 
     # Get start/end date from filename
     def get_avhrr_time(self,filename_in):
@@ -331,8 +341,12 @@ class tle_data(object):
             filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/metop-a.txt'
         elif 'METOPB' == instr:
             filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/metop-b.txt'
+        else:
+            print 'instr = ',instr
+            raise Exception,"Cannot find instr"
 
         if not os.path.exists(filename):
+            print 'instr = ',instr
             raise Exception,"TLE file not found : "+filename
 
         # Read file and get closest pair
@@ -559,8 +573,10 @@ def __find_avhrr_list_good(filelist,year,month,day,instr):
 # Makes dir structure and shell script for submission
 # This is for a single run
 def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
-                           equ_time1,equ_time2,split_single,test=False,\
-                           gbcs_l1c_arg='N'):
+                           equ_time1,equ_time2,split_single,spawn_job,\
+                           test=False,gbcs_l1c_args='N',\
+                           walton_only=False,keep_temp=False,\
+                           write_fcdr=True):
     
     curr_dir = os.getcwd()
     # Check to see if we've already made this directory
@@ -577,6 +593,14 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
         pass
     try:
         os.symlink('/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/Mike/FCDR_AVHRR/write_easy_fcdr_from_netcdf.py','write_easy_fcdr_from_netcdf.py')
+    except:
+        pass
+    try:
+        os.symlink('/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/Mike/FCDR_AVHRR/write_l1c_data.py','write_l1c_data.py')
+    except:
+        pass
+    try:
+        os.symlink('/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/Mike/FCDR_AVHRR/write_easy_fcdr.sh','write_easy_fcdr.sh')
     except:
         pass
     try:
@@ -677,7 +701,7 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
             outfile_stem.append(out_file_stem)
         # Write merge command with all files                    
         newstr = './make_fcdr.exe '+str(uuid.uuid4())+' '+\
-            instr+' '+gbcs_l1c_arg+' '
+            instr+' '+gbcs_l1c_args+' '
         # Add equator crossing time estimates
         newstr = newstr + '{0:04d} {1:02d} {2:02d} {3:02d} {4:02d} '.\
             format(equ_time1.year,equ_time1.month,equ_time1.day,\
@@ -686,6 +710,18 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
             format(equ_time2.year,equ_time2.month,equ_time2.day,\
                        equ_time2.hour,equ_time2.minute)
         if split_single:
+            newstr = newstr + ' Y'
+        else:
+            newstr = newstr + ' N'
+        if walton_only:
+            newstr = newstr + ' Y'
+        else:
+            newstr = newstr + ' N'
+        if keep_temp:
+            newstr = newstr + ' Y'
+        else:
+            newstr = newstr + ' N'
+        if write_fcdr:
             newstr = newstr + ' Y'
         else:
             newstr = newstr + ' N'
@@ -739,15 +775,22 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
     job_name='./'+outfile
     job = ['bsub','-q', 'short-serial','-W', '01:00','-oo', file_log, job_name]
     # Actually submit jobs
-#    subprocess.call(job)
+    if spawn_job:
+        subprocess.call(job)
     os.chdir(curr_dir)
 
 # Write all shell command scripts for complete day
-def write_commands(instr,year,month,day,timestep=60,test=False,\
-                       gbcs_l1c_args='N'):
+def write_commands(instr,year,month,day,split_single,spawn_job,\
+                       timestep=60,test=False,\
+                       gbcs_l1c_args='N',\
+                       walton_only=False,\
+                       keep_temp=False,\
+                       write_fcdr=True):
     
     # Get equator crossing times in the day
     t = tle_data(instr,year,month,day)
+    if not t.times:
+        raise Exception,"No TLE equator crossing times found"
 
     avhrr_dir_name = get_avhrr_dir_name(instr)
 
@@ -768,25 +811,43 @@ def write_commands(instr,year,month,day,timestep=60,test=False,\
                                                                instr)
             make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,\
                                    eqtr,t.times[eqtr],t.times[eqtr+1],\
-                                   split_single,test=test,\
-                                   gbcs_l1c_args=gbcs_l1c_args)
+                                   split_single,spawn_job,test=test,\
+                                   gbcs_l1c_args=gbcs_l1c_args,\
+                                   walton_only=walton_only,keep_temp=keep_temp,\
+                                   write_fcdr=write_fcdr)
             nwrites=nwrites+1
 
     print 'Number of command files : ',nwrites
 
 if __name__ == "__main__":
 
-    parser = OptionParser("usage: %prog instr year month day split_single_file GBCS_L1C(Y/N) (test=Y/N)")
+    parser = OptionParser("usage: %prog instr year month day split_single_file GBCS_L1C(Y/N/C) Spawn_Jobs(Y/N) walton_only(Y/N) keep_temp(Y/N) write_fcdr{Y/N) (test=Y/N)")
     (options, args) = parser.parse_args()
-    if len(args) != 6 and len(args) != 7:
+    if len(args) != 10 and len(args) != 11:
         parser.error("incorrect number of arguments")
     year = int(args[1])
     month = int(args[2])
     day = int(args[3])
     split_single_file = args[4]
     gbcs_l1c_args = args[5]
-    if len(args) == 7:
-        if args[6] == 'Y':
+    if args[6] == 'Y':
+        spawn_job=True
+    else:
+        spawn_job=False
+    if args[7] == 'Y':
+        walton_only=True
+    else:
+        walton_only=False
+    if args[8] == 'Y':
+        keep_temp=True
+    else:
+        keep_temp=False
+    if args[9] == 'Y':
+        write_fcdr=True
+    else:
+        write_fcdr=False
+    if len(args) == 11:
+        if args[10] == 'Y':
             test=True
         else:
             test=False
@@ -798,6 +859,7 @@ if __name__ == "__main__":
     else:
         split_single=False
 
-    write_commands(args[0],year,month,day,split_single,test=test,\
-                       gbcs_l1c_args=gbcs_l1c_args)
+    write_commands(args[0],year,month,day,split_single,spawn_job,test=test,\
+                       gbcs_l1c_args=gbcs_l1c_args,walton_only=walton_only,\
+                       keep_temp=keep_temp,write_fcdr=write_fcdr)
 
