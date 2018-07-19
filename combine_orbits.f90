@@ -109,7 +109,7 @@ CONTAINS
     Check_Scanline=.TRUE.
 
   END FUNCTION Check_Scanline
-  
+
   SUBROUTINE Copy_Scanline(AVHRR,POS1,AVHRR_New,POS2)
 
     TYPE(AVHRR_Data), INTENT(INOUT) :: AVHRR
@@ -117,6 +117,7 @@ CONTAINS
     TYPE(AVHRR_Data), INTENT(IN) :: AVHRR_New
     INTEGER, INTENT(IN) :: POS2
 
+    AVHRR%scnline_l1b(POS1) = AVHRR_new%scnline_l1b(POS2)
     AVHRR%scanLineNumber(POS1) = &
          AVHRR_New%scanLineNumber(POS2)
     AVHRR%badTop(POS1) = &
@@ -586,6 +587,8 @@ CONTAINS
        !
        ! Now add in extra data - original raw data
        !
+       AVHRR%scnline_l1b(last_position:AVHRR%arraySize) = &
+            AVHRR_New%scnline_l1b(first_position:AVHRR_New%arraySize)
        AVHRR%scanLineNumber(last_position:AVHRR%arraySize) = &
             AVHRR_New%scanLineNumber(first_position:AVHRR_New%arraySize)
        AVHRR%badTop(last_position:AVHRR%arraySize) = &
@@ -1064,7 +1067,8 @@ CONTAINS
   SUBROUTINE read_all_data(nFile,file1,file2,file3,file4,file5,uuid_in,&
        AVHRRout,year1,month1,day1,hour1,minute1,year2,month2,day2,&
        hour2,minute2,output_filename,walton_cal,split_single_file,&
-       pygac1,pygac2,pygac3,pygac4,pygac5,gbcs_l1c_output)
+       pygac1,pygac2,pygac3,pygac4,pygac5,gbcs_l1c_output,gbcs_l1c_cal,&
+       walton_only,keep_temp,write_fcdr)
 
     INTEGER, INTENT(IN) :: nFile
     CHARACTER(LEN=*), INTENT(IN) :: file1
@@ -1093,6 +1097,10 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: pygac4
     CHARACTER(LEN=*), INTENT(IN) :: pygac5
     LOGICAL, INTENT(IN), OPTIONAL :: gbcs_l1c_output
+    LOGICAL, INTENT(IN), OPTIONAL :: gbcs_l1c_cal
+    LOGICAL, INTENT(IN), OPTIONAL :: walton_only
+    LOGICAL, INTENT(IN), OPTIONAL :: keep_temp
+    LOGICAL, INTENT(IN), OPTIONAL :: write_fcdr
 
     ! Local variables
     TYPE(Imagery) :: IMG
@@ -1104,36 +1112,56 @@ CONTAINS
     TYPE(AVHRR_Data), POINTER :: pAVHRR=>NULL()
     LOGICAL :: out_radiances = .FALSE.
     LOGICAL :: trim_data
+    LOGICAL :: correctict
+    LOGICAL :: applyict
+    LOGICAL :: walton_biascorr
+    LOGICAL :: apply_scenet_bias
     INTEGER :: trim_low
     INTEGER :: trim_high
     INTEGER :: I
     TYPE(Walton_Struct) :: walton_str
+    LOGICAL :: walt_only
+
+    IF( PRESENT(walton_only) )THEN
+       walt_only = walton_only
+    ELSE
+       walt_only = .FALSE.
+    ENDIF
 
     !
     ! Setup GbcsDataPath
     !
-    IMG%GbcsDataPath = '/group_workspaces/cems/nceo_uor/users/jmittaz/AVHRR/&
+    IMG%GbcsDataPath = '/group_workspaces/jasmin2/nceo_uor/users/jmittaz/AVHRR/&
          &code/git/gbcs_new_calibration/dat_cci/'
 
     AVHRR%newCalibration_there = .FALSE.
     AVHRR_Total%newCalibration_there = .FALSE.
 !    instr = get_instr(file1)
     AVHRR_Total%arraySize = 0
+    AVHRR_Total%norig_l1b = 0
     IF( nFile .eq. 1 )THEN
-       CALL read_file(file1,AVHRR_Total,uuid_in,pygac1,out_instr_coefs=instr_coefs)
+       CALL read_file(file1,AVHRR_Total,uuid_in,pygac1,1,&
+            out_instr_coefs=instr_coefs)
        IF( .not. AVHRR_Total%valid_data_there )THEN
           RETURN
        ENDIF
+       AVHRR_Total%orig_l1b(1) = file1(1:42)
+       AVHRR_Total%norig_l1b = 1
     ELSE IF( nFile .eq. 2 )THEN
        IF( .not. check_overlap(file1,file2) )THEN
           CALL Gbcs_Critical(.TRUE.,'No overlap between file1 and file2',&
                'read_all_data','extract_l1b_data.f90')
        ENDIF
-       CALL read_file(file1,AVHRR_Total,uuid_in,pygac1,out_instr_coefs=instr_coefs)
+       CALL read_file(file1,AVHRR_Total,uuid_in,pygac1,1,&
+            out_instr_coefs=instr_coefs)
        IF( AVHRR_Total%valid_data_there )THEN
-          CALL read_file(file2,AVHRR,uuid_in,pygac2)
+          AVHRR_Total%orig_l1b(1) = file1(1:42)
+          AVHRR_Total%norig_l1b = 1
+          CALL read_file(file2,AVHRR,uuid_in,pygac2,2)
           IF( AVHRR%valid_data_there )THEN
              CALL merge_avhrr(AVHRR_Total,AVHRR)
+             AVHRR_Total%orig_l1b(2) = file2(1:42)
+             AVHRR_Total%norig_l1b = 2
           ENDIF
        ELSE
           RETURN
@@ -1144,20 +1172,27 @@ CONTAINS
           CALL Gbcs_Critical(.TRUE.,'No overlap between file1 and file2',&
                'read_all_data','extract_l1b_data.f90')
        ENDIF
-       CALL read_file(file1,AVHRR_Total,uuid_in,pygac1,out_instr_coefs=instr_coefs)
+       CALL read_file(file1,AVHRR_Total,uuid_in,pygac1,1,&
+            out_instr_coefs=instr_coefs)
        IF( AVHRR_Total%valid_data_there )THEN
-          CALL read_file(file2,AVHRR,uuid_in,pygac2)
+          AVHRR_Total%orig_l1b(1) = file1(1:42)
+          AVHRR_Total%norig_l1b = 1
+          CALL read_file(file2,AVHRR,uuid_in,pygac2,2)
           IF( AVHRR%valid_data_there )THEN
              CALL merge_avhrr(AVHRR_Total,AVHRR)
+             AVHRR_Total%orig_l1b(2) = file2(1:42)
+             AVHRR_Total%norig_l1b = 2
           ENDIF
           CALL Deallocate_OutData(AVHRR)
           IF( .not. check_overlap(file2,file3) )THEN
              CALL Gbcs_Critical(.TRUE.,'No overlap between file2 and file3',&
                'read_all_data','extract_l1b_data.f90')
           ENDIF
-          CALL read_file(file3,AVHRR,uuid_in,pygac3)
+          CALL read_file(file3,AVHRR,uuid_in,pygac3,3)
           IF( AVHRR%valid_data_there )THEN
              CALL merge_avhrr(AVHRR_Total,AVHRR)
+             AVHRR_Total%orig_l1b(3) = file3(1:42)
+             AVHRR_Total%norig_l1b = 3
           ENDIF
        ENDIF
        CALL Deallocate_OutData(AVHRR)
@@ -1166,29 +1201,38 @@ CONTAINS
           CALL Gbcs_Critical(.TRUE.,'No overlap between file1 and file2',&
                'read_all_data','extract_l1b_data.f90')
        ENDIF
-       CALL read_file(file1,AVHRR_Total,uuid_in,pygac1,out_instr_coefs=instr_coefs)
+       CALL read_file(file1,AVHRR_Total,uuid_in,pygac1,1,&
+            out_instr_coefs=instr_coefs)
        IF( AVHRR_Total%valid_data_there )THEN
-          CALL read_file(file2,AVHRR,uuid_in,pygac2)
+          AVHRR_Total%orig_l1b(1) = file1(1:42)
+          AVHRR_Total%norig_l1b = 1
+          CALL read_file(file2,AVHRR,uuid_in,pygac2,2)
           IF( AVHRR%valid_data_there )THEN
              CALL merge_avhrr(AVHRR_Total,AVHRR)
+             AVHRR_Total%orig_l1b(2) = file2(1:42)
+             AVHRR_Total%norig_l1b = 2
           ENDIF
           CALL Deallocate_OutData(AVHRR)
           IF( .not. check_overlap(file2,file3) )THEN
              CALL Gbcs_Critical(.TRUE.,'No overlap between file2 and file3',&
                   'read_all_data','extract_l1b_data.f90')
           ENDIF
-          CALL read_file(file3,AVHRR,uuid_in,pygac3)
+          CALL read_file(file3,AVHRR,uuid_in,pygac3,3)
           IF( AVHRR%valid_data_there )THEN
              CALL merge_avhrr(AVHRR_Total,AVHRR)
+             AVHRR_Total%orig_l1b(3) = file3(1:42)
+             AVHRR_Total%norig_l1b = 3
           ENDIF
           CALL Deallocate_OutData(AVHRR)
           IF( .not. check_overlap(file3,file4) )THEN
              CALL Gbcs_Critical(.TRUE.,'No overlap between file3 and file4',&
                   'read_all_data','extract_l1b_data.f90')
           ENDIF
-          CALL read_file(file4,AVHRR,uuid_in,pygac4)
+          CALL read_file(file4,AVHRR,uuid_in,pygac4,4)
           IF( AVHRR%valid_data_there )THEN
              CALL merge_avhrr(AVHRR_Total,AVHRR)
+             AVHRR_Total%orig_l1b(4) = file4(1:42)
+             AVHRR_Total%norig_l1b = 4
           ENDIF
           CALL Deallocate_OutData(AVHRR)
        ENDIF
@@ -1197,29 +1241,38 @@ CONTAINS
           CALL Gbcs_Critical(.TRUE.,'No overlap between file1 and file2',&
                'read_all_data','extract_l1b_data.f90')
        ENDIF
-       CALL read_file(file1,AVHRR_Total,uuid_in,pygac1,out_instr_coefs=instr_coefs)
+       CALL read_file(file1,AVHRR_Total,uuid_in,pygac1,1,&
+            out_instr_coefs=instr_coefs)
        IF( AVHRR_Total%valid_data_there )THEN
-          CALL read_file(file2,AVHRR,uuid_in,pygac2)
+          AVHRR_Total%orig_l1b(1) = file1(1:42)
+          AVHRR_Total%norig_l1b = 1
+          CALL read_file(file2,AVHRR,uuid_in,pygac2,2)
           IF( AVHRR%valid_data_there )THEN
              CALL merge_avhrr(AVHRR_Total,AVHRR)
+             AVHRR_Total%orig_l1b(2) = file2(1:42)
+             AVHRR_Total%norig_l1b = 2
           ENDIF
           CALL Deallocate_OutData(AVHRR)
           IF( .not. check_overlap(file2,file3) )THEN
              CALL Gbcs_Critical(.TRUE.,'No overlap between file2 and file3',&
                   'read_all_data','extract_l1b_data.f90')
           ENDIF
-          CALL read_file(file3,AVHRR,uuid_in,pygac3)
+          CALL read_file(file3,AVHRR,uuid_in,pygac3,3)
           IF( AVHRR%valid_data_there )THEN
              CALL merge_avhrr(AVHRR_Total,AVHRR)
+             AVHRR_Total%orig_l1b(3) = file3(1:42)
+             AVHRR_Total%norig_l1b = 3
           ENDIF
           CALL Deallocate_OutData(AVHRR)
           IF( .not. check_overlap(file3,file4) )THEN
              CALL Gbcs_Critical(.TRUE.,'No overlap between file3 and file4',&
                   'read_all_data','extract_l1b_data.f90')
           ENDIF
-          CALL read_file(file4,AVHRR,uuid_in,pygac4)
+          CALL read_file(file4,AVHRR,uuid_in,pygac4,4)
           IF( AVHRR%valid_data_there )THEN
              CALL merge_avhrr(AVHRR_Total,AVHRR)
+             AVHRR_Total%orig_l1b(4) = file4(1:42)
+             AVHRR_Total%norig_l1b = 4
           ENDIF
           CALL Deallocate_OutData(AVHRR)
 !MT: 20-10-2017: 'between file3 and file4' --> 'between file4 and file5'
@@ -1227,9 +1280,11 @@ CONTAINS
              CALL Gbcs_Critical(.TRUE.,'No overlap between file4 and file5',&
                   'read_all_data','extract_l1b_data.f90') 
           ENDIF
-          CALL read_file(file5,AVHRR,uuid_in,pygac5)
+          CALL read_file(file5,AVHRR,uuid_in,pygac5,5)
           IF( AVHRR%valid_data_there )THEN
              CALL merge_avhrr(AVHRR_Total,AVHRR)
+             AVHRR_Total%orig_l1b(5) = file5(1:42)
+             AVHRR_Total%norig_l1b = 5
           ENDIF
           CALL Deallocate_OutData(AVHRR)
        ENDIF
@@ -1258,28 +1313,49 @@ CONTAINS
        !
        ! Make sure radiances are output as Marines code expects this
        !
-       IMG%GbcsDataPath = '/group_workspaces/cems/nceo_uor/users/jmittaz/&
+       IMG%GbcsDataPath = '/group_workspaces/jasmin2/nceo_uor/users/jmittaz/&
             &AVHRR/code/git/gbcs_new_calibration/dat_cci/'
        IF( walton_cal )THEN
           CALL Setup_Walton( IMG, AVHRR, walton_str, srfonly=.TRUE.)
        ENDIF
        pAVHRR => AVHRR
+       IF( walton_cal )THEN
+          IF( walt_only )THEN
+             WRITE(*,'('' ====== Walton et al. only calibration ====='')')
+             correctict = .FALSE.
+             applyict = .FALSE.
+             walton_biascorr = .FALSE.
+             apply_scenet_bias = .FALSE.
+          ELSE
+             WRITE(*,'('' ====== CORRECTED Walton et al. only calibration ====='')')
+             correctict = .TRUE.
+             applyict = .TRUE.
+             walton_biascorr = .TRUE.
+             apply_scenet_bias = .TRUE.
+          ENDIF
+       ELSE
+          correctict = .TRUE.
+          applyict = .TRUE.
+          walton_biascorr = .FALSE.
+          apply_scenet_bias = .FALSE.
+       ENDIF
        CALL Recalibrate_AVHRR(IMG,instr_coefs,pAVHRR,.TRUE.,walton_str,&
             moon_events=.TRUE.,&
             correct_solar_simple=.TRUE.,new_vis_cal=.TRUE.,&
             noise_orbit=.TRUE.,filter_counts=.TRUE.,filter_prt=.TRUE.,&
             dig_noise=.TRUE.,all_noise=.TRUE.,&
-            correctict=.TRUE.,applyict=.TRUE.,walton=.TRUE.,&
+            correctict=correctict,applyict=applyict,walton=walton_cal,&
             tinstrapply=.FALSE.)
        
        IF( walton_cal )THEN
           CALL Setup_Walton( IMG, AVHRR, walton_str,&
-               scenet_all_instr=.FALSE.,&
-               apply_scenet_bias=.TRUE.)
+               scenet_all_instr=.TRUE.,&
+               apply_scenet_bias=apply_scenet_bias)
           CALL Calibration_Walton(IMG,AVHRR,.TRUE.,1.,&
-               walton_str,.TRUE.,.TRUE.,ict_tinstr=.FALSE.,&
-               apply_scenet_bias=.TRUE.)
+               walton_str,walton_biascorr,applyict,ict_tinstr=.FALSE.,&
+               apply_scenet_bias=apply_scenet_bias)
        ENDIF
+
        !
        ! Resize to output
        !
@@ -1287,11 +1363,17 @@ CONTAINS
        CALL fill_missing_lines(AVHRRtmp,AVHRRout)
        CALL Deallocate_OutData(AVHRR)
        CALL Deallocate_OutData(AVHRRtmp)
+
+!       CALL check_latlon(AVHRRout,47.609,-29.85500,usenew=.TRUE.)
+
+
        !
        ! Add in FIDUCEO uncertainties
        !
-       CALL Add_FIDUCEO_Uncert(AVHRRout,uuid_in,output_filename,&
-            gbcs_l1c_output=gbcs_l1c_output)
+       CALL Add_FIDUCEO_Uncert(IMG,AVHRRout,uuid_in,output_filename,&
+            gbcs_l1c_output=gbcs_l1c_output,&
+            gbcs_l1c_cal=gbcs_l1c_cal,use_walton=walton_cal,&
+            keep_temp=keep_temp,write_fcdr=write_fcdr)
        CALL Deallocate_OutData(AVHRRout)    
     ELSE
        !
@@ -1304,18 +1386,31 @@ CONTAINS
           CALL Setup_Walton( IMG, AVHRR, walton_str, srfonly=.TRUE.)
        ENDIF
        pAVHRR => AVHRR_Total
+       IF( walt_only )THEN
+          correctict = .FALSE.
+          applyict = .FALSE.
+          walton_biascorr = .FALSE.
+          apply_scenet_bias = .FALSE.
+       ELSE
+          correctict = .TRUE.
+          applyict = .TRUE.
+          walton_biascorr = .TRUE.
+          apply_scenet_bias = .TRUE.
+       ENDIF
        CALL Recalibrate_AVHRR(IMG,instr_coefs,pAVHRR,.TRUE.,walton_str,&
             moon_events=.TRUE.,&
             correct_solar_simple=.TRUE.,new_vis_cal=.TRUE.,&
             noise_orbit=.TRUE.,filter_counts=.TRUE.,filter_prt=.TRUE.,&
-            dig_noise=.TRUE.,all_noise=.TRUE.)       
+            dig_noise=.TRUE.,all_noise=.TRUE.,&
+            correctict=correctict,applyict=applyict,walton=walton_cal,&
+            tinstrapply=.FALSE.)
        IF( walton_cal )THEN
           CALL Setup_Walton( IMG, AVHRR, walton_str,&
-               scenet_all_instr=.FALSE.,&
-               apply_scenet_bias=.FALSE.)
+               scenet_all_instr=.TRUE.,&
+               apply_scenet_bias=apply_scenet_bias)
           CALL Calibration_Walton(IMG,AVHRR,.TRUE.,1.,&
-               walton_str,.FALSE.,.FALSE.,ict_tinstr=.FALSE.,&
-               apply_scenet_bias=.FALSE.)
+               walton_str,walton_biascorr,applyict,ict_tinstr=.FALSE.,&
+               apply_scenet_bias=apply_scenet_bias)
        ENDIF
        IF( split_single_file )THEN
           !
@@ -1332,8 +1427,10 @@ CONTAINS
           !
           ! Add in FIDUCEO uncertainties
           !
-          CALL Add_FIDUCEO_Uncert(AVHRR,uuid_in,output_filename,&
-            gbcs_l1c_output=gbcs_l1c_output)
+          CALL Add_FIDUCEO_Uncert(IMG,AVHRR,uuid_in,output_filename,&
+               gbcs_l1c_output=gbcs_l1c_output,&
+               gbcs_l1c_cal=gbcs_l1c_cal,use_walton=walton_cal,&
+               keep_temp=keep_temp,write_fcdr=write_fcdr)
           CALL Deallocate_OutData(AVHRR)
        ELSE
           !
@@ -1344,8 +1441,10 @@ CONTAINS
           !
           ! Add in FIDUCEO uncertainties
           !
-          CALL Add_FIDUCEO_Uncert(AVHRRout,uuid_in,output_filename,&
-               gbcs_l1c_output=gbcs_l1c_output)
+          CALL Add_FIDUCEO_Uncert(IMG,AVHRRout,uuid_in,output_filename,&
+               gbcs_l1c_output=gbcs_l1c_output,&
+               gbcs_l1c_cal=gbcs_l1c_cal,use_walton=walton_cal,&
+               keep_temp=keep_temp,write_fcdr=write_fcdr)
           CALL Deallocate_OutData(AVHRRout)
        ENDIF
     ENDIF
@@ -1677,16 +1776,15 @@ CONTAINS
        !
        nlines = (stop_pos-start_pos) + 1
        out_start_pos = start_pos
-       out_stop_pos = stop_pos
        start_pos = MAX(1,start_pos-NPIXEL_PRT_SMOOTH)
+       out_start_pos = out_start_pos-start_pos+1
+       out_stop_pos = stop_pos
        stop_pos = MIN(AVHRR%arraySize,stop_pos+NPIXEL_PRT_SMOOTH)
-       if( trim_data )then
-          out_start_pos = trim_low
-          out_stop_pos = trim_high
-       else
-          out_start_pos = (out_start_pos-start_pos)+1
-          out_stop_pos = out_start_pos + nlines - 1
-       endif
+       out_stop_pos = out_start_pos+nlines
+!       if( trim_data )then
+!          out_start_pos = trim_low
+!          out_stop_pos = trim_high
+!       endif
     ELSE
        out_start_pos = start_pos
        out_stop_pos = stop_pos
@@ -1755,11 +1853,21 @@ CONTAINS
             AVHRRout%new_array3B_error(AVHRR%nelem,AVHRRout%arraySize),&
             AVHRRout%new_array4_error(AVHRR%nelem,AVHRRout%arraySize),&
             AVHRRout%new_array5_error(AVHRR%nelem,AVHRRout%arraySize),&
+            AVHRRout%new_array1_spnoise(AVHRRout%arraySize),&
+            AVHRRout%new_array2_spnoise(AVHRRout%arraySize),&
+            AVHRRout%new_array3A_spnoise(AVHRRout%arraySize),&
+            AVHRRout%new_array1_dsp(AVHRRout%arraySize),&
+            AVHRRout%new_array2_dsp(AVHRRout%arraySize),&
+            AVHRRout%new_array3A_dsp(AVHRRout%arraySize),&
             AVHRRout%noise_cnts(6,AVHRRout%arraySize),&
             AVHRRout%noise_cnts_cal(6,AVHRRout%arraySize),&
             AVHRRout%ict_prt_gain_value(AVHRRout%arraySize),&
             AVHRRout%prt_correction(AVHRRout%arraySize),&
             AVHRRout%prt_ict_temp(AVHRRout%arraySize),&
+            AVHRRout%prt1_plane_error(AVHRRout%arraySize),&
+            AVHRRout%prt2_plane_error(AVHRRout%arraySize),&
+            AVHRRout%prt3_plane_error(AVHRRout%arraySize),&
+            AVHRRout%prt4_plane_error(AVHRRout%arraySize),&
             STAT=STAT)
        IF( 0 .ne. STAT )THEN
           CALL Gbcs_Critical(.TRUE.,'Allocating outputData (recal)',&
@@ -1821,6 +1929,12 @@ CONTAINS
        AVHRRout%new_array3B_error = NAN_R
        AVHRRout%new_array4_error = NAN_R
        AVHRRout%new_array5_error = NAN_R
+       AVHRRout%new_array1_spnoise = NAN_R
+       AVHRRout%new_array2_spnoise = NAN_R
+       AVHRRout%new_array3A_spnoise = NAN_R
+       AVHRRout%new_array1_dsp = NAN_R
+       AVHRRout%new_array2_dsp = NAN_R
+       AVHRRout%new_array3A_dsp = NAN_R
        AVHRRout%noise_cnts = NAN_R
        AVHRRout%noise_cnts_cal = NAN_R
        IF( AVHRR%walton_there )THEN
@@ -1831,6 +1945,10 @@ CONTAINS
        AVHRRout%ict_prt_gain_value = NAN_R
        AVHRRout%prt_correction = NAN_R
        AVHRRout%prt_ict_temp = NAN_R
+       AVHRRout%prt1_plane_error = NAN_R
+       AVHRRout%prt2_plane_error = NAN_R
+       AVHRRout%prt3_plane_error = NAN_R
+       AVHRRout%prt4_plane_error = NAN_R
 
     END IF
 
@@ -1960,6 +2078,11 @@ CONTAINS
     AVHRRout%ict_plane_uncert = AVHRR%ict_plane_uncert
     AVHRRout%ict_model_params = AVHRR%ict_model_params
     AVHRRout%ict_prt_offset = AVHRR%ict_prt_offset
+    AVHRRout%nuc = AVHRR%nuc
+    AVHRRout%aval = AVHRR%aval
+    AVHRRout%bval = AVHRR%bval
+    AVHRRout%norig_l1b = AVHRR%norig_l1b
+    AVHRRout%orig_l1b = AVHRR%orig_l1b
 
   END SUBROUTINE Copy_Top_Data
 
@@ -1974,8 +2097,8 @@ CONTAINS
     INTEGER, INTENT(IN) :: K
     LOGICAL, INTENT(IN) :: alldata
 
-!    AVHRRout%scanLineNumber(K) = AVHRR%scanLineNumber(I)
-    AVHRRout%scanLineNumber(K) = K
+    AVHRRout%scnline_l1b(K) = AVHRR%scnline_l1b(I)
+    AVHRRout%scanLineNumber(K) = AVHRR%scanLineNumber(I)
     AVHRRout%badTop(K) = AVHRR%badTop(I)
     AVHRRout%badTime(K) = AVHRR%badTime(I)
     AVHRRout%badNavigation(K) = AVHRR%badNavigation(I)
@@ -2125,16 +2248,95 @@ CONTAINS
        AVHRRout%new_array3B_error(:,K) = AVHRR%new_array3B_error(:,I)
        AVHRRout%new_array4_error(:,K) = AVHRR%new_array4_error(:,I)
        AVHRRout%new_array5_error(:,K) = AVHRR%new_array5_error(:,I)
+       AVHRRout%new_array1_spnoise(K) = AVHRR%new_array1_spnoise(I)
+       AVHRRout%new_array2_spnoise(K) = AVHRR%new_array2_spnoise(I)
+       AVHRRout%new_array3A_spnoise(K) = AVHRR%new_array3A_spnoise(I)
+       AVHRRout%new_array1_dsp(K) = AVHRR%new_array1_dsp(I)
+       AVHRRout%new_array2_dsp(K) = AVHRR%new_array2_dsp(I)
+       AVHRRout%new_array3A_dsp(K) = AVHRR%new_array3A_dsp(I)
        AVHRRout%noise_cnts(:,K) = AVHRR%noise_cnts(:,I)
        AVHRRout%noise_cnts_cal(:,K) = AVHRR%noise_cnts_cal(:,I)
        AVHRRout%ict_prt_gain_value(K) = AVHRR%ict_prt_gain_value(I)
        AVHRRout%prt_correction(K) = AVHRR%prt_correction(I)
        AVHRRout%prt_ict_temp(K) = AVHRR%prt_ict_temp(I)
+       AVHRRout%prt1_plane_error(K) = AVHRR%prt1_plane_error(I)
+       AVHRRout%prt2_plane_error(K) = AVHRR%prt2_plane_error(I)
+       AVHRRout%prt3_plane_error(K) = AVHRR%prt3_plane_error(I)
+       AVHRRout%prt4_plane_error(K) = AVHRR%prt4_plane_error(I)
+       AVHRRout%scnline_l1b(K) = AVHRR%scnline_l1b(I)
     ENDIF
 
   END SUBROUTINE Copy_All_Scan
+  !
+  ! TEST TEST TEST TEST TEST TEST TEST TEST
+  !
+  SUBROUTINE Check_latlon(AVHRR,lat,lon,usenew)
 
-  SUBROUTINE read_file(infile,AVHRR,uuid_in,pygac_stem,out_instr_coefs)
+    TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
+    REAL, INTENT(IN) :: lat
+    REAL, INTENT(IN) :: lon
+    LOGICAL, OPTIONAL :: usenew
+
+    INTEGER :: I,J
+    REAL :: dist
+    REAL :: min_dist
+    INTEGER :: IPOS, JPOS
+    LOGICAL :: use_new
+
+    IF( PRESENT(usenew) )THEN
+       use_new = usenew
+    ELSE
+       use_new = .FALSE.
+    ENDIF
+
+    IPOS = -1
+    JPOS = -1
+    min_dist = 1e30
+
+    DO I=1,AVHRR%arraySize
+       DO J=1,AVHRR%nelem
+          IF( AVHRR%lat(J,I) .gt. -100 .and. AVHRR%lon(J,I) .gt. -200. )THEN
+             dist = acos(sin(AVHRR%lat(J,I)*Deg2Rad)*&
+                  sin(lat*Deg2Rad) + &
+                  cos(AVHRR%lat(J,I)*Deg2Rad)*&
+                  cos(lat*Deg2Rad)*&
+                  cos((AVHRR%lon(J,I)-lon)*Deg2Rad))*6371.
+             IF( dist .lt. min_dist )THEN
+                min_dist = dist
+                IPOS = I
+                JPOS = J
+             ENDIF
+          ENDIF
+       END DO
+    END DO
+
+    IF( -1 .ne. IPOS .and. -1 .ne. JPOS )THEN
+       WRITE(*,'(''======================================================'')')
+       WRITE(*,*)'min dist (km) = ',min_dist,JPOS,IPOS
+       WRITE(*,*)'Lat/Lon = ',AVHRR%lat(JPOS,IPOS),AVHRR%lon(JPOS,IPOS)
+       IF( use_new )THEN
+          WRITE(*,*)'Rad = ',AVHRR%array3b(JPOS,IPOS),&
+               AVHRR%array4(JPOS,IPOS),&
+               AVHRR%array5(JPOS,IPOS)
+          WRITE(*,*)'BT = ',convertBT(AVHRR%array3b(JPOS,IPOS),&
+               DBLE(AVHRR%nuc(1)),DBLE(AVHRR%aval(1)),DBLE(AVHRR%bval(1))),&
+               convertBT(AVHRR%array4(JPOS,IPOS),&
+               DBLE(AVHRR%nuc(2)),DBLE(AVHRR%aval(2)),DBLE(AVHRR%bval(2))),&
+               convertBT(AVHRR%array5(JPOS,IPOS),&
+               DBLE(AVHRR%nuc(3)),DBLE(AVHRR%aval(3)),DBLE(AVHRR%bval(3)))
+       ELSE
+          WRITE(*,*)'BT = ',AVHRR%array3b(JPOS,IPOS),&
+               AVHRR%array4(JPOS,IPOS),&
+               AVHRR%array5(JPOS,IPOS)
+       ENDIF
+       WRITE(*,'(''======================================================'')')
+    ENDIF
+
+  END SUBROUTINE Check_latlon
+  !
+  ! TEST TEST TEST TEST TEST TEST TEST TEST
+  !
+  SUBROUTINE read_file(infile,AVHRR,uuid_in,pygac_stem,fileno,out_instr_coefs)
 
     USE IFPORT
 
@@ -2142,6 +2344,7 @@ CONTAINS
     TYPE(AVHRR_Data), TARGET, INTENT(OUT) :: AVHRR
     CHARACTER(LEN=*), INTENT(IN) :: uuid_in
     CHARACTER(LEN=*), INTENT(IN) :: pygac_stem
+    INTEGER, INTENT(IN) :: fileno
     TYPE(AVHRR_Instrument_Coefs), INTENT(out), OPTIONAL :: out_instr_coefs
 
     ! Local variables
@@ -2190,13 +2393,19 @@ CONTAINS
     IMG%DataDir = TRIM(inDirectory)
     IMG%DataFile = TRIM(inFilename)
 
-    IMG%GbcsDataPath = '/group_workspaces/cems/nceo_uor/users/jmittaz/AVHRR/&
+    IMG%GbcsDataPath = '/group_workspaces/jasmin2/nceo_uor/users/jmittaz/AVHRR/&
          &code/git/gbcs_new_calibration/dat_cci/'
     CALL Load_Imagery(IMG,outputData=AVHRR,use_new_calibration=.FALSE.,&
          out_instr_coefs=out_instr_coefs,use_walton=.FALSE.)
+    AVHRR%scnline_l1b = fileno
+
+!    CALL check_latlon(AVHRR,47.609,-29.85500)
 
     pAVHRR => AVHRR
     CALL Overlay_PyGAC_Data(pygac_stem,pAVHRR)
+
+!    print *,'================= AFTER PyGAC ======================='
+!    CALL check_latlon(AVHRR,47.609,-29.85500)
 
     IF( remove_file )THEN
        WRITE(command_str,'(''rm -f temp_file.'',a)')&
@@ -2450,6 +2659,8 @@ CONTAINS
           AVHRR%day(I) = -1
           AVHRR%hours(I) = -1
           AVHRR%UTC_msecs(I) = -1
+          AVHRR%Lon(:,I) = NAN_R
+          AVHRR%Lat(:,I) = NAN_R
        ENDIF
     END DO
     WRITE(*,*)'PyGAC comparison Number of missing lines : ',nmissing
@@ -3103,10 +3314,10 @@ CONTAINS
     ! Make sure time delta is 0.5 seconds
     !
     IF( ABS(INT(1000*time_delta+0.5)-500) .gt. 1 )THEN
-       print *,'NY:',(stop_scnline-start_scnline)+1
-       print *,'start_time:',start_time
-       print *,' stop_time:',stop_time
-       print *,'Time delta = ',time_delta
+       WRITE(*,*)'NY:',(stop_scnline-start_scnline)+1
+       WRITE(*,*)'start_time:',start_time
+       WRITE(*,*)' stop_time:',stop_time
+       WRITE(*,*)'Time delta = ',time_delta
        CALL Gbcs_Critical(.TRUE.,'time delta != 0.5 secs',&
             'Setup_PyGAC_Time','combine_orbits.f90')
     ENDIF
