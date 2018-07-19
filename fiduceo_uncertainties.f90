@@ -29,13 +29,21 @@
 !
 ! Original 21-07-2017 (v0.1pre)
 !
-! MT: 11-11-2017: Define temp variables us1,us2,us3a to store structured uncertainties on the reflectance channels
-! MT: 11-11-2017: fix problem of value not filling array with 0.03 for u_structured_Ch1
-! MT: 11-11-2017: fix problem of value not filling array with 0.05 for u_structured_Ch2
-! MT: 11-11-2017: fix problem of value not filling array with 0.05 for u_structured_Ch3a
-! MT: 13-11-2017: allocated nsmoothBB3,4,5 and nsmoothSp3,4,5 to AVHRRout data structure in combine_orbits.f90 so that the calculations don't fail 
+! MT: 11-11-2017: Define temp variables us1,us2,us3a to store structured 
+!     uncertainties on the reflectance channels
+! MT: 11-11-2017: fix problem of value not filling array with 0.03 for 
+!     u_structured_Ch1
+! MT: 11-11-2017: fix problem of value not filling array with 0.05 for 
+!     u_structured_Ch2
+! MT: 11-11-2017: fix problem of value not filling array with 0.05 for 
+!     u_structured_Ch3a
+! MT: 13-11-2017: allocated nsmoothBB3,4,5 and nsmoothSp3,4,5 to AVHRRout data 
+!     structure in combine_orbits.f90 so that the calculations don't fail 
 ! MT: 19-12-2017: v0.3pre 
 ! MT: 09-03-2018: v0.5beta 
+!
+! JM: 14-05-2018: Added GBCS CCI L1C output routine
+! JM: 12-07-2018: Added in FIDUCEO measurement equations
 !
 ! Note: Coefs data from CCI are ordered as
 !
@@ -51,10 +59,13 @@
 MODULE fiduceo_uncertainties
 
   ! From Marines code base
+  USE GbcsTypes
   USE GbcsConstants
   USE GbcsErrorHandler
   USE NOAA_LoadAVHRRLevel1B
   USE NETCDF
+  USE GbcsDateTime
+  USE FIDUCEO_Calibration
 
   IMPLICIT NONE
 
@@ -80,18 +91,18 @@ MODULE fiduceo_uncertainties
      REAL, ALLOCATABLE :: drict_over_dtstar3(:)
      REAL, ALLOCATABLE :: drict_over_dtstar4(:)
      REAL, ALLOCATABLE :: drict_over_dtstar5(:)
-     REAL, ALLOCATABLE :: dre_over_db03(:,:)
-     REAL, ALLOCATABLE :: dre_over_db04(:,:)
-     REAL, ALLOCATABLE :: dre_over_db05(:,:)
-     REAL, ALLOCATABLE :: dre_over_db13(:,:)
-     REAL, ALLOCATABLE :: dre_over_db14(:,:)
-     REAL, ALLOCATABLE :: dre_over_db15(:,:)
+     REAL, ALLOCATABLE :: dre_over_da03(:,:)
+     REAL, ALLOCATABLE :: dre_over_da04(:,:)
+     REAL, ALLOCATABLE :: dre_over_da05(:,:)
      REAL, ALLOCATABLE :: dre_over_da13(:,:)
      REAL, ALLOCATABLE :: dre_over_da14(:,:)
      REAL, ALLOCATABLE :: dre_over_da15(:,:)
      REAL, ALLOCATABLE :: dre_over_da23(:,:)
      REAL, ALLOCATABLE :: dre_over_da24(:,:)
      REAL, ALLOCATABLE :: dre_over_da25(:,:)
+     REAL, ALLOCATABLE :: dre_over_da33(:,:)
+     REAL, ALLOCATABLE :: dre_over_da34(:,:)
+     REAL, ALLOCATABLE :: dre_over_da35(:,:)
      REAL, ALLOCATABLE :: dre_over_dtinstr3(:,:)
      REAL, ALLOCATABLE :: dre_over_dtinstr4(:,:)
      REAL, ALLOCATABLE :: dre_over_dtinstr5(:,:)
@@ -104,15 +115,21 @@ MODULE fiduceo_uncertainties
      REAL, ALLOCATABLE :: dre_over_drict3(:,:)
      REAL, ALLOCATABLE :: dre_over_drict4(:,:)
      REAL, ALLOCATABLE :: dre_over_drict5(:,:)
+     REAL, ALLOCATABLE :: dre_over_dcs1(:,:)
+     REAL, ALLOCATABLE :: dre_over_dcs2(:,:)
+     REAL, ALLOCATABLE :: dre_over_dcs3a(:,:)
      REAL, ALLOCATABLE :: dre_over_dcs3(:,:)
      REAL, ALLOCATABLE :: dre_over_dcs4(:,:)
      REAL, ALLOCATABLE :: dre_over_dcs5(:,:)
-     REAL, ALLOCATABLE :: ue3(:,:)
-     REAL, ALLOCATABLE :: ue4(:,:)
-     REAL, ALLOCATABLE :: ue5(:,:)
+     REAL, ALLOCATABLE :: uc3(:,:)
+     REAL, ALLOCATABLE :: uc4(:,:)
+     REAL, ALLOCATABLE :: uc5(:,:)
      REAL, ALLOCATABLE :: ur3(:,:)
      REAL, ALLOCATABLE :: ur4(:,:)
      REAL, ALLOCATABLE :: ur5(:,:)
+     REAL, ALLOCATABLE :: us1(:,:)
+     REAL, ALLOCATABLE :: us2(:,:)
+     REAL, ALLOCATABLE :: us3a(:,:)
      REAL, ALLOCATABLE :: us3(:,:)
      REAL, ALLOCATABLE :: us4(:,:)
      REAL, ALLOCATABLE :: us5(:,:)
@@ -134,6 +151,28 @@ MODULE fiduceo_uncertainties
      REAL, ALLOCATABLE :: ucs3(:)
      REAL, ALLOCATABLE :: ucs4(:)
      REAL, ALLOCATABLE :: ucs5(:)
+     !
+     ! extra CURUC variables
+     REAL, ALLOCATABLE :: dBT_over_dT3(:,:)
+     REAL, ALLOCATABLE :: dBT_over_dT4(:,:)
+     REAL, ALLOCATABLE :: dBT_over_dT5(:,:)
+     REAL, ALLOCATABLE :: dBT_over_dcs3(:,:)
+     REAL, ALLOCATABLE :: dBT_over_dcs4(:,:)
+     REAL, ALLOCATABLE :: dBT_over_dcs5(:,:)
+     REAL, ALLOCATABLE :: dBT_over_dcict3(:,:)
+     REAL, ALLOCATABLE :: dBT_over_dcict4(:,:)
+     REAL, ALLOCATABLE :: dBT_over_dcict5(:,:)
+     !
+     ! Harmonisation covar
+     !
+     REAL, ALLOCATABLE :: Cmatrix3(:)
+     REAL, ALLOCATABLE :: Omatrix3(:)
+     REAL, ALLOCATABLE :: Cmatrix(:)
+     REAL, ALLOCATABLE :: Omatrix(:)
+
+     REAL :: nuc(3)
+     REAL :: aval(3)
+     REAL :: bval(3)
      
      INTEGER, ALLOCATABLE :: flag_no_detection(:,:)
      INTEGER(GbcsInt1), ALLOCATABLE :: quality_channel_bitmask(:,:)
@@ -150,7 +189,7 @@ MODULE fiduceo_uncertainties
   !
   ! MT: 19-12-2017: v0.3pre
   ! MT: 09-03-2018: v0.5beta
-  CHARACTER(LEN=6) :: software_version = '0.5pre'
+  CHARACTER(LEN=6) :: software_version = 'Beta'
 
 ! MT: 11-11-2017: Define temp variables to store structured uncertainties on the reflectance channels
   REAL, ALLOCATABLE :: us1(:,:)
@@ -163,12 +202,20 @@ MODULE fiduceo_uncertainties
 
 CONTAINS
 
-  SUBROUTINE Add_FIDUCEO_Uncert(AVHRR,uuid_in,filename_nc,use_iasi_calibration)
+  SUBROUTINE Add_FIDUCEO_Uncert(IMG,AVHRR,uuid_in,filename_nc,&
+       use_iasi_calibration,gbcs_l1c_output,&
+       gbcs_l1c_cal,use_walton,keep_temp,write_fcdr)
 
+    TYPE(Imagery), INTENT(IN) :: IMG
     TYPE(AVHRR_Data), INTENT(INOUT) :: AVHRR
     CHARACTER(LEN=*), INTENT(IN) :: uuid_in
     CHARACTER(LEN=*), INTENT(IN) :: filename_nc
     LOGICAL, OPTIONAL :: use_iasi_calibration
+    LOGICAL, OPTIONAL :: gbcs_l1c_output
+    LOGICAL, OPTIONAL :: gbcs_l1c_cal
+    LOGICAL, OPTIONAL :: use_walton
+    LOGICAL, OPTIONAL :: keep_temp
+    LOGICAL, OPTIONAL :: write_fcdr
 
     ! Local variables
     INTEGER :: I
@@ -184,7 +231,19 @@ CONTAINS
     CHARACTER(LEN=256) :: temp_file
     LOGICAL :: use_iasi_cal
     LOGICAL :: twelve_micron_there
-    TYPE(FIDUCEO_Data) :: FCDR
+    LOGICAL :: l1c_output
+    LOGICAL :: l1c_output_cal
+    TYPE(FIDUCEO_Data) :: FCDR    
+    LOGICAL :: usewalton
+    LOGICAL :: keeptemp
+    LOGICAL :: writefcdr
+    REAL, ALLOCATABLE :: covar_tot(:,:,:)
+    REAL, ALLOCATABLE :: covar3(:,:)
+    REAL, ALLOCATABLE :: covar4(:,:)
+    REAL, ALLOCATABLE :: covar5(:,:)
+    INTEGER :: nparam
+    INTEGER :: nparam3
+    INTEGER :: stat
 
     IF( .not. AVHRR%valid_data_there )THEN
        RETURN
@@ -194,11 +253,82 @@ CONTAINS
     ELSE
        use_iasi_cal = .FALSE.
     ENDIF
+    IF( PRESENT(gbcs_l1c_output) )THEN
+       l1c_output = gbcs_l1c_output
+    ELSE
+       l1c_output = .FALSE.
+    ENDIF
+    IF( PRESENT(gbcs_l1c_cal) )THEN
+       l1c_output_cal = gbcs_l1c_cal
+    ELSE
+       l1c_output_cal = .FALSE.
+    ENDIF
+    IF( PRESENT(use_walton) )THEN
+       usewalton = use_walton
+    ELSE
+       usewalton = .FALSE.
+    ENDIF
+    IF( PRESENT(keep_temp) )THEN
+       keeptemp = keep_temp
+    ELSE
+       keeptemp = .FALSE.
+    ENDIF
+    IF( PRESENT(write_fcdr) )THEN
+       writefcdr = write_fcdr
+    ELSE
+       writefcdr = .TRUE.
+    ENDIF
 
-    call Get_Calib_Coefficients_CCI( AVHRR%time(AVHRR%start_valid), &
-         AVHRR%AVHRR_No,&
-         coefs1, coefs2, coefs3, ncoefs, coefs_frac1, coefs_frac2, &
-         cal_coef_overlap, use_iasi_cal, twelve_micron_there )
+    call Get_Calib_Coefficients_FIDUCEO( IMG, AVHRR%time(AVHRR%start_valid), &
+         AVHRR%AVHRR_No, coefs1, coefs2, coefs3, ncoefs, coefs_frac1, &
+         coefs_frac2, twelve_micron_there, covar=covar_tot, nparam=nparam, &
+         nparam3=nparam3)
+    ALLOCATE(covar3(nparam3,nparam3),covar4(nparam,nparam),&
+         covar5(nparam,nparam),stat=stat)
+    IF( 0 .ne. stat )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot allocate covar3/4/5',&
+            'Add_FIDUCEO_Uncert','fiduceo_uncertainties.f90')       
+    ENDIF
+    covar3 = covar_tot(1:nparam3,1:nparam3,1)
+    covar4 = covar_tot(1:nparam,1:nparam,2)
+    covar5 = covar_tot(1:nparam,1:nparam,3)
+
+!    FCDR%nuc = (/coefs1(5,1),coefs2(5,1),coefs3(5,1)/)
+!    FCDR%aval = (/coefs1(6,1),coefs2(6,1),coefs3(6,1)/)
+!    FCDR%bval = (/coefs1(7,1),coefs2(7,1),coefs3(7,1)/)
+    
+    IF( usewalton )THEN
+       coefs1(5,1) = AVHRR%nuc(1)
+       coefs1(6,1) = AVHRR%aval(1)
+       coefs1(7,1) = AVHRR%bval(1)
+       coefs2(5,1) = AVHRR%nuc(2)
+       coefs2(6,1) = AVHRR%aval(2)
+       coefs2(7,1) = AVHRR%bval(2)
+       coefs3(5,1) = AVHRR%nuc(3)
+       coefs3(6,1) = AVHRR%aval(3)
+       coefs3(7,1) = AVHRR%bval(3)
+    ENDIF
+    !
+    ! make sure coefs are correct for the form of Rad->Temp and Temp-Rad
+    !
+    IF( coefs1(6,1) .gt. 0 )THEN
+       coefs1(6,1) = -coefs1(6,1)/coefs1(7,1)
+       coefs1(7,1) = 1./coefs1(7,1)
+       coefs2(6,1) = -coefs2(6,1)/coefs2(7,1)
+       coefs2(7,1) = 1./coefs2(7,2)
+       coefs3(6,1) = -coefs3(6,1)/coefs3(7,1)
+       coefs3(7,1) = 1./coefs3(7,1)
+    ENDIF
+
+    FCDR%nuc = AVHRR%nuc
+    FCDR%aval = AVHRR%aval
+    FCDR%bval = AVHRR%bval
+
+    !
+    ! Recalculate radiances using potentially more complex models than
+    ! available in the Level 1B reader
+    !
+    
 
     !
     ! Do FIDUCEO Uncertainties
@@ -209,34 +339,50 @@ CONTAINS
        CALL calculate_urict(I,AVHRR,coefs1,coefs2,coefs3,FCDR,&
             twelve_micron_there)
        CALL radiance_uncertainties(I,AVHRR,coefs1,coefs2,coefs3,FCDR,&
-            twelve_micron_there)
+            twelve_micron_there,nparam3,nparam,covar3,covar4,covar5)
     END DO
     !
     ! Get Quality flags
     !
     CALL Get_Quality_Flags(AVHRR,FCDR)
     !
-    ! write to NetCDF
+    ! If GBCS output - write out
     !
-    temp_file=TRIM(uuid_in)//'.nc'
-    print *,'**************************************************'
-    print *,'Writing temporary file'
-    print *,TRIM(filename_nc)
-    print *,TRIM(temp_file)
-    print *,'**************************************************'
-    CALL Write_Temp_NETCDF(temp_file,AVHRR,FCDR,twelve_micron_there)
-!    CALL Rescale(AVHRR,FCDR)
-    IF( 'None' .eq. filename_nc )THEN
-       command_fcdr ='python2.7 write_easy_fcdr_from_netcdf.py '//TRIM(temp_file)
+    IF( l1c_output )THEN
+       CALL Write_GBCS_L1C(AVHRR,FCDR,uuid_in,twelve_micron_there,&
+            l1c_output_cal)
     ELSE
-       command_fcdr ='python2.7 write_easy_fcdr_from_netcdf.py '//TRIM(temp_file)//' '//TRIM(filename_nc)
-    ENDIF
-    call SYSTEM(TRIM(command_fcdr))
-!    command_fcdr = 'rm -f '//TRIM(temp_file) !MT: 05-11-2017: comment to keep temp netcdf files
-!    call SYSTEM(TRIM(command_fcdr))
-    print*, "remplissage"
+       !
+       ! write to NetCDF
+       !
+       temp_file=TRIM(uuid_in)//'.nc'
+       CALL Write_Temp_NETCDF(temp_file,AVHRR,FCDR,twelve_micron_there)
+!    CALL Rescale(AVHRR,FCDR)
+       IF( writefcdr )THEN
+          !
+          ! Because of Gerrit's CURUC routines needing Python 3 but pyGAC
+          ! needed Python 2 we have to run a script here that runs the 
+          ! write easy python code after switching environments
+          !
+          IF( 'None' .eq. filename_nc )THEN
+!             command_fcdr ='python2.7 write_easy_fcdr_from_netcdf.py '//TRIM(temp_file)
+             command_fcdr = './write_easy_fcdr.sh '//TRIM(temp_file)
+          ELSE
+!             command_fcdr ='python2.7 write_easy_fcdr_from_netcdf.py '//TRIM(temp_file)//' '//TRIM(filename_nc)
+             command_fcdr = './write_easy_fcdr.sh '//TRIM(temp_file)//' '//TRIM(filename_nc)
+          ENDIF
+          call SYSTEM(TRIM(command_fcdr))
+       ENDIF
+       IF( .not. keeptemp )THEN
+          command_fcdr = 'rm -f '//TRIM(temp_file) !MT: 05-11-2017: comment to keep temp netcdf files
+          call SYSTEM(TRIM(command_fcdr))
+       ENDIF
+!       print*, "remplissage"
 !   Which is French for "filling"
 !    call fill_netcdf(filename_nc,AVHRR,FCDR)
+    ENDIF
+
+    DEALLOCATE(covar3,covar4,covar5)
 
   END SUBROUTINE Add_FIDUCEO_Uncert
 
@@ -341,6 +487,106 @@ CONTAINS
     END DO
 
   END SUBROUTINE Get_Quality_Flags
+  
+  !
+  ! Return a string for sensor
+  !
+  SUBROUTINE noaa_name(AVHRR,noaa_string,noaa)
+
+    TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
+    CHARACTER(LEN=*), INTENT(OUT) :: noaa_string
+    LOGICAL, OPTIONAL :: noaa
+
+    ! Local variables
+    LOGICAL :: noaa_type
+
+    IF( PRESENT(noaa) )THEN
+       noaa_type = noaa
+    ELSE
+       noaa_type = .TRUE.
+    ENDIF
+
+    IF( noaa_type )THEN
+       IF( AVHRR%AVHRR_No .eq. 1 )THEN
+          noaa_string = 'TIROSN'
+       ELSE IF( AVHRR%AVHRR_No .eq. 6 )THEN
+          noaa_string = 'NOAA06'
+       ELSE IF( AVHRR%AVHRR_No .eq. 7 )THEN
+          noaa_string = 'NOAA07'
+       ELSE IF( AVHRR%AVHRR_No .eq. 8 )THEN
+          noaa_string = 'NOAA08'
+       ELSE IF( AVHRR%AVHRR_No .eq. 9 )THEN
+          noaa_string = 'NOAA09'
+       ELSE IF( AVHRR%AVHRR_No .eq. 10 )THEN
+          noaa_string = 'NOAA10'
+       ELSE IF( AVHRR%AVHRR_No .eq. 11 )THEN
+          noaa_string = 'NOAA11'
+       ELSE IF( AVHRR%AVHRR_No .eq. 12 )THEN
+          noaa_string = 'NOAA12'
+       ELSE IF( AVHRR%AVHRR_No .eq. 14 )THEN
+          noaa_string = 'NOAA14'
+       ELSE IF( AVHRR%AVHRR_No .eq. 15 )THEN
+          noaa_string = 'NOAA15'
+       ELSE IF( AVHRR%AVHRR_No .eq. 16 )THEN
+          noaa_string = 'NOAA16'
+       ELSE IF( AVHRR%AVHRR_No .eq. 17 )THEN
+          noaa_string = 'NOAA17'
+       ELSE IF( AVHRR%AVHRR_No .eq. 18 )THEN
+          noaa_string = 'NOAA18'
+       ELSE IF( AVHRR%AVHRR_No .eq. 19 )THEN
+          noaa_string = 'NOAA19'
+       ELSE IF( AVHRR%AVHRR_No .eq. -1 )THEN
+          noaa_string = 'METOPA'
+       ELSE IF( AVHRR%AVHRR_No .eq. -2 )THEN
+          noaa_string = 'METOPB'
+       ELSE IF( AVHRR%AVHRR_No .eq. -3 )THEN
+          noaa_string = 'METOPC'
+       ELSE
+          CALL Gbcs_Critical(.TRUE.,'Cannot match AVHRR_No','noaa_name',&
+               'fiduceo_uncertainties.f90')
+       ENDIF
+    ELSE
+       IF( AVHRR%AVHRR_No .eq. 1 )THEN
+          noaa_string = 'AVHRRTN_G'
+       ELSE IF( AVHRR%AVHRR_No .eq. 6 )THEN
+          noaa_string = 'AVHRR06_G'
+       ELSE IF( AVHRR%AVHRR_No .eq. 7 )THEN
+          noaa_string = 'AVHRR07_G'
+       ELSE IF( AVHRR%AVHRR_No .eq. 8 )THEN
+          noaa_string = 'AVHRR08_G'
+       ELSE IF( AVHRR%AVHRR_No .eq. 9 )THEN
+          noaa_string = 'AVHRR09_G'
+       ELSE IF( AVHRR%AVHRR_No .eq. 10 )THEN
+          noaa_string = 'AVHRR10_G'
+       ELSE IF( AVHRR%AVHRR_No .eq. 11 )THEN
+          noaa_string = 'AVHRR11_G'
+       ELSE IF( AVHRR%AVHRR_No .eq. 12 )THEN
+          noaa_string = 'AVHRR12_G'
+       ELSE IF( AVHRR%AVHRR_No .eq. 14 )THEN
+          noaa_string = 'AVHRR14_G'
+       ELSE IF( AVHRR%AVHRR_No .eq. 15 )THEN
+          noaa_string = 'AVHRR15_G'
+       ELSE IF( AVHRR%AVHRR_No .eq. 16 )THEN
+          noaa_string = 'AVHRR16_G'
+       ELSE IF( AVHRR%AVHRR_No .eq. 17 )THEN
+          noaa_string = 'AVHRR17_G'
+       ELSE IF( AVHRR%AVHRR_No .eq. 18 )THEN
+          noaa_string = 'AVHRR18_G'
+       ELSE IF( AVHRR%AVHRR_No .eq. 19 )THEN
+          noaa_string = 'AVHRR19_G'
+       ELSE IF( AVHRR%AVHRR_No .eq. -1 )THEN
+          noaa_string = 'AVHRRMTA_G'
+       ELSE IF( AVHRR%AVHRR_No .eq. -2 )THEN
+          noaa_string = 'AVHRRMTB_G'
+       ELSE IF( AVHRR%AVHRR_No .eq. -3 )THEN
+          noaa_string = 'AVHRRMTC_G'
+       ELSE
+          CALL Gbcs_Critical(.TRUE.,'Cannot match AVHRR_No','noaa_name',&
+               'fiduceo_uncertainties.f90')
+       ENDIF       
+    ENDIF
+
+  END SUBROUTINE noaa_name
 
   !
   ! Write a tempory netcdf file for python to then convert
@@ -354,6 +600,7 @@ CONTAINS
     LOGICAL, INTENT(IN) :: twelve_micron_there
 
     ! Local variables
+    INTEGER :: I
     INTEGER :: ncid
     INTEGER :: latitude_varid
     INTEGER :: longitude_varid
@@ -383,17 +630,63 @@ CONTAINS
     INTEGER :: ch3b_non_random_varid
     INTEGER :: ch4_non_random_varid
     INTEGER :: ch5_non_random_varid
+    INTEGER :: ch1_common_varid
+    INTEGER :: ch2_common_varid
+    INTEGER :: ch3a_common_varid
+    INTEGER :: ch3b_common_varid
+    INTEGER :: ch4_common_varid
+    INTEGER :: ch5_common_varid
     INTEGER :: scan_qual_varid
     INTEGER :: chan_qual_varid
+    INTEGER :: dBT3_over_dT_varid
+    INTEGER :: dBT4_over_dT_varid
+    INTEGER :: dBT5_over_dT_varid
+    INTEGER :: dRe1_over_dCS_varid
+    INTEGER :: dRe2_over_dCS_varid
+    INTEGER :: dRe3a_over_dCS_varid
+    INTEGER :: dBT3_over_dCS_varid
+    INTEGER :: dBT4_over_dCS_varid
+    INTEGER :: dBT5_over_dCS_varid
+    INTEGER :: dBT3_over_dCICT_varid
+    INTEGER :: dBT4_over_dCICT_varid
+    INTEGER :: dBT5_over_dCICT_varid
+    INTEGER :: cal_cnts_varid
+    INTEGER :: earth_cnts_varid
+    INTEGER :: nuc_varid
+    INTEGER :: aval_varid
+    INTEGER :: bval_varid
+    INTEGER :: scanline_varid
+    INTEGER :: oscanline_varid
+    INTEGER :: smoothprt_varid
+    INTEGER :: badNavigation_varid
+    INTEGER :: badCalibration_varid
+    INTEGER :: badTime_varid
+    INTEGER :: missingLines_varid
+    INTEGER :: solar3_varid
+    INTEGER :: solar4_varid
+    INTEGER :: solar5_varid
     INTEGER :: stat
 
     INTEGER :: dimid_nx
     INTEGER :: dimid_ny
     INTEGER :: dimid_ir
+    INTEGER :: dimid_band
     INTEGER :: dims1(1)
     INTEGER :: dims2(2)
+    INTEGER :: dims_band(1)
+    INTEGER(GbcsInt1), ALLOCATABLE :: badNav(:)
+    INTEGER(GbcsInt1), ALLOCATABLE :: badCal(:)
+    INTEGER(GbcsInt1), ALLOCATABLE :: badTime(:)
+    INTEGER(GbcsInt1), ALLOCATABLE :: missingLines(:)
+    INTEGER(GbcsInt1), ALLOCATABLE :: solar3(:)
+    INTEGER(GbcsInt1), ALLOCATABLE :: solar4(:)
+    INTEGER(GbcsInt1), ALLOCATABLE :: solar5(:)
 
-    CHARACTER(LEN=20) :: noaa_string
+    REAL :: noise_cnts(6)
+    REAL :: earth_noise_cnts(6)
+
+    INTEGER :: compress_level=5
+    CHARACTER(LEN=512) :: noaa_string
     
     stat = NF90_CREATE(temp_file,IOR(NF90_HDF5,NF90_CLOBBER),ncid)
     call check(stat)
@@ -407,217 +700,269 @@ CONTAINS
     stat = NF90_DEF_DIM(ncid,'nir',6,dimid_ir)
     call check(stat)
 
+    stat = NF90_DEF_DIM(ncid,'nband_coef',3,dimid_band)
+    call check(stat)
+
     dims1(1) = dimid_ny
     dims2(1) = dimid_nx
     dims2(2) = dimid_ny
     
     stat = NF90_DEF_VAR(ncid,'latitude',NF90_FLOAT,dims2,latitude_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, latitude_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, latitude_varid, 1, 1, compress_level)
     call check(stat)
-    stat = NF90_DEF_VAR_FILL(ncid, latitude_varid, 0, -1e30)
+    stat = NF90_DEF_VAR_FILL(ncid, latitude_varid, 0, NAN_R)
     call check(stat)
 
+    !
+    ! Write variables including define - ensures valid min/max held
+    !
     stat = NF90_DEF_VAR(ncid,'longitude',NF90_FLOAT,dims2,longitude_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, longitude_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, longitude_varid, 1, 1, compress_level)
     call check(stat)
-    stat = NF90_DEF_VAR_FILL(ncid, longitude_varid, 0, -1e30)
+    stat = NF90_DEF_VAR_FILL(ncid, longitude_varid, 0, NAN_R)
     call check(stat)
 
     stat = NF90_DEF_VAR(ncid,'time',NF90_DOUBLE,dims1,time_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, time_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, time_varid, 1, 1, compress_level)
     call check(stat)
-    stat = NF90_DEF_VAR_FILL(ncid, time_varid, 0, -1d30)
+    stat = NF90_DEF_VAR_FILL(ncid, time_varid, 0, NAN_R)
     call check(stat)
 
     stat = NF90_DEF_VAR(ncid,'year',NF90_INT,dims1,year_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, year_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, year_varid, 1, 1, compress_level)
     call check(stat)
     stat = NF90_DEF_VAR_FILL(ncid, year_varid, 0, -1)
     call check(stat)
 
     stat = NF90_DEF_VAR(ncid,'month',NF90_INT,dims1,month_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, month_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, month_varid, 1, 1, compress_level)
     call check(stat)
     stat = NF90_DEF_VAR_FILL(ncid, month_varid, 0, -1)
     call check(stat)
 
     stat = NF90_DEF_VAR(ncid,'day',NF90_INT,dims1,day_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, day_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, day_varid, 1, 1, compress_level)
     call check(stat)
     stat = NF90_DEF_VAR_FILL(ncid, day_varid, 0, -1)
     call check(stat)
 
     stat = NF90_DEF_VAR(ncid,'hours',NF90_FLOAT,dims1,hours_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, hours_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, hours_varid, 1, 1, compress_level)
     call check(stat)
     stat = NF90_DEF_VAR_FILL(ncid, hours_varid, 0, -1)
     call check(stat)
 
     stat = NF90_DEF_VAR(ncid,'satza',NF90_FLOAT,dims2,satza_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, satza_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, satza_varid, 1, 1, compress_level)
     call check(stat)
-    stat = NF90_DEF_VAR_FILL(ncid, satza_varid, 0, -1e30)
+    stat = NF90_DEF_VAR_FILL(ncid, satza_varid, 0, NAN_R)
     call check(stat)
 
     stat = NF90_DEF_VAR(ncid,'solza',NF90_FLOAT,dims2,solza_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, solza_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, solza_varid, 1, 1, compress_level)
     call check(stat)
-    stat = NF90_DEF_VAR_FILL(ncid, solza_varid, 0, -1e30)
+    stat = NF90_DEF_VAR_FILL(ncid, solza_varid, 0, NAN_R)
     call check(stat)
 
     IF( ALLOCATED(AVHRR%relaz) )THEN
        stat = NF90_DEF_VAR(ncid,'relaz',NF90_FLOAT,dims2,relaz_varid)
        call check(stat)
-       stat = NF90_DEF_VAR_DEFLATE(ncid, relaz_varid, 1, 1, 9)
+       stat = NF90_DEF_VAR_DEFLATE(ncid, relaz_varid, 1, 1, compress_level)
        call check(stat)
-       stat = NF90_DEF_VAR_FILL(ncid, relaz_varid, 0, -1e30)
+       stat = NF90_DEF_VAR_FILL(ncid, relaz_varid, 0, NAN_R)
        call check(stat)
     ENDIF
 
     stat = NF90_DEF_VAR(ncid,'ch1',NF90_FLOAT,dims2,ch1_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, ch1_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, ch1_varid, 1, 1, compress_level)
     call check(stat)
-    stat = NF90_DEF_VAR_FILL(ncid, ch1_varid, 0, -1e30)
+    stat = NF90_DEF_VAR_FILL(ncid, ch1_varid, 0, NAN_R)
     call check(stat)
     
     stat = NF90_DEF_VAR(ncid,'ch2',NF90_FLOAT,dims2,ch2_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, ch2_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, ch2_varid, 1, 1, compress_level)
     call check(stat)
-    stat = NF90_DEF_VAR_FILL(ncid, ch2_varid, 0, -1e30)
+    stat = NF90_DEF_VAR_FILL(ncid, ch2_varid, 0, NAN_R)
     call check(stat)
     
     IF( ALLOCATED(AVHRR%array3a) )THEN
        stat = NF90_DEF_VAR(ncid,'ch3a',NF90_FLOAT,dims2,ch3a_varid)
        call check(stat)
-       stat = NF90_DEF_VAR_DEFLATE(ncid, ch3a_varid, 1, 1, 9)
+       stat = NF90_DEF_VAR_DEFLATE(ncid, ch3a_varid, 1, 1, compress_level)
        call check(stat)
-       stat = NF90_DEF_VAR_FILL(ncid, ch3a_varid, 0, -1e30)
+       stat = NF90_DEF_VAR_FILL(ncid, ch3a_varid, 0, NAN_R)
        call check(stat)
     ENDIF
     
     stat = NF90_DEF_VAR(ncid,'ch3b',NF90_FLOAT,dims2,ch3b_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, ch3b_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, ch3b_varid, 1, 1, compress_level)
     call check(stat)
-    stat = NF90_DEF_VAR_FILL(ncid, ch3b_varid, 0, -1e30)
+    stat = NF90_DEF_VAR_FILL(ncid, ch3b_varid, 0, NAN_R)
     call check(stat)
     
     stat = NF90_DEF_VAR(ncid,'ch4',NF90_FLOAT,dims2,ch4_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, ch4_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, ch4_varid, 1, 1, compress_level)
     call check(stat)
-    stat = NF90_DEF_VAR_FILL(ncid, ch4_varid, 0, -1e30)
+    stat = NF90_DEF_VAR_FILL(ncid, ch4_varid, 0, NAN_R)
     call check(stat)
     
     IF( twelve_micron_there )THEN
        stat = NF90_DEF_VAR(ncid,'ch5',NF90_FLOAT,dims2,ch5_varid)
        call check(stat)
-       stat = NF90_DEF_VAR_DEFLATE(ncid, ch5_varid, 1, 1, 9)
+       stat = NF90_DEF_VAR_DEFLATE(ncid, ch5_varid, 1, 1, compress_level)
        call check(stat)
-       stat = NF90_DEF_VAR_FILL(ncid, ch5_varid, 0, -1e30)
+       stat = NF90_DEF_VAR_FILL(ncid, ch5_varid, 0, NAN_R)
        call check(stat)
     ENDIF
 
     stat = NF90_DEF_VAR(ncid,'ch1_random',NF90_FLOAT,dims2,ch1_random_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, ch1_random_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, ch1_random_varid, 1, 1, compress_level)
     call check(stat)
-    stat = NF90_DEF_VAR_FILL(ncid, ch1_random_varid, 0, -1e30)
+    stat = NF90_DEF_VAR_FILL(ncid, ch1_random_varid, 0, NAN_R)
     call check(stat)
     
     stat = NF90_DEF_VAR(ncid,'ch2_random',NF90_FLOAT,dims2,ch2_random_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, ch2_random_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, ch2_random_varid, 1, 1, compress_level)
     call check(stat)
-    stat = NF90_DEF_VAR_FILL(ncid, ch2_random_varid, 0, -1e30)
+    stat = NF90_DEF_VAR_FILL(ncid, ch2_random_varid, 0, NAN_R)
     call check(stat)
     
     IF( ALLOCATED(AVHRR%array3a) )THEN
        stat = NF90_DEF_VAR(ncid,'ch3a_random',NF90_FLOAT,dims2,ch3a_random_varid)
        call check(stat)
-       stat = NF90_DEF_VAR_DEFLATE(ncid, ch3a_random_varid, 1, 1, 9)
+       stat = NF90_DEF_VAR_DEFLATE(ncid, ch3a_random_varid, 1, 1, compress_level)
        call check(stat)
-       stat = NF90_DEF_VAR_FILL(ncid, ch3a_random_varid, 0, -1e30)
+       stat = NF90_DEF_VAR_FILL(ncid, ch3a_random_varid, 0, NAN_R)
        call check(stat)
     ENDIF
     
     stat = NF90_DEF_VAR(ncid,'ch3b_random',NF90_FLOAT,dims2,ch3b_random_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, ch3b_random_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, ch3b_random_varid, 1, 1, compress_level)
     call check(stat)
-    stat = NF90_DEF_VAR_FILL(ncid, ch3b_random_varid, 0, -1e30)
+    stat = NF90_DEF_VAR_FILL(ncid, ch3b_random_varid, 0, NAN_R)
     call check(stat)
     
     stat = NF90_DEF_VAR(ncid,'ch4_random',NF90_FLOAT,dims2,ch4_random_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, ch4_random_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, ch4_random_varid, 1, 1, compress_level)
     call check(stat)
-    stat = NF90_DEF_VAR_FILL(ncid, ch4_random_varid, 0, -1e30)
+    stat = NF90_DEF_VAR_FILL(ncid, ch4_random_varid, 0, NAN_R)
     call check(stat)
     
     IF( twelve_micron_there )THEN
        stat = NF90_DEF_VAR(ncid,'ch5_random',NF90_FLOAT,dims2,ch5_random_varid)
        call check(stat)
-       stat = NF90_DEF_VAR_DEFLATE(ncid, ch5_random_varid, 1, 1, 9)
+       stat = NF90_DEF_VAR_DEFLATE(ncid, ch5_random_varid, 1, 1, compress_level)
        call check(stat)
-       stat = NF90_DEF_VAR_FILL(ncid, ch5_random_varid, 0, -1e30)
+       stat = NF90_DEF_VAR_FILL(ncid, ch5_random_varid, 0, NAN_R)
        call check(stat)
     ENDIF
 
     stat = NF90_DEF_VAR(ncid,'ch1_non_random',NF90_FLOAT,dims2,ch1_non_random_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, ch1_non_random_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, ch1_non_random_varid, 1, 1, compress_level)
     call check(stat)
-    stat = NF90_DEF_VAR_FILL(ncid, ch1_non_random_varid, 0, -1e30)
+    stat = NF90_DEF_VAR_FILL(ncid, ch1_non_random_varid, 0, NAN_R)
     call check(stat)
     
     stat = NF90_DEF_VAR(ncid,'ch2_non_random',NF90_FLOAT,dims2,ch2_non_random_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, ch2_non_random_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, ch2_non_random_varid, 1, 1, compress_level)
     call check(stat)
-    stat = NF90_DEF_VAR_FILL(ncid, ch2_non_random_varid, 0, -1e30)
+    stat = NF90_DEF_VAR_FILL(ncid, ch2_non_random_varid, 0, NAN_R)
     call check(stat)
     
     IF( ALLOCATED(AVHRR%array3a) )THEN
        stat = NF90_DEF_VAR(ncid,'ch3a_non_random',NF90_FLOAT,dims2,ch3a_non_random_varid)
        call check(stat)
-       stat = NF90_DEF_VAR_DEFLATE(ncid, ch3a_non_random_varid, 1, 1, 9)
+       stat = NF90_DEF_VAR_DEFLATE(ncid, ch3a_non_random_varid, 1, 1, compress_level)
        call check(stat)
-       stat = NF90_DEF_VAR_FILL(ncid, ch3a_non_random_varid, 0, -1e30)
+       stat = NF90_DEF_VAR_FILL(ncid, ch3a_non_random_varid, 0, NAN_R)
        call check(stat)
     ENDIF
     
     stat = NF90_DEF_VAR(ncid,'ch3b_non_random',NF90_FLOAT,dims2,ch3b_non_random_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, ch3b_non_random_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, ch3b_non_random_varid, 1, 1, compress_level)
     call check(stat)
-    stat = NF90_DEF_VAR_FILL(ncid, ch3b_non_random_varid, 0, -1e30)
+    stat = NF90_DEF_VAR_FILL(ncid, ch3b_non_random_varid, 0, NAN_R)
     call check(stat)
     
     stat = NF90_DEF_VAR(ncid,'ch4_non_random',NF90_FLOAT,dims2,ch4_non_random_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, ch4_non_random_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, ch4_non_random_varid, 1, 1, compress_level)
     call check(stat)
-    stat = NF90_DEF_VAR_FILL(ncid, ch4_non_random_varid, 0, -1e30)
+    stat = NF90_DEF_VAR_FILL(ncid, ch4_non_random_varid, 0, NAN_R)
     call check(stat)
     
     IF( twelve_micron_there )THEN
        stat = NF90_DEF_VAR(ncid,'ch5_non_random',NF90_FLOAT,dims2,ch5_non_random_varid)
        call check(stat)
-       stat = NF90_DEF_VAR_DEFLATE(ncid, ch5_non_random_varid, 1, 1, 9)
+       stat = NF90_DEF_VAR_DEFLATE(ncid, ch5_non_random_varid, 1, 1, compress_level)
        call check(stat)
-       stat = NF90_DEF_VAR_FILL(ncid, ch5_non_random_varid, 0, -1e30)
+       stat = NF90_DEF_VAR_FILL(ncid, ch5_non_random_varid, 0, NAN_R)
+       call check(stat)
+    ENDIF
+
+    stat = NF90_DEF_VAR(ncid,'ch1_common',NF90_FLOAT,dims2,ch1_common_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, ch1_common_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, ch1_common_varid, 0, NAN_R)
+    call check(stat)
+    
+    stat = NF90_DEF_VAR(ncid,'ch2_common',NF90_FLOAT,dims2,ch2_common_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, ch2_common_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, ch2_common_varid, 0, NAN_R)
+    call check(stat)
+    
+    IF( ALLOCATED(AVHRR%array3a) )THEN
+       stat = NF90_DEF_VAR(ncid,'ch3a_common',NF90_FLOAT,dims2,ch3a_common_varid)
+       call check(stat)
+       stat = NF90_DEF_VAR_DEFLATE(ncid, ch3a_common_varid, 1, 1, compress_level)
+       call check(stat)
+       stat = NF90_DEF_VAR_FILL(ncid, ch3a_common_varid, 0, NAN_R)
+       call check(stat)
+    ENDIF
+
+    stat = NF90_DEF_VAR(ncid,'ch3b_common',NF90_FLOAT,dims2,ch3b_common_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, ch3b_common_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, ch3b_common_varid, 0, NAN_R)
+    call check(stat)
+    
+    stat = NF90_DEF_VAR(ncid,'ch4_common',NF90_FLOAT,dims2,ch4_common_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, ch4_common_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, ch4_common_varid, 0, NAN_R)
+    call check(stat)
+    
+    IF( twelve_micron_there )THEN
+       stat = NF90_DEF_VAR(ncid,'ch5_common',NF90_FLOAT,dims2,ch5_common_varid)
+       call check(stat)
+       stat = NF90_DEF_VAR_DEFLATE(ncid, ch5_common_varid, 1, 1, compress_level)
+       call check(stat)
+       stat = NF90_DEF_VAR_FILL(ncid, ch5_common_varid, 0, NAN_R)
        call check(stat)
     ENDIF
 
@@ -625,7 +970,7 @@ CONTAINS
     stat = NF90_DEF_VAR(ncid,'quality_scanline_bitmask',NF90_UBYTE,dims1,&
          scan_qual_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, scan_qual_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, scan_qual_varid, 1, 1, compress_level)
     call check(stat)
     stat = NF90_PUT_ATT(ncid,scan_qual_varid,'long_name',&
          'Bitmask for quality per scanline')
@@ -642,7 +987,7 @@ CONTAINS
     stat = NF90_DEF_VAR(ncid,'quality_channel_bitmask',NF90_UBYTE,dims2,&
          chan_qual_varid)
     call check(stat)
-    stat = NF90_DEF_VAR_DEFLATE(ncid, chan_qual_varid, 1, 1, 9)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, chan_qual_varid, 1, 1, compress_level)
     call check(stat)
     stat = NF90_PUT_ATT(ncid,chan_qual_varid,'long_name',&
          'Bitmask for quality per channel/scanline')
@@ -655,50 +1000,247 @@ CONTAINS
     call check(stat)
 
     !
-    ! Define two global attributes
+    ! Now write fields needed for CURUC process
     !
-    IF( AVHRR%AVHRR_No .eq. 1 )THEN
-       noaa_string = 'TIROSN'
-    ELSE IF( AVHRR%AVHRR_No .eq. 6 )THEN
-       noaa_string = 'NOAA06'
-    ELSE IF( AVHRR%AVHRR_No .eq. 7 )THEN
-       noaa_string = 'NOAA07'
-    ELSE IF( AVHRR%AVHRR_No .eq. 8 )THEN
-       noaa_string = 'NOAA08'
-    ELSE IF( AVHRR%AVHRR_No .eq. 9 )THEN
-       noaa_string = 'NOAA09'
-    ELSE IF( AVHRR%AVHRR_No .eq. 10 )THEN
-       noaa_string = 'NOAA10'
-    ELSE IF( AVHRR%AVHRR_No .eq. 11 )THEN
-       noaa_string = 'NOAA11'
-    ELSE IF( AVHRR%AVHRR_No .eq. 12 )THEN
-       noaa_string = 'NOAA12'
-    ELSE IF( AVHRR%AVHRR_No .eq. 14 )THEN
-       noaa_string = 'NOAA14'
-    ELSE IF( AVHRR%AVHRR_No .eq. 15 )THEN
-       noaa_string = 'NOAA15'
-    ELSE IF( AVHRR%AVHRR_No .eq. 16 )THEN
-       noaa_string = 'NOAA16'
-    ELSE IF( AVHRR%AVHRR_No .eq. 17 )THEN
-       noaa_string = 'NOAA17'
-    ELSE IF( AVHRR%AVHRR_No .eq. 18 )THEN
-       noaa_string = 'NOAA18'
-    ELSE IF( AVHRR%AVHRR_No .eq. 19 )THEN
-       noaa_string = 'NOAA19'
-    ELSE IF( AVHRR%AVHRR_No .eq. -1 )THEN
-       noaa_string = 'METOPA'
-    ELSE IF( AVHRR%AVHRR_No .eq. -2 )THEN
-       noaa_string = 'METOPB'
-    ELSE IF( AVHRR%AVHRR_No .eq. -3 )THEN
-       noaa_string = 'METOPC'
+    dims2(1) = dimid_nx
+    dims2(2) = dimid_ny
+    stat = NF90_DEF_VAR(ncid,'dBT3_over_dT',NF90_FLOAT,dims2,dBT3_over_dT_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, dBT3_over_dT_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, dBT3_over_dT_varid, 0, NAN_R)
+    call check(stat)    
+
+    stat = NF90_DEF_VAR(ncid,'dBT4_over_dT',NF90_FLOAT,dims2,dBT4_over_dT_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, dBT4_over_dT_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, dBT4_over_dT_varid, 0, NAN_R)
+    call check(stat)    
+
+    IF( twelve_micron_there )THEN
+       stat = NF90_DEF_VAR(ncid,'dBT5_over_dT',NF90_FLOAT,dims2,dBT5_over_dT_varid)
+       call check(stat)
+       stat = NF90_DEF_VAR_DEFLATE(ncid, dBT5_over_dT_varid, 1, 1, compress_level)
+       call check(stat)
+       stat = NF90_DEF_VAR_FILL(ncid, dBT5_over_dT_varid, 0, NAN_R)
+       call check(stat)    
     ENDIF
+
+    stat = NF90_DEF_VAR(ncid,'dRe1_over_dCS',NF90_FLOAT,dims2,&
+         dRe1_over_dCS_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, dRe1_over_dCS_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, dRe1_over_dCS_varid, 0, NAN_R)
+    call check(stat)    
+
+    stat = NF90_DEF_VAR(ncid,'dRe2_over_dCS',NF90_FLOAT,dims2,&
+         dRe2_over_dCS_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, dRe2_over_dCS_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, dRe2_over_dCS_varid, 0, NAN_R)
+    call check(stat)    
+
+    IF( ALLOCATED(AVHRR%array3a) )THEN
+       stat = NF90_DEF_VAR(ncid,'dRe3a_over_dCS',NF90_FLOAT,dims2,&
+            dRe3a_over_dCS_varid)
+       call check(stat)
+       stat = NF90_DEF_VAR_DEFLATE(ncid, dRe3a_over_dCS_varid, 1, 1, compress_level)
+       call check(stat)
+       stat = NF90_DEF_VAR_FILL(ncid, dRe3a_over_dCS_varid, 0, NAN_R)
+       call check(stat)    
+    ENDIF
+
+    stat = NF90_DEF_VAR(ncid,'dBT3_over_dCS',NF90_FLOAT,dims2,&
+         dBT3_over_dCS_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, dBT3_over_dCS_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, dBT3_over_dCS_varid, 0, NAN_R)
+    call check(stat)    
+
+    stat = NF90_DEF_VAR(ncid,'dBT4_over_dCS',NF90_FLOAT,dims2,&
+         dBT4_over_dCS_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, dBT4_over_dCS_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, dBT4_over_dCS_varid, 0, NAN_R)
+    call check(stat)    
+
+    IF( twelve_micron_there )THEN
+       stat = NF90_DEF_VAR(ncid,'dBT5_over_dCS',NF90_FLOAT,dims2,&
+            dBT5_over_dCS_varid)
+       call check(stat)
+       stat = NF90_DEF_VAR_DEFLATE(ncid, dBT5_over_dCS_varid, 1, 1, compress_level)
+       call check(stat)
+       stat = NF90_DEF_VAR_FILL(ncid, dBT5_over_dCS_varid, 0, NAN_R)
+       call check(stat)    
+    ENDIF
+
+    stat = NF90_DEF_VAR(ncid,'dBT3_over_dCICT',NF90_FLOAT,dims2,&
+         dBT3_over_dCICT_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, dBT3_over_dCICT_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, dBT3_over_dCICT_varid, 0, NAN_R)
+    call check(stat)    
+
+    stat = NF90_DEF_VAR(ncid,'dBT4_over_dCICT',NF90_FLOAT,dims2,&
+         dBT4_over_dCICT_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, dBT4_over_dCICT_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, dBT4_over_dCICT_varid, 0, NAN_R)
+    call check(stat)    
+
+    IF( twelve_micron_there )THEN
+       stat = NF90_DEF_VAR(ncid,'dBT5_over_dCICT',NF90_FLOAT,dims2,&
+            dBT5_over_dCICT_varid)
+       call check(stat)
+       stat = NF90_DEF_VAR_DEFLATE(ncid, dBT5_over_dCICT_varid, 1, 1, compress_level)
+       call check(stat)
+       stat = NF90_DEF_VAR_FILL(ncid, dBT5_over_dCICT_varid, 0, NAN_R)
+       call check(stat)    
+    ENDIF
+
+    !
+    ! ICT Temperature
+    !
+    dims1(1) = dimid_ny
+    stat = NF90_DEF_VAR(ncid,'smoothPRT',NF90_FLOAT,dims1,&
+         smoothprt_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, smoothprt_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, smoothprt_varid, 0, NAN_R)
+    call check(stat)    
+
+    !
+    ! AVHRR Flags for L1C
+    !
+    stat = NF90_DEF_VAR(ncid,'badNavigation',NF90_BYTE,dims1,badNavigation_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, badNavigation_varid, 1, 1, compress_level)
+    call check(stat)
+
+    stat = NF90_DEF_VAR(ncid,'badCalibration',NF90_BYTE,dims1,badCalibration_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, badCalibration_varid, 1, 1, compress_level)
+    call check(stat)
+ 
+    stat = NF90_DEF_VAR(ncid,'badTime',NF90_BYTE,dims1,badTime_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, badTime_varid, 1, 1, compress_level)
+    call check(stat)
+ 
+    stat = NF90_DEF_VAR(ncid,'missingLines',NF90_BYTE,dims1,missingLines_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, missingLines_varid, 1, 1, compress_level)
+    call check(stat)
+ 
+    stat = NF90_DEF_VAR(ncid,'solar_contam_3b',NF90_BYTE,dims1,solar3_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, solar3_varid, 1, 1, compress_level)
+    call check(stat)
+ 
+    stat = NF90_DEF_VAR(ncid,'solar_contam_4',NF90_BYTE,dims1,solar4_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, solar4_varid, 1, 1, compress_level)
+    call check(stat)
+ 
+    stat = NF90_DEF_VAR(ncid,'solar_contam_5',NF90_BYTE,dims1,solar5_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, solar5_varid, 1, 1, compress_level)
+    call check(stat)
+
+    !
+    ! Write band coefficients
+    !
+    dims_band(1) = dimid_band
+    stat = NF90_DEF_VAR(ncid,'nuc',NF90_FLOAT,dims_band,nuc_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, nuc_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, nuc_varid, 0, NAN_R)
+    call check(stat)    
+    
+    stat = NF90_DEF_VAR(ncid,'aval',NF90_FLOAT,dims_band,aval_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, aval_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, aval_varid, 0, NAN_R)
+    call check(stat)    
+    
+    stat = NF90_DEF_VAR(ncid,'bval',NF90_FLOAT,dims_band,bval_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, bval_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, bval_varid, 0, NAN_R)
+    call check(stat)    
+    
+    dims1(1) = dimid_ir
+    stat = NF90_DEF_VAR(ncid,'cal_cnts_noise',NF90_FLOAT,dims1,cal_cnts_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, cal_cnts_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, cal_cnts_varid, 0, NAN_R)
+    call check(stat)    
+    
+    stat = NF90_DEF_VAR(ncid,'cnts_noise',NF90_FLOAT,dims1,earth_cnts_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, earth_cnts_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, earth_cnts_varid, 0, NAN_R)
+    call check(stat)    
+    
+    dims1(1) = dimid_ny
+    stat = NF90_DEF_VAR(ncid,'scanline',NF90_INT,dims1,scanline_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, scanline_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, scanline_varid, 0, NAN_I)
+    call check(stat)    
+    
+    dims1(1) = dimid_ny
+    stat = NF90_DEF_VAR(ncid,'orig_scanline',NF90_INT,dims1,oscanline_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, oscanline_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, oscanline_varid, 0, NAN_I)
+    call check(stat)    
+    
+    !
+    ! Define global attributes
+    !
+    CALL NOAA_Name(AVHRR,noaa_string)
     stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'noaa_string',TRIM(noaa_string))
     call check(stat)    
 
     stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'version',TRIM(software_version))
     call check(stat)    
 
-    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'spatial_correlation_scale',NPIXEL_PRT_SMOOTH)
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'spatial_correlation_scale',&
+         NPIXEL_PRT_SMOOTH)
+    call check(stat) 
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'ICT_Temperature_Uncertainty',&
+         AVHRR%ict_plane_uncert)
+    call check(stat) 
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'orbital_temperature',&
+         AVHRR%orbital_temperature)
+    call check(stat) 
+
+    DO I=1,AVHRR%norig_l1b
+       IF( 1 .eq. I )THEN
+          noaa_string = TRIM(AVHRR%orig_l1b(I))
+       ELSE
+          noaa_string = TRIM(noaa_string)//','//TRIM(AVHRR%orig_l1b(I))
+       ENDIF
+    END DO
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'sources',TRIM(noaa_string))
     call check(stat) 
 
     stat = NF90_ENDDEF(ncid)
@@ -821,7 +1363,9 @@ CONTAINS
     ENDWHERE
     IF( ALLOCATED(AVHRR%new_array1) )THEN
 !       stat = NF90_PUT_VAR(ncid, ch1_non_random_varid, 0.03*AVHRR%new_array1_error)
-       stat = NF90_PUT_VAR(ncid, ch1_non_random_varid, us1)
+       stat = NF90_PUT_VAR(ncid, ch1_non_random_varid, FCDR%us1)
+       call check(stat)
+       stat = NF90_PUT_VAR(ncid, ch1_common_varid, us1)
        call check(stat)
     ENDIF
 
@@ -834,7 +1378,9 @@ CONTAINS
     ENDWHERE
     IF( ALLOCATED(AVHRR%new_array2) )THEN
 !       stat = NF90_PUT_VAR(ncid, ch2_non_random_varid, 0.05*AVHRR%new_array2_error)
-       stat = NF90_PUT_VAR(ncid, ch2_non_random_varid, us2)
+       stat = NF90_PUT_VAR(ncid, ch2_non_random_varid, FCDR%us2)
+       call check(stat)
+       stat = NF90_PUT_VAR(ncid, ch2_common_varid, us2)
        call check(stat)
     ENDIF
 
@@ -847,7 +1393,9 @@ CONTAINS
     ENDWHERE
     IF( ALLOCATED(AVHRR%new_array3a) )THEN
 !       stat = NF90_PUT_VAR(ncid, ch3a_non_random_varid, 0.05*AVHRR%new_array3A_error)
-       stat = NF90_PUT_VAR(ncid, ch3a_non_random_varid, us3a)
+       stat = NF90_PUT_VAR(ncid, ch3a_non_random_varid, FCDR%us3a)
+       call check(stat)
+       stat = NF90_PUT_VAR(ncid, ch3a_common_varid, us3a)
        call check(stat)
     ENDIF
 
@@ -865,6 +1413,146 @@ CONTAINS
        call check(stat)
     ENDIF
 
+    stat = NF90_PUT_VAR(ncid, ch3b_common_varid, FCDR%uc3)
+    call check(stat)
+
+    stat = NF90_PUT_VAR(ncid, ch4_common_varid, FCDR%uc4)
+    call check(stat)
+
+    IF( twelve_micron_there )THEN
+       stat = NF90_PUT_VAR(ncid, ch5_common_varid, FCDR%uc5)
+       call check(stat)
+    ENDIF
+
+    ! CURUC variables
+    stat = NF90_PUT_VAR(ncid, dBT3_over_dT_varid, FCDR%dBT_over_dT3)
+    call check(stat)
+
+    stat = NF90_PUT_VAR(ncid, dBT4_over_dT_varid, FCDR%dBT_over_dT4)
+    call check(stat)
+
+    IF( twelve_micron_there )THEN
+       stat = NF90_PUT_VAR(ncid, dBT5_over_dT_varid, FCDR%dBT_over_dT5)
+       call check(stat)
+    ENDIF
+
+    stat = NF90_PUT_VAR(ncid, dRe1_over_dCS_varid, FCDR%dRe_over_dcs1)
+    call check(stat)
+
+    stat = NF90_PUT_VAR(ncid, dRe2_over_dCS_varid, FCDR%dRe_over_dcs2)
+    call check(stat)
+
+    IF( ALLOCATED(AVHRR%new_array3a) )THEN
+       stat = NF90_PUT_VAR(ncid, dRe3a_over_dCS_varid, FCDR%dRe_over_dcs3a)
+       call check(stat)
+    ENDIF
+
+    stat = NF90_PUT_VAR(ncid, dBT3_over_dCS_varid, FCDR%dBT_over_dcs3)
+    call check(stat)
+
+    stat = NF90_PUT_VAR(ncid, dBT4_over_dCS_varid, FCDR%dBT_over_dcs4)
+    call check(stat)
+
+    IF( twelve_micron_there )THEN
+       stat = NF90_PUT_VAR(ncid, dBT5_over_dCS_varid, FCDR%dBT_over_dcs5)
+       call check(stat)
+    ENDIF
+
+    stat = NF90_PUT_VAR(ncid, dBT3_over_dCICT_varid, FCDR%dBT_over_dcict3)
+    call check(stat)
+
+    stat = NF90_PUT_VAR(ncid, dBT4_over_dCICT_varid, FCDR%dBT_over_dcict4)
+    call check(stat)
+
+    IF( twelve_micron_there )THEN
+       stat = NF90_PUT_VAR(ncid, dBT5_over_dCICT_varid, FCDR%dBT_over_dcict5)
+       call check(stat)
+    ENDIF
+
+    stat = NF90_PUT_VAR(ncid, smoothprt_varid, AVHRR%smoothPRT)
+    call check(stat)
+
+    noise_cnts = AVHRR%noise_cnts_cal(:,1)
+    stat = NF90_PUT_VAR(ncid, cal_cnts_varid, noise_cnts)
+    call check(stat)
+
+    earth_noise_cnts = AVHRR%noise_cnts(:,1)
+    stat = NF90_PUT_VAR(ncid, earth_cnts_varid, earth_noise_cnts)
+    call check(stat)
+
+    ALLOCATE(badNav(AVHRR%arraySize),&
+         badCal(AVHRR%arraySize),&
+         badTime(AVHRR%arraySize),&
+         missingLines(AVHRR%arraySize),&
+         solar3(AVHRR%arraySize),&
+         solar4(AVHRR%arraySize),&
+         solar5(AVHRR%arraySize),&
+         STAT=stat)
+    IF( 0 .ne. stat )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot allocate badNav etc',&
+            'Write_TEMP_NetCDF','fiduceo_uncertainties.f90')
+    ENDIF
+    DO I=1,AVHRR%arraySize
+       IF( AVHRR%badNavigation(I) )THEN
+          badNav(I) = 1
+       ELSE
+          badNav(I) = 0
+       ENDIF
+       IF( AVHRR%badCalibration(I) )THEN
+          badCal(I) = 1
+       ELSE
+          badCal(I) = 0
+       ENDIF
+       IF( AVHRR%badTime(I) )THEN
+          badTime(I) = 1
+       ELSE
+          badTime(I) = 0
+       ENDIF
+       IF( AVHRR%missingLines(I) )THEN
+          missingLines(I) = 1
+       ELSE
+          missingLines(I) = 0
+       ENDIF
+       IF( AVHRR%solar_contamination_3b(I) )THEN
+          solar3(I) = 1
+       ELSE
+          solar3(I) = 0
+       ENDIF
+       IF( AVHRR%solar_contamination_4(I) )THEN
+          solar4(I) = 1
+       ELSE
+          solar4(I) = 0
+       ENDIF
+       IF( AVHRR%solar_contamination_5(I) )THEN
+          solar5(I) = 1
+       ELSE
+          solar5(I) = 0
+       ENDIF
+    END DO
+    stat = NF90_PUT_VAR(ncid, badNavigation_varid, badNav)
+    call check(stat)
+    stat = NF90_PUT_VAR(ncid, badNavigation_varid, badCal)
+    call check(stat)
+    stat = NF90_PUT_VAR(ncid, badTime_varid, badTime)
+    call check(stat)
+    stat = NF90_PUT_VAR(ncid, missingLines_varid, missingLines)
+    call check(stat)
+    stat = NF90_PUT_VAR(ncid, solar3_varid, solar3)
+    call check(stat)
+    stat = NF90_PUT_VAR(ncid, solar4_varid, solar4)
+    call check(stat)
+    stat = NF90_PUT_VAR(ncid, solar5_varid, solar5)
+    call check(stat)
+
+    stat = NF90_PUT_VAR(ncid, nuc_varid, FCDR%nuc)
+    call check(stat)
+    
+    stat = NF90_PUT_VAR(ncid, aval_varid, FCDR%aval)
+    call check(stat)
+    
+    stat = NF90_PUT_VAR(ncid, bval_varid, FCDR%bval)
+    call check(stat)
+    
 !    stat = NF90_PUT_VAR(ncid, flag_no_detection_varid, FCDR%flag_no_detection)
 !    call check(stat)
 
@@ -876,8 +1564,16 @@ CONTAINS
          FCDR%quality_channel_bitmask)
     call check(stat)
 
+    stat = NF90_PUT_VAR(ncid, scanline_varid, AVHRR%scanlinenumber)
+    call check(stat)
+
+    stat = NF90_PUT_VAR(ncid, oscanline_varid, AVHRR%scnline_l1b)
+    call check(stat)
+
     stat = NF90_CLOSE(ncid)
     call check(stat)
+
+    DEALLOCATE(badNav,badCal,badTime,missingLines,solar3,solar4,solar5)
 
   END SUBROUTINE Write_Temp_NETCDF
 
@@ -959,10 +1655,13 @@ CONTAINS
        !
        ! On short timescales will be systematic
        !
-       prtsigma=sqrt(((outData%prt1(i)-prtmean)**2&
-            +(outData%prt2(i)-prtmean)**2&
-            +(outData%prt3(i)-prtmean)**2&
-            +(outData%prt4(i)-prtmean)**2)/3.)
+       ! Replace prtsigma with estimate from new ICT correction model
+       !
+!       prtsigma=sqrt(((outData%prt1(i)-prtmean)**2&
+!            +(outData%prt2(i)-prtmean)**2&
+!            +(outData%prt3(i)-prtmean)**2&
+!            +(outData%prt4(i)-prtmean)**2)/3.)
+       prtsigma = outData%ict_plane_uncert
 
        !
        ! Tict = (T1+T2+T3+T3)/4.
@@ -1075,6 +1774,10 @@ CONTAINS
     REAL :: cs_cict_5
     REAL :: tstar
     REAL :: u
+    REAL :: factor
+    REAL :: dBT_over_dre3
+    REAL :: dBT_over_dre4
+    REAL :: dBT_over_dre5
 
     IF( .not. ALLOCATED(FCDR%dtstar_over_daval3) )THEN
        ALLOCATE(FCDR%Rict_c3(outdata%arraySize),&
@@ -1098,18 +1801,18 @@ CONTAINS
             FCDR%drict_over_dnuc3(outdata%arraySize),&
             FCDR%drict_over_dnuc4(outdata%arraySize),&
             FCDR%drict_over_dnuc5(outdata%arraySize),&
-            FCDR%dre_over_db03(outdata%nelem,outdata%arraySize),&
-            FCDR%dre_over_db04(outdata%nelem,outdata%arraySize),&
-            FCDR%dre_over_db05(outdata%nelem,outdata%arraySize),&
-            FCDR%dre_over_db13(outdata%nelem,outdata%arraySize),&
-            FCDR%dre_over_db14(outdata%nelem,outdata%arraySize),&
-            FCDR%dre_over_db15(outdata%nelem,outdata%arraySize),&
+            FCDR%dre_over_da03(outdata%nelem,outdata%arraySize),&
+            FCDR%dre_over_da04(outdata%nelem,outdata%arraySize),&
+            FCDR%dre_over_da05(outdata%nelem,outdata%arraySize),&
             FCDR%dre_over_da13(outdata%nelem,outdata%arraySize),&
             FCDR%dre_over_da14(outdata%nelem,outdata%arraySize),&
             FCDR%dre_over_da15(outdata%nelem,outdata%arraySize),&
             FCDR%dre_over_da23(outdata%nelem,outdata%arraySize),&
             FCDR%dre_over_da24(outdata%nelem,outdata%arraySize),&
             FCDR%dre_over_da25(outdata%nelem,outdata%arraySize),&
+            FCDR%dre_over_da33(outdata%nelem,outdata%arraySize),&
+            FCDR%dre_over_da34(outdata%nelem,outdata%arraySize),&
+            FCDR%dre_over_da35(outdata%nelem,outdata%arraySize),&
             FCDR%dre_over_dtinstr3(outdata%nelem,outdata%arraySize),&
             FCDR%dre_over_dtinstr4(outdata%nelem,outdata%arraySize),&
             FCDR%dre_over_dtinstr5(outdata%nelem,outdata%arraySize),&
@@ -1122,9 +1825,21 @@ CONTAINS
             FCDR%dre_over_drict3(outdata%nelem,outdata%arraySize),&
             FCDR%dre_over_drict4(outdata%nelem,outdata%arraySize),&
             FCDR%dre_over_drict5(outdata%nelem,outdata%arraySize),&
+            FCDR%dre_over_dcs1(outdata%nelem,outdata%arraySize),&
+            FCDR%dre_over_dcs2(outdata%nelem,outdata%arraySize),&
+            FCDR%dre_over_dcs3a(outdata%nelem,outdata%arraySize),&
             FCDR%dre_over_dcs3(outdata%nelem,outdata%arraySize),&
             FCDR%dre_over_dcs4(outdata%nelem,outdata%arraySize),&
             FCDR%dre_over_dcs5(outdata%nelem,outdata%arraySize),&
+            FCDR%dBT_over_dT3(outdata%nelem,outdata%arraySize),&
+            FCDR%dBT_over_dT4(outdata%nelem,outdata%arraySize),&
+            FCDR%dBT_over_dT5(outdata%nelem,outdata%arraySize),&
+            FCDR%dBT_over_dcs3(outdata%nelem,outdata%arraySize),&
+            FCDR%dBT_over_dcs4(outdata%nelem,outdata%arraySize),&
+            FCDR%dBT_over_dcs5(outdata%nelem,outdata%arraySize),&
+            FCDR%dBT_over_dcict3(outdata%nelem,outdata%arraySize),&
+            FCDR%dBT_over_dcict4(outdata%nelem,outdata%arraySize),&
+            FCDR%dBT_over_dcict5(outdata%nelem,outdata%arraySize),&
             STAT=STAT)
        IF( 0 .ne. STAT )THEN
           CALL Gbcs_Critical(.TRUE.,'Cannot allocate arrays',&
@@ -1154,18 +1869,18 @@ CONTAINS
        FCDR%drict_over_dnuc3 = NAN_R
        FCDR%drict_over_dnuc4 = NAN_R
        FCDR%drict_over_dnuc5 = NAN_R
-       FCDR%dre_over_db03 = NAN_R
-       FCDR%dre_over_db04 = NAN_R
-       FCDR%dre_over_db05 = NAN_R
-       FCDR%dre_over_db13 = NAN_R
-       FCDR%dre_over_db14 = NAN_R
-       FCDR%dre_over_db15 = NAN_R
+       FCDR%dre_over_da03 = NAN_R
+       FCDR%dre_over_da04 = NAN_R
+       FCDR%dre_over_da05 = NAN_R
        FCDR%dre_over_da13 = NAN_R
        FCDR%dre_over_da14 = NAN_R
        FCDR%dre_over_da15 = NAN_R
        FCDR%dre_over_da23 = NAN_R
        FCDR%dre_over_da24 = NAN_R
        FCDR%dre_over_da25 = NAN_R
+       FCDR%dre_over_da33 = NAN_R
+       FCDR%dre_over_da34 = NAN_R
+       FCDR%dre_over_da35 = NAN_R
        FCDR%dre_over_dtinstr3 = NAN_R
        FCDR%dre_over_dtinstr4 = NAN_R
        FCDR%dre_over_dtinstr5 = NAN_R
@@ -1178,9 +1893,21 @@ CONTAINS
        FCDR%dre_over_drict3 = NAN_R
        FCDR%dre_over_drict4 = NAN_R
        FCDR%dre_over_drict5 = NAN_R
+       FCDR%dre_over_dcs1 = NAN_R
+       FCDR%dre_over_dcs2 = NAN_R
+       FCDR%dre_over_dcs3a = NAN_R
        FCDR%dre_over_dcs3 = NAN_R
        FCDR%dre_over_dcs4 = NAN_R
        FCDR%dre_over_dcs5 = NAN_R
+       FCDR%dBT_over_dT3 = NAN_R
+       FCDR%dBT_over_dT4 = NAN_R
+       FCDR%dBT_over_dT5 = NAN_R
+       FCDR%dBT_over_dcs3 = NAN_R
+       FCDR%dBT_over_dcs4 = NAN_R
+       FCDR%dBT_over_dcs5 = NAN_R
+       FCDR%dBT_over_dcict3 = NAN_R
+       FCDR%dBT_over_dcict4 = NAN_R
+       FCDR%dBT_over_dcict5 = NAN_R
     ENDIF
 
     !
@@ -1293,12 +2020,12 @@ CONTAINS
             (FCDR%rict_c3(i) .ne. NAN_R) .and. &
             (FCDR%rict_c3(i) .gt. 0) .and. &
             (outData%Counts3(j,i).ne. NAN_R) .and. &
-            (outdata%Counts3(j,i) .gt. 0) .and. &
+            (outdata%Counts3(j,i) .ge. 0) .and. &
             (outdata%orbital_temperature .ne. NAN_R) .and. &
             (outdata%orbital_temperature .gt. 0) .and. &
             (cs_cict_3 .ne. NAN_R) .and. (cs_cict_3 .gt. 0)) then 
 
-          FCDR%dre_over_db03(j,i)=1
+          FCDR%dre_over_da03(j,i)=1
 
           FCDR%dre_over_da13(j,i)=FCDR%Rict_c3(i)*(outdata%smoothsp3(i)-outData%Counts3(j,i))&
                /cs_cict_3
@@ -1306,7 +2033,7 @@ CONTAINS
           FCDR%dre_over_da23(j,i)=-cs_cict_3*(outdata%smoothsp3(i)-outData%Counts3(j,i))&
                +(outdata%smoothsp3(i)-outData%Counts3(j,i))**2
 
-          FCDR%dre_over_db13(j,i)=outdata%orbital_temperature
+          FCDR%dre_over_da33(j,i)=FIDUCEO_Tinstr_Model(outdata%orbital_temperature)
           FCDR%dre_over_dtinstr3(j,i)=coefs1(8,1)
 
           FCDR%dre_over_dce3(j,i)=-((eta_ict+coefs1(2,1))*FCDR%Rict_c3(i)-coefs1(4,1)*cs_cict_3**2)&
@@ -1318,6 +2045,10 @@ CONTAINS
                /cs_cict_3**2&
                +2*coefs1(4,1)*(outdata%smoothsp3(i)-outData%Counts3(j,i))
 
+          FCDR%dre_over_dcs1(:,i) = outdata%new_array1_dsp(i)
+          FCDR%dre_over_dcs2(:,i) = outdata%new_array2_dsp(i)
+          FCDR%dre_over_dcs3a(:,i) = outdata%new_array3a_dsp(i)
+
           FCDR%dre_over_dcs3(j,i)=-((eta_ict+coefs1(2,1))*FCDR%Rict_c3(i)-coefs1(4,1)*cs_cict_3**2)&
                *(outdata%smoothsp3(i)-outData%Counts3(j,i))&
                /cs_cict_3**2&
@@ -1326,6 +2057,22 @@ CONTAINS
 
           FCDR%dre_over_drict3(j,i)=(eta_ict+coefs1(2,1))*(outdata%smoothsp3(i)-outData%Counts3(j,i))&
                /cs_cict_3
+          
+          IF( 0 .le. outData%new_array3b(j,i) )THEN
+             factor = C1*(FCDR%nuc(1)**3)/outData%new_array3b(j,i)+1.
+             dBT_over_dre3 = C1*C2*FCDR%nuc(1)**4/log(factor)**2/factor/&
+                  FCDR%bval(1)/(outData%new_array3b(j,i)**2)
+
+             FCDR%dBT_over_dT3(j,i) = dBT_over_dre3*FCDR%dre_over_drict3(j,i)*&
+                  FCDR%drict_over_dtstar3(i)*FCDR%dtstar_over_dT3(i)
+
+             FCDR%dBT_over_dcs3(j,i) = dBT_over_dre3*FCDR%dre_over_dcs3(j,i)
+             FCDR%dBT_over_dcict3(j,i) = dBT_over_dre3*FCDR%dre_over_dcict3(j,i)
+          ELSE
+             FCDR%dBT_over_dT3(j,i) = NAN_R
+             FCDR%dBT_over_dcs3(j,i) = NAN_R
+             FCDR%dBT_over_dcict3(j,i) = NAN_R
+          ENDIF
        end if
 
        !---Ch4
@@ -1335,12 +2082,12 @@ CONTAINS
             (FCDR%rict_c4(i) .ne. NAN_R) .and. &
             (FCDR%rict_c4(i) .gt. 0) .and. &
             (outData%Counts4(j,i).ne. NAN_R) .and. &
-            (outdata%Counts4(j,i) .gt. 0) .and. &
+            (outdata%Counts4(j,i) .ge. 0) .and. &
             (outdata%orbital_temperature .ne. NAN_R) .and. &
             (outdata%orbital_temperature .gt. 0) .and. &
             (cs_cict_4 .ne. NAN_R) .and. (cs_cict_4 .gt. 0)) then 
 
-          FCDR%dre_over_db04(j,i)=1
+          FCDR%dre_over_da04(j,i)=1
 
           FCDR%dre_over_da14(j,i)=FCDR%Rict_c4(i)*(outdata%smoothsp4(i)-outData%Counts4(j,i))&
                /cs_cict_4
@@ -1348,7 +2095,7 @@ CONTAINS
           FCDR%dre_over_da24(j,i)=-cs_cict_4*(outdata%smoothsp4(i)-outData%Counts4(j,i))&
                +(outdata%smoothsp4(i)-outData%Counts4(j,i))**2
 
-          FCDR%dre_over_db14(j,i)=outdata%orbital_temperature
+          FCDR%dre_over_da34(j,i)=FIDUCEO_Tinstr_Model(outdata%orbital_temperature)
           FCDR%dre_over_dtinstr4(j,i)=coefs2(8,1)
 
           FCDR%dre_over_dce4(j,i)=-((eta_ict+coefs2(2,1))*FCDR%Rict_c4(i)-coefs2(4,1)*cs_cict_4**2)&
@@ -1368,6 +2115,22 @@ CONTAINS
 
           FCDR%dre_over_drict4(j,i)=(eta_ict+coefs2(2,1))*(outdata%smoothsp4(i)-outData%Counts4(j,i))&
                /cs_cict_4
+
+          IF( 0 .le. outData%new_array4(j,i) )THEN
+             factor = C1*(FCDR%nuc(2)**3)/outData%new_array4(j,i)+1.
+             dBT_over_dre4 = C1*C2*FCDR%nuc(2)**4/log(factor)**2/factor/&
+                  FCDR%bval(2)/(outData%new_array4(j,i)**2)
+
+             FCDR%dBT_over_dT4(j,i) = dBT_over_dre4*FCDR%dre_over_drict4(j,i)*&
+                  FCDR%drict_over_dtstar4(i)*FCDR%dtstar_over_dT4(i)
+
+             FCDR%dBT_over_dcs4(j,i) = dBT_over_dre4*FCDR%dre_over_dcs4(j,i)
+             FCDR%dBT_over_dcict4(j,i) = dBT_over_dre4*FCDR%dre_over_dcict4(j,i)
+          ELSE
+             FCDR%dBT_over_dT4(j,i) = NAN_R
+             FCDR%dBT_over_dcs4(j,i) = NAN_R
+             FCDR%dBT_over_dcict4(j,i) = NAN_R
+          ENDIF
        end if
 
        IF( twelve_micron_there )THEN
@@ -1379,12 +2142,12 @@ CONTAINS
                (FCDR%rict_c5(i) .ne. NAN_R) .and. &
                (FCDR%rict_c5(i) .gt. 0) .and. &
                (outData%Counts5(j,i).ne. NAN_R) .and. &
-               (outdata%Counts5(j,i) .gt. 0) .and. &
+               (outdata%Counts5(j,i) .ge. 0) .and. &
                (outdata%orbital_temperature .ne. NAN_R) .and. &
                (outdata%orbital_temperature .gt. 0) .and. &
                (cs_cict_5 .ne. NAN_R) .and. (cs_cict_5 .gt. 0)) then 
              
-             FCDR%dre_over_db05(j,i)=1
+             FCDR%dre_over_da05(j,i)=1
 
              FCDR%dre_over_da15(j,i)=FCDR%Rict_c5(i)*(outdata%smoothsp5(i)-outData%Counts5(j,i))&
                   /cs_cict_5
@@ -1392,7 +2155,7 @@ CONTAINS
              FCDR%dre_over_da25(j,i)=-cs_cict_5*(outdata%smoothsp5(i)-outData%Counts5(j,i))&
                   +(outdata%smoothsp5(i)-outData%Counts5(j,i))**2
 
-             FCDR%dre_over_db15(j,i)=outdata%orbital_temperature
+             FCDR%dre_over_da35(j,i)=FIDUCEO_Tinstr_Model(outdata%orbital_temperature)
              FCDR%dre_over_dtinstr5(j,i)=coefs3(8,1)
 
              FCDR%dre_over_dce5(j,i)=-((eta_ict+coefs3(2,1))*FCDR%Rict_c5(i)-coefs2(4,1)*cs_cict_5**2)&
@@ -1412,6 +2175,22 @@ CONTAINS
              
              FCDR%dre_over_drict5(j,i)=(eta_ict+coefs3(2,1))*(outdata%smoothsp5(i)-outData%Counts5(j,i))&
                   /cs_cict_5
+
+             IF( 0 .le. outData%new_array4(j,i) )THEN
+                factor = C1*(FCDR%nuc(3)**3)/outData%new_array5(j,i)+1.
+                dBT_over_dre5 = C1*C2*FCDR%nuc(3)**4/log(factor)**2/factor/&
+                     FCDR%bval(3)/(outData%new_array5(j,i)**2)
+                
+                FCDR%dBT_over_dT5(j,i) = dBT_over_dre5*FCDR%dre_over_drict5(j,i)*&
+                     FCDR%drict_over_dtstar5(i)*FCDR%dtstar_over_dT5(i)
+                
+                FCDR%dBT_over_dcs5(j,i) = dBT_over_dre5*FCDR%dre_over_dcs5(j,i)
+                FCDR%dBT_over_dcict5(j,i) = dBT_over_dre5*FCDR%dre_over_dcict5(j,i)
+             ELSE
+                FCDR%dBT_over_dT5(j,i) = NAN_R
+                FCDR%dBT_over_dcs5(j,i) = NAN_R
+                FCDR%dBT_over_dcict5(j,i) = NAN_R
+             ENDIF
           end if
        ENDIF
     end do 
@@ -1425,8 +2204,7 @@ CONTAINS
   ! If fainter than 2 sigma then pixel set to NAN_R
   !
   SUBROUTINE radiance_uncertainties(i,outData,coefs1,coefs2,coefs3,FCDR,&
-       twelve_micron_there)
-
+       twelve_micron_there,nparams3,nparams,covar3,covar4,covar5)
 
     INTEGER, INTENT(IN) :: i
     TYPE(AVHRR_Data), INTENT(IN) :: outData
@@ -1435,6 +2213,11 @@ CONTAINS
     REAL, INTENT(IN) :: coefs3(8,2)
     TYPE(FIDUCEO_Data), INTENT(INOUT) :: FCDR
     LOGICAL, INTENT(IN) :: twelve_micron_there
+    INTEGER :: nparams3
+    INTEGER :: nparams
+    REAL :: covar3(1:nparams3,1:nparams3)
+    REAL :: covar4(1:nparams,1:nparams)
+    REAL :: covar5(1:nparams,1:nparams)
 
     ! Local variables
     INTEGER :: j
@@ -1448,19 +2231,23 @@ CONTAINS
          nrmax3,ur3, nrmin3, trmin3, trmax3, &
          nsmax3,us3, nsmin3, tsmin3, tsmax3, &
          nrmax4,ur4, nrmin4, trmin4, trmax4, &
-         nsmax4,us4, nsmin4, tsmin4, tsmax4
+         nsmax4,us4, nsmin4, tsmin4, tsmax4, &
+         uc3, uc4, uc5
     REAL :: two_sigma
 
     !
     ! Allocate arrays
     !
-    IF( .not. ALLOCATED(FCDR%ue3) )THEN
-       ALLOCATE(FCDR%ue3(outData%nelem,outData%arraySize),&
-            FCDR%ue4(outData%nelem,outData%arraySize),&
-            FCDR%ue5(outData%nelem,outData%arraySize),&
+    IF( .not. ALLOCATED(FCDR%uc3) )THEN
+       ALLOCATE(FCDR%uc3(outData%nelem,outData%arraySize),&
+            FCDR%uc4(outData%nelem,outData%arraySize),&
+            FCDR%uc5(outData%nelem,outData%arraySize),&
             FCDR%ur3(outData%nelem,outData%arraySize),&
             FCDR%ur4(outData%nelem,outData%arraySize),&
             FCDR%ur5(outData%nelem,outData%arraySize),&
+            FCDR%us1(outData%nelem,outData%arraySize),&
+            FCDR%us2(outData%nelem,outData%arraySize),&
+            FCDR%us3a(outData%nelem,outData%arraySize),&
             FCDR%us3(outData%nelem,outData%arraySize),&
             FCDR%us4(outData%nelem,outData%arraySize),&
             FCDR%us5(outData%nelem,outData%arraySize),&
@@ -1476,18 +2263,25 @@ CONTAINS
             FCDR%ucs3(outdata%arraySize),&
             FCDR%ucs4(outdata%arraySize),&
             FCDR%ucs5(outdata%arraySize),&
-            FCDR%flag_no_detection(3,outData%arraySize),&
+            FCDR%flag_no_detection(3,outData%arraySize),&            
+            FCDR%Cmatrix3(nparams3),&
+            FCDR%Omatrix3(nparams3),&
+            FCDR%Cmatrix(nparams),&
+            FCDR%Omatrix(nparams),&
        STAT=STAT)
        IF( 0 .ne. STAT )THEN
           CALL Gbcs_Critical(.TRUE.,'Cannot allocate arrays',&
                'radiance_uncertainties','fiduceo_uncertainties.f90')
        ENDIF
-       FCDR%ue3 = NAN_R
-       FCDR%ue4 = NAN_R
-       FCDR%ue5 = NAN_R
+       FCDR%uc3 = NAN_R
+       FCDR%uc4 = NAN_R
+       FCDR%uc5 = NAN_R
        FCDR%ur3 = NAN_R
        FCDR%ur4 = NAN_R
        FCDR%ur5 = NAN_R
+       FCDR%us1 = NAN_R
+       FCDR%us2 = NAN_R
+       FCDR%us3a = NAN_R
        FCDR%us3 = NAN_R
        FCDR%us4 = NAN_R
        FCDR%us5 = NAN_R
@@ -1506,6 +2300,16 @@ CONTAINS
        FCDR%flag_no_detection = 0
     ENDIF
 
+    !
+    ! Vis channel averaging noise
+    !
+    FCDR%us1(:,i)=ABS(outData%new_array1_dsp(i)*outData%new_array1_spnoise(i))
+    FCDR%us2(:,i)=ABS(outData%new_array2_dsp(i)*outData%new_array2_spnoise(i))
+    IF( outData%new_array3a_dsp(i) .gt. -1e20 .and. &
+         outData%new_array3a_spnoise(i) .gt. -1e20 )THEN
+       FCDR%us3a(:,i)=ABS(outData%new_array3a_dsp(i)*&
+            outData%new_array3a_spnoise(i))
+    ENDIF
     !
     ! Taken directly from Marines code radiance_uncertainties
     !
@@ -1536,9 +2340,9 @@ CONTAINS
     !--ON cacul les incertitudes qui changent d'un pixel à l'autre           
     do j=1,409 
 
-       FCDR%ue3(j,i)=NAN_R
-       FCDR%ue4(j,i)=NAN_R
-       FCDR%ue5(j,i)=NAN_R
+       FCDR%uc3(j,i)=NAN_R
+       FCDR%uc4(j,i)=NAN_R
+       FCDR%uc5(j,i)=NAN_R
        FCDR%ur3(j,i)=NAN_R
        FCDR%ur4(j,i)=NAN_R
        FCDR%ur5(j,i)=NAN_R
@@ -1564,7 +2368,8 @@ CONTAINS
 !          FCDR%ucs5=outdata%noise_cnts_cal(6,i)
 !       ENDIF
        
-!MT: 13-11-2017: allocated nsmoothBB3,4,5 and nsmoothSp3,4,5 to AVHRRout data structure in combine_orbits.f90 so that the calculations don't fail 
+!MT: 13-11-2017: allocated nsmoothBB3,4,5 and nsmoothSp3,4,5 to AVHRRout data 
+!    structure in combine_orbits.f90 so that the calculations don't fail 
        IF( outdata%nsmoothBB3(i) .gt. 0 )THEN
           FCDR%ucict3(i)=outdata%noise_cnts(4,i)/SQRT(1.*outdata%nsmoothBB3(i))
        ELSE
@@ -1599,9 +2404,35 @@ CONTAINS
              FCDR%ucs5(i)=NAN_R
           ENDIF
        ENDIF
+       uc3 = NAN_R
        ur3 = NAN_R
        us3 = NAN_R
-      !---Ch 3
+       !---Ch 3
+       if ( (FCDR%dre_over_da03(j,i) .ne. NAN_R) &
+            .and. (FCDR%dre_over_da13(j,i) .ne. NAN_R) &
+            .and. (FCDR%dre_over_da23(j,i) .ne. NAN_R) &
+            .and. (FCDR%dre_over_da33(j,i) .ne. NAN_R) )THEN
+          !
+          ! For calibration parameters
+          !
+          ! Use covariance matrix
+          !
+          FCDR%Cmatrix3(1) = FCDR%dre_over_da03(j,i)
+          FCDR%Cmatrix3(2) = FCDR%dre_over_da13(j,i)
+          if( nparams3 .eq. 3 )then
+             FCDR%Cmatrix3(3) = FCDR%dre_over_da33(j,i)
+          endif
+          FCDR%Omatrix3 = MATMUL(FCDR%Cmatrix3,Covar3)
+          if( nparams3 .eq. 3 )then
+             uc3 = SQRT(FCDR%Omatrix3(1)*FCDR%Cmatrix3(1)+&
+                  FCDR%Omatrix3(2)*FCDR%Cmatrix3(2)+&
+                  FCDR%Omatrix3(3)*FCDR%Cmatrix3(3))
+          else
+             uc3 = SQRT(FCDR%Omatrix3(1)*FCDR%Cmatrix3(1)+&
+                  FCDR%Omatrix3(2)*FCDR%Cmatrix3(2))
+          endif
+       ENDIF
+
        if ((FCDR%uce3(j,i) .ne. NAN_R) &
             .and. (FCDR%uce3(j,i) .gt. 0) &
             .and. (FCDR%dre_over_dce3(j,i) .ne. NAN_R) &
@@ -1632,8 +2463,37 @@ CONTAINS
        end if
 
        !---Ch 4
+       uc4 = NAN_R
        ur4 = NAN_R
        us4 = NAN_R
+       if ( (FCDR%dre_over_da04(j,i) .ne. NAN_R) &
+            .and. (FCDR%dre_over_da14(j,i) .ne. NAN_R) &
+            .and. (FCDR%dre_over_da24(j,i) .ne. NAN_R) &
+            .and. (FCDR%dre_over_da34(j,i) .ne. NAN_R) )THEN
+          !
+          ! For calibration parameters
+          !
+          ! Use covariance matrix
+          !
+          FCDR%Cmatrix(1) = FCDR%dre_over_da04(j,i)
+          FCDR%Cmatrix(2) = FCDR%dre_over_da14(j,i)
+          FCDR%Cmatrix(3) = FCDR%dre_over_da14(j,i)
+          if( nparams .eq. 4 )then
+             FCDR%Cmatrix(4) = FCDR%dre_over_da34(j,i)
+          endif
+          FCDR%Omatrix = MATMUL(FCDR%Cmatrix,Covar4)
+          if( nparams .eq. 4 )then
+             uc4 = SQRT(FCDR%Omatrix(1)*FCDR%Cmatrix(1)+&
+                  FCDR%Omatrix(2)*FCDR%Cmatrix(2)+&
+                  FCDR%Omatrix(3)*FCDR%Cmatrix(3)+&
+                  FCDR%Omatrix(4)*FCDR%Cmatrix(4))
+          else
+             uc4 = SQRT(FCDR%Omatrix(1)*FCDR%Cmatrix(1)+&
+                  FCDR%Omatrix(2)*FCDR%Cmatrix(2)+&
+                  FCDR%Omatrix(3)*FCDR%Cmatrix(3))
+          endif
+       ENDIF
+
        if ((FCDR%uce4(j,i) .ne. NAN_R) &
             .and. (FCDR%uce4(j,i) .gt. 0) &
             .and. (FCDR%dre_over_dce4(j,i) .ne. NAN_R) & 
@@ -1667,8 +2527,36 @@ CONTAINS
 !       us5 = NAN_R
 
        IF( twelve_micron_there )THEN
+          uc5 = NAN_R
           ur5 = NAN_R
           us5 = NAN_R
+          if ( (FCDR%dre_over_da05(j,i) .ne. NAN_R) &
+               .and. (FCDR%dre_over_da15(j,i) .ne. NAN_R) &
+               .and. (FCDR%dre_over_da25(j,i) .ne. NAN_R) &
+               .and. (FCDR%dre_over_da35(j,i) .ne. NAN_R) )THEN
+             !
+             ! For calibration parameters
+             !
+             ! Use covariance matrix
+             !
+             FCDR%Cmatrix(1) = FCDR%dre_over_da05(j,i)
+             FCDR%Cmatrix(2) = FCDR%dre_over_da15(j,i)
+             FCDR%Cmatrix(3) = FCDR%dre_over_da15(j,i)
+             if( nparams .eq. 4 )then
+                FCDR%Cmatrix(4) = FCDR%dre_over_da35(j,i)
+             endif
+             FCDR%Omatrix = MATMUL(FCDR%Cmatrix,Covar5)
+             if( nparams .eq. 4 )then
+                uc5 = SQRT(FCDR%Omatrix(1)*FCDR%Cmatrix(1)+&
+                     FCDR%Omatrix(2)*FCDR%Cmatrix(2)+&
+                     FCDR%Omatrix(3)*FCDR%Cmatrix(3)+&
+                     FCDR%Omatrix(4)*FCDR%Cmatrix(4))
+             else
+                uc5 = SQRT(FCDR%Omatrix(1)*FCDR%Cmatrix(1)+&
+                     FCDR%Omatrix(2)*FCDR%Cmatrix(2)+&
+                     FCDR%Omatrix(3)*FCDR%Cmatrix(3))
+             endif
+          ENDIF
           !---Ch 5
           if ((FCDR%uce5(j,i) .ne. NAN_R) &
                .and. (FCDR%uce5(j,i) .gt. 0) &
@@ -1701,8 +2589,9 @@ CONTAINS
 
        !---FIDUCEO : on convertit les radiances en BT
        if  ((outData%new_array3B(j,i) .gt. 0).and. (outData%new_array3B(j,i) .ne. NAN_R) &
-            .and. ur3 .ne. NAN_R .and. us3 .ne. NAN_R ) then
-          FCDR%btf3(j,i)=convertBT(outData%new_array3B(j,i),DBLE(coefs1(5,1)), DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
+            .and. ur3 .ne. NAN_R .and. us3 .ne. NAN_R .and. uc3 .ne. NAN_R ) then
+          FCDR%btf3(j,i)=convertBT(outData%new_array3B(j,i),DBLE(coefs1(5,1)), &
+               DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
           nrmax3=outData%new_array3B(j,i)+ur3
           trmax3=convertBT(nrmax3,DBLE(coefs1(5,1)), DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
           nrmin3=outData%new_array3B(j,i)-ur3
@@ -1714,6 +2603,7 @@ CONTAINS
 !             FCDR%ur3(j,i) = trmax3-FCDR%btf3(j,i)
              ! Set data to bad as no 1 sigma detection available
              FCDR%flag_no_detection(1,i) = 1
+             FCDR%uc3(j,i) = NAN_R
              FCDR%ur3(j,i) = NAN_R
              FCDR%us3(j,i) = NAN_R
              FCDR%btf3(j,i) = NAN_R
@@ -1730,6 +2620,24 @@ CONTAINS
 !             FCDR%us3(j,i) = tsmax3-FCDR%btf3(j,i)
              ! Set data to bad as no 1 sigma detection available
              FCDR%flag_no_detection(1,i) = 1
+             FCDR%uc3(j,i) = NAN_R
+             FCDR%ur3(j,i) = NAN_R
+             FCDR%us3(j,i) = NAN_R
+             FCDR%btf3(j,i) = NAN_R
+          endif
+
+          nsmax3=outData%new_array3B(j,i)+uc3
+          nsmin3=outData%new_array3B(j,i)-uc3
+          two_sigma = outData%new_array3B(j,i)-2*uc3
+          tsmax3=convertBT(nsmax3,DBLE(coefs1(5,1)), DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
+          if( two_sigma .gt. 0. .and. NAN_R .ne. FCDR%ur3(j,i) )then
+             tsmin3=convertBT(nsmin3,DBLE(coefs1(5,1)), DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
+             FCDR%uc3(j,i)=(tsmax3-tsmin3)/2.
+          else
+!             FCDR%us3(j,i) = tsmax3-FCDR%btf3(j,i)
+             ! Set data to bad as no 1 sigma detection available
+             FCDR%flag_no_detection(1,i) = 1
+             FCDR%uc3(j,i) = NAN_R
              FCDR%ur3(j,i) = NAN_R
              FCDR%us3(j,i) = NAN_R
              FCDR%btf3(j,i) = NAN_R
@@ -1737,8 +2645,9 @@ CONTAINS
        end if
 
        if  ((outData%new_array4(j,i) .gt. 0).and.(outData%new_array4(j,i) .ne. NAN_R) &
-            .and. ur4 .ne. NAN_R .and. us4 .ne. NAN_R ) then
-          FCDR%btf4(j,i)=convertBT(outdata%new_array4(j,i),DBLE(coefs2(5,1)), DBLE(coefs2(6,1)), DBLE(coefs2(7,1)))
+            .and. ur4 .ne. NAN_R .and. us4 .ne. NAN_R .and. uc4 .ne. NAN_R ) then
+          FCDR%btf4(j,i)=convertBT(outdata%new_array4(j,i),DBLE(coefs2(5,1)), &
+               DBLE(coefs2(6,1)), DBLE(coefs2(7,1)))
           nrmax4=outdata%new_array4(j,i)+ur4 
           trmax4=convertBT(nrmax4,DBLE(coefs2(5,1)), DBLE(coefs2(6,1)), DBLE(coefs2(7,1)))
           nrmin4=outdata%new_array4(j,i)-ur4
@@ -1750,6 +2659,7 @@ CONTAINS
 !             FCDR%ur4(j,i)=trmax4-FCDR%btf4(j,i)
              ! Set data to bad as no 1 sigma detection available
              FCDR%flag_no_detection(2,i) = 1
+             FCDR%uc4(j,i) = NAN_R
              FCDR%ur4(j,i) = NAN_R
              FCDR%us4(j,i) = NAN_R
              FCDR%btf4(j,i) = NAN_R
@@ -1765,6 +2675,24 @@ CONTAINS
 !             FCDR%us4(j,i)=tsmax4-FCDR%btf4(j,i)
              ! Set data to bad as no 1 sigma detection available
              FCDR%flag_no_detection(2,i) = 1
+             FCDR%uc4(j,i) = NAN_R
+             FCDR%ur4(j,i) = NAN_R
+             FCDR%us4(j,i) = NAN_R
+             FCDR%btf4(j,i) = NAN_R
+          endif
+
+          nsmax4=outdata%new_array4(j,i)+uc4
+          tsmax4=convertBT(nsmax4,DBLE(coefs2(5,1)), DBLE(coefs2(6,1)), DBLE(coefs2(7,1)))
+          nsmin4=outdata%new_array4(j,i)-uc4
+          two_sigma = outdata%new_array4(j,i)-2*uc4
+          if( two_sigma .gt. 0  .and. NAN_R .ne. FCDR%ur4(j,i) )then
+             tsmin4=convertBT(nsmin4,DBLE(coefs2(5,1)), DBLE(coefs2(6,1)), DBLE(coefs2(7,1)))
+             FCDR%uc4(j,i)=(tsmax4-tsmin4)/2.
+          else
+!             FCDR%us4(j,i)=tsmax4-FCDR%btf4(j,i)
+             ! Set data to bad as no 1 sigma detection available
+             FCDR%flag_no_detection(2,i) = 1
+             FCDR%uc4(j,i) = NAN_R
              FCDR%ur4(j,i) = NAN_R
              FCDR%us4(j,i) = NAN_R
              FCDR%btf4(j,i) = NAN_R
@@ -1787,6 +2715,7 @@ CONTAINS
 !                FCDR%ur5(j,i)=trmax5-FCDR%btf5(j,i)
                 ! Set data to bad as no 1 sigma detection available
                 FCDR%flag_no_detection(3,i) = 1
+                FCDR%uc5(j,i) = NAN_R
                 FCDR%ur5(j,i) = NAN_R
                 FCDR%us5(j,i) = NAN_R
                 FCDR%btf5(j,i) = NAN_R
@@ -1802,6 +2731,23 @@ CONTAINS
 !                FCDR%us5(j,i)=tsmax5-FCDR%btf5(j,i)
                 ! Set data to bad as no 1 sigma detection available
                 FCDR%flag_no_detection(3,i) = 1
+                FCDR%uc5(j,i) = NAN_R
+                FCDR%ur5(j,i) = NAN_R
+                FCDR%us5(j,i) = NAN_R
+                FCDR%btf5(j,i) = NAN_R
+             endif
+             nsmax5=outdata%new_array5(j,i)+uc5
+             tsmax5=convertBT(nsmax5,DBLE(coefs3(5,1)), DBLE(coefs3(6,1)), DBLE(coefs3(7,1)))
+             nsmin5=outdata%new_array5(j,i)-uc5
+             two_sigma = outdata%new_array5(j,i)-2*us5
+             if( two_sigma .gt. 0  .and. NAN_R .ne. FCDR%ur5(j,i) )then
+                tsmin5=convertBT(nsmin5,DBLE(coefs3(5,1)), DBLE(coefs3(6,1)), DBLE(coefs3(7,1)))
+                FCDR%uc5(j,i)=(tsmax5-tsmin5)/2.
+             else
+!                FCDR%us5(j,i)=tsmax5-FCDR%btf5(j,i)
+                ! Set data to bad as no 1 sigma detection available
+                FCDR%flag_no_detection(3,i) = 1
+                FCDR%uc5(j,i) = NAN_R
                 FCDR%ur5(j,i) = NAN_R
                 FCDR%us5(j,i) = NAN_R
                 FCDR%btf5(j,i) = NAN_R
@@ -2133,6 +3079,1548 @@ CONTAINS
 !    DEALLOCATE(us3a)
 
   END SUBROUTINE fill_netcdf
+
+  !
+  ! Write GBCS dtime to netcdf
+  !
+  SUBROUTINE Write_GBCS_time(ncid,dims_time,stime,units)
+    
+    INTEGER, INTENT(IN) :: ncid
+    INTEGER, INTENT(IN) :: dims_time
+    INTEGER, INTENT(IN) :: stime
+    CHARACTER(LEN=*), INTENT(IN) :: units
+
+    ! Local variables
+    INTEGER :: I,J
+    INTEGER :: stat
+    INTEGER :: dims1(1)
+    INTEGER :: varid
+    INTEGER :: data(1)
+
+    !
+    ! Fill with values 
+    !
+    data(1) = stime    
+
+    !
+    ! Go into define mode
+    !
+    stat = NF90_REDEF(ncid)
+    CALL check(stat)
+
+    !
+    ! Define variable
+    !
+    dims1 = (/dims_time/)
+    stat = NF90_DEF_VAR(ncid,'time',NF90_INT,dims1,varid)
+    CALL check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'long_name','reference time of sst file')
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'standard_name','time')
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'units',TRIM(units))
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'calendar','gregorian')
+    call check(stat)
+
+    stat = NF90_ENDDEF(ncid)
+    CALL check(stat)
+
+    stat = NF90_PUT_VAR(ncid,varid,data)
+    CALL check(stat)
+
+  END SUBROUTINE Write_GBCS_time
+
+  !
+  ! Write GBCS dtime to netcdf
+  !
+  SUBROUTINE Write_GBCS_dtime(ncid,dim_nx,dim_ny,dim_time,nx,ny,stime,indata,&
+       long_name,units,coordinates,fill_value)
+    
+    INTEGER, INTENT(IN) :: ncid
+    INTEGER, INTENT(IN) :: dim_nx
+    INTEGER, INTENT(IN) :: dim_ny
+    INTEGER, INTENT(IN) :: dim_time
+    INTEGER, INTENT(IN) :: nx
+    INTEGER, INTENT(IN) :: ny
+    INTEGER, INTENT(IN) :: stime
+    REAL, INTENT(IN) :: indata(ny)
+    CHARACTER(LEN=*), INTENT(IN) :: long_name
+    CHARACTER(LEN=*), INTENT(IN) :: units
+    CHARACTER(LEN=*), INTENT(IN) :: coordinates
+    REAL, INTENT(IN) :: fill_value
+
+    ! Local variables
+    INTEGER :: I,J
+    INTEGER :: stat
+    INTEGER :: dims3(3)
+    INTEGER :: varid
+    REAL, ALLOCATABLE :: data(:,:,:)
+
+    ALLOCATE(data(nx,ny,1),STAT=STAT)
+    IF( 0 .ne. STAT )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot allocate data','Write_GBCS_dtime',&
+            'fiduceo_uncertainties.f90')
+    ENDIF
+
+    !
+    ! Fill with values 
+    !
+    DO I=1,ny
+       DO J=1,nx
+          IF( indata(I) .gt. -1e20 )THEN
+             data(J,I,1) = indata(I)-stime
+          ELSE
+             data(J,I,1) = fill_value
+          ENDIF
+       END DO
+    END DO
+
+    !
+    ! Go into define mode
+    !
+    stat = NF90_REDEF(ncid)
+    CALL check(stat)
+
+    !
+    ! Define variable
+    !
+    dims3 = (/dim_nx,dim_ny,dim_time/)
+    stat = NF90_DEF_VAR(ncid,'dtime',NF90_FLOAT,dims3,varid)
+    CALL check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, varid, 1, 1, 9)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, varid, 0, fill_value)
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'long_name',TRIM(long_name))
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'units',TRIM(units))
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'coordinates',TRIM(coordinates))
+    call check(stat)
+
+    stat = NF90_ENDDEF(ncid)
+    CALL check(stat)
+
+    stat = NF90_PUT_VAR(ncid,varid,data)
+    CALL check(stat)
+
+    DEALLOCATE(data)
+
+  END SUBROUTINE Write_GBCS_dtime
+ 
+  !
+  ! Write GBCS float to netcdf
+  !
+  SUBROUTINE Write_GBCS_Float_1d(ncid,name,dim_ny,ny,indata,fill_value,&
+       long_name,standard_name,units,valid_min,valid_max)
+    
+    INTEGER, INTENT(IN) :: ncid
+    CHARACTER(LEN=*), INTENT(IN) :: name
+    INTEGER, INTENT(IN) :: dim_ny
+    INTEGER, INTENT(IN) :: ny
+    REAL, INTENT(IN) :: indata(ny)
+    REAL, INTENT(IN) :: fill_value
+    CHARACTER(LEN=*), INTENT(IN) :: long_name
+    CHARACTER(LEN=*), INTENT(IN) :: standard_name
+    CHARACTER(LEN=*), INTENT(IN) :: units
+    REAL, INTENT(IN) :: valid_min
+    REAL, INTENT(IN) :: valid_max
+
+    ! Local variables
+    INTEGER :: I,J
+    INTEGER :: stat
+    INTEGER :: dims1(1)
+    INTEGER :: varid
+    REAL, ALLOCATABLE :: data(:)
+
+    ALLOCATE(data(ny),STAT=STAT)
+    IF( 0 .ne. STAT )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot allocate data','Write_GBCS_Float',&
+            'fiduceo_uncertainties.f90')
+    ENDIF
+
+    !
+    ! Fill with fill values (GBCS)
+    !
+    DO I=1,ny
+       IF( indata(I) .lt. valid_min .or. indata(I) .gt. valid_max )THEN
+          data(I) = fill_value
+       ELSE
+          data(I) = indata(I)
+       ENDIF
+    END DO
+
+    !
+    ! Go into define mode
+    !
+    stat = NF90_REDEF(ncid)
+    CALL check(stat)
+
+    !
+    ! Define variable
+    !
+    dims1 = (/dim_ny/)
+    stat = NF90_DEF_VAR(ncid,name,NF90_FLOAT,dims1,varid)
+    CALL check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, varid, 1, 1, 9)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, varid, 0, fill_value)
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'long_name',TRIM(long_name))
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'standard_name',TRIM(standard_name))
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'units',TRIM(units))
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'valid_min',valid_min)
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'valid_max',valid_max)
+    call check(stat)
+
+    stat = NF90_ENDDEF(ncid)
+    CALL check(stat)
+
+    stat = NF90_PUT_VAR(ncid,varid,data)
+    CALL check(stat)
+
+    DEALLOCATE(data)
+
+  END SUBROUTINE Write_GBCS_Float_1d
+
+  !
+  ! Write GBCS float to netcdf
+  !
+  SUBROUTINE Write_GBCS_Float(ncid,name,dim_nx,dim_ny,nx,ny,indata,fill_value,&
+       long_name,standard_name,units,valid_min,valid_max,reference_datum)
+    
+    INTEGER, INTENT(IN) :: ncid
+    CHARACTER(LEN=*), INTENT(IN) :: name
+    INTEGER, INTENT(IN) :: dim_nx
+    INTEGER, INTENT(IN) :: dim_ny
+    INTEGER, INTENT(IN) :: nx
+    INTEGER, INTENT(IN) :: ny
+    REAL, INTENT(IN) :: indata(nx,ny)
+    REAL, INTENT(IN) :: fill_value
+    CHARACTER(LEN=*), INTENT(IN) :: long_name
+    CHARACTER(LEN=*), INTENT(IN) :: standard_name
+    CHARACTER(LEN=*), INTENT(IN) :: units
+    REAL, INTENT(IN) :: valid_min
+    REAL, INTENT(IN) :: valid_max
+    CHARACTER(LEN=*), INTENT(IN) :: reference_datum
+
+    ! Local variables
+    INTEGER :: I,J
+    INTEGER :: stat
+    INTEGER :: dims2(2)
+    INTEGER :: varid
+    REAL, ALLOCATABLE :: data(:,:)
+
+    ALLOCATE(data(nx,ny),STAT=STAT)
+    IF( 0 .ne. STAT )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot allocate data','Write_GBCS_Float',&
+            'fiduceo_uncertainties.f90')
+    ENDIF
+
+    !
+    ! Fill with fill values (GBCS)
+    !
+    DO I=1,ny
+       DO J=1,nx
+          IF( indata(J,I) .lt. valid_min .or. indata(J,I) .gt. valid_max )THEN
+             data(J,I) = fill_value
+          ELSE
+             data(J,I) = indata(J,I)
+          ENDIF
+       END DO
+    END DO
+
+    !
+    ! Go into define mode
+    !
+    stat = NF90_REDEF(ncid)
+    CALL check(stat)
+
+    !
+    ! Define variable
+    !
+    dims2 = (/dim_nx,dim_ny/)
+    stat = NF90_DEF_VAR(ncid,name,NF90_FLOAT,dims2,varid)
+    CALL check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, varid, 1, 1, 9)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, varid, 0, fill_value)
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'long_name',TRIM(long_name))
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'standard_name',TRIM(standard_name))
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'units',TRIM(units))
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'valid_min',valid_min)
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'valid_max',valid_max)
+    call check(stat)
+    IF( '' .ne. reference_datum )THEN
+       stat = NF90_PUT_ATT(ncid,varid,'reference_datum',TRIM(reference_datum))
+       call check(stat)
+    ENDIF
+
+    stat = NF90_ENDDEF(ncid)
+    CALL check(stat)
+
+    stat = NF90_PUT_VAR(ncid,varid,data)
+    CALL check(stat)
+
+    DEALLOCATE(data)
+
+  END SUBROUTINE Write_GBCS_Float
+
+  !
+  ! Write GBCS float to netcdf
+  !
+  SUBROUTINE Write_GBCS_Float_Time(ncid,name,dim_ny,dim_time,&
+       ny,indata,fill_value,long_name,units,valid_min,valid_max,scale,offset)
+    
+    INTEGER, INTENT(IN) :: ncid
+    CHARACTER(LEN=*), INTENT(IN) :: name
+    INTEGER, INTENT(IN) :: dim_ny
+    INTEGER, INTENT(IN) :: dim_time
+    INTEGER, INTENT(IN) :: ny
+    REAL, INTENT(IN) :: indata(ny)
+    INTEGER(GbcsInt2), INTENT(IN) :: fill_value
+    CHARACTER(LEN=*), INTENT(IN) :: long_name
+    CHARACTER(LEN=*), INTENT(IN) :: units
+    INTEGER(GbcsInt2), INTENT(IN) :: valid_min
+    INTEGER(GbcsInt2), INTENT(IN) :: valid_max
+    REAL, INTENT(IN) :: scale
+    REAL, INTENT(IN) :: offset
+
+    ! Local variables
+    INTEGER :: I
+    INTEGER :: stat
+    INTEGER :: dims2(2)
+    INTEGER :: varid
+    REAL :: valid_min_f
+    REAL :: valid_max_f
+    INTEGER(GbcsInt2), ALLOCATABLE :: data(:,:)
+
+    ALLOCATE(data(ny,1),STAT=STAT)
+    IF( 0 .ne. STAT )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot allocate data','Write_GBCS_Float',&
+            'fiduceo_uncertainties.f90')
+    ENDIF
+
+    !
+    ! Fill with fill values (GBCS)
+    !
+    valid_min_f = valid_min*scale+offset
+    valid_max_f = valid_max*scale+offset
+    DO I=1,ny
+       IF( indata(I) .lt. valid_min_f .or. indata(I) .gt. valid_max_f )THEN
+          data(I,1) = fill_value
+       ELSE
+          data(I,1) = INT((indata(I)-offset)/scale,KIND=GbcsInt2)
+       ENDIF
+    END DO
+
+    !
+    ! Go into define mode
+    !
+    stat = NF90_REDEF(ncid)
+    CALL check(stat)
+
+    !
+    ! Define variable
+    !
+    dims2 = (/dim_ny,dim_time/)
+    stat = NF90_DEF_VAR(ncid,name,NF90_SHORT,dims2,varid)
+    CALL check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, varid, 1, 1, 9)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, varid, 0, fill_value)
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'long_name',TRIM(long_name))
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'units',TRIM(units))
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'valid_min',valid_min)
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'valid_max',valid_max)
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'add_offset',offset)
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'scale_factor',scale)
+    call check(stat)
+
+    stat = NF90_ENDDEF(ncid)
+    CALL check(stat)
+
+    stat = NF90_PUT_VAR(ncid,varid,data)
+    CALL check(stat)
+
+    DEALLOCATE(data)
+
+  END SUBROUTINE Write_GBCS_Float_Time
+
+  SUBROUTINE Write_GBCS_Float_Time_Int(ncid,name,dim_ny,dim_time,&
+       ny,indata,fill_value,long_name,valid_min)
+    
+    INTEGER, INTENT(IN) :: ncid
+    CHARACTER(LEN=*), INTENT(IN) :: name
+    INTEGER, INTENT(IN) :: dim_ny
+    INTEGER, INTENT(IN) :: dim_time
+    INTEGER, INTENT(IN) :: ny
+    INTEGER, INTENT(IN) :: indata(ny)
+    INTEGER(GbcsInt2), INTENT(IN) :: fill_value
+    CHARACTER(LEN=*), INTENT(IN) :: long_name
+    INTEGER(GbcsInt2), INTENT(IN) :: valid_min
+
+    ! Local variables
+    INTEGER :: I
+    INTEGER :: stat
+    INTEGER :: dims2(2)
+    INTEGER :: varid
+    INTEGER(GbcsInt2), ALLOCATABLE :: data(:,:)
+
+    ALLOCATE(data(ny,1),STAT=STAT)
+    IF( 0 .ne. STAT )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot allocate data','Write_GBCS_Float',&
+            'fiduceo_uncertainties.f90')
+    ENDIF
+
+    !
+    ! Fill with fill values (GBCS)
+    !
+    DO I=1,ny
+       IF( indata(I) .lt. valid_min )THEN
+          data(I,1) = fill_value
+       ELSE
+          data(I,1) = INT(indata(I),KIND=GbcsInt2)
+       ENDIF
+    END DO
+
+    !
+    ! Go into define mode
+    !
+    stat = NF90_REDEF(ncid)
+    CALL check(stat)
+
+    !
+    ! Define variable
+    !
+    dims2 = (/dim_ny,dim_time/)
+    stat = NF90_DEF_VAR(ncid,name,NF90_SHORT,dims2,varid)
+    CALL check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, varid, 1, 1, 9)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, varid, 0, fill_value)
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'long_name',TRIM(long_name))
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'valid_min',valid_min)
+    call check(stat)
+
+    stat = NF90_ENDDEF(ncid)
+    CALL check(stat)
+
+    stat = NF90_PUT_VAR(ncid,varid,data)
+    CALL check(stat)
+
+    DEALLOCATE(data)
+
+  END SUBROUTINE Write_GBCS_Float_Time_Int
+
+  !
+  ! Write GBCS scaled int (to float) to netcdf
+  !
+  SUBROUTINE Write_GBCS_Float_to_Int(ncid,name,dim_nx,dim_ny,nx,ny,&
+       indata,fill_value,long_name,standard_name,units,valid_min,valid_max,&
+       coordinates,scale,offset,comment)
+    
+    INTEGER, INTENT(IN) :: ncid
+    CHARACTER(LEN=*), INTENT(IN) :: name
+    INTEGER, INTENT(IN) :: dim_nx
+    INTEGER, INTENT(IN) :: dim_ny
+    INTEGER, INTENT(IN) :: nx
+    INTEGER, INTENT(IN) :: ny
+    REAL, INTENT(IN) :: indata(nx,ny)
+    INTEGER(GbcsInt2), INTENT(IN) :: fill_value
+    CHARACTER(LEN=*), INTENT(IN) :: long_name
+    CHARACTER(LEN=*), INTENT(IN) :: standard_name
+    CHARACTER(LEN=*), INTENT(IN) :: units
+    INTEGER(GbcsInt2), INTENT(IN) :: valid_min
+    INTEGER(GbcsInt2), INTENT(IN) :: valid_max
+    CHARACTER(LEN=*), INTENT(IN) :: coordinates
+    REAL, INTENT(IN) :: scale
+    REAL, INTENT(IN) :: offset
+    CHARACTER(LEN=*), INTENT(IN) :: comment
+
+    ! Local variables
+    INTEGER :: I,J
+    INTEGER :: stat
+    INTEGER :: dims2(2)
+    INTEGER :: varid
+    REAL :: valid_min_f, valid_max_f
+    INTEGER(GbcsInt2), ALLOCATABLE :: data(:,:)
+
+    ALLOCATE(data(nx,ny),STAT=STAT)
+    IF( 0 .ne. STAT )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot allocate data','Write_GBCS_Float',&
+            'fiduceo_uncertainties.f90')
+    ENDIF
+
+    !
+    ! Fill with fill values (GBCS)
+    !
+    valid_min_f = valid_min*scale+offset
+    valid_max_f = valid_max*scale+offset
+    DO I=1,ny
+       DO J=1,nx
+          IF( indata(J,I) .lt. valid_min_f .or. &
+               indata(J,I) .gt. valid_max_f )THEN
+             data(J,I) = fill_value
+          ELSE
+             data(J,I) = INT((indata(J,I)-offset)/scale,KIND=GbcsInt2)
+          ENDIF
+       END DO
+    END DO
+
+    !
+    ! Go into define mode
+    !
+    stat = NF90_REDEF(ncid)
+    CALL check(stat)
+
+    !
+    ! Define variable
+    !
+    dims2 = (/dim_nx,dim_ny/)
+    stat = NF90_DEF_VAR(ncid,name,NF90_SHORT,dims2,varid)
+    CALL check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, varid, 1, 1, 9)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, varid, 0, fill_value)
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'long_name',TRIM(long_name))
+    call check(stat)
+    IF( "" .ne. standard_name )THEN
+       stat = NF90_PUT_ATT(ncid,varid,'standard_name',TRIM(standard_name))
+       call check(stat)
+    ENDIF
+    stat = NF90_PUT_ATT(ncid,varid,'units',TRIM(units))
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'add_offset',offset)
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'scale_factor',scale)
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'valid_min',valid_min)
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'valid_max',valid_max)
+    call check(stat)
+    IF( "" .ne. coordinates )THEN
+       stat = NF90_PUT_ATT(ncid,varid,'coordinates',TRIM(coordinates))
+       call check(stat)
+    ENDIF
+    IF( "" .ne. comment )THEN
+       stat = NF90_PUT_ATT(ncid,varid,'comment',TRIM(comment))
+       call check(stat)
+    ENDIF
+    
+    stat = NF90_ENDDEF(ncid)
+    CALL check(stat)
+
+    stat = NF90_PUT_VAR(ncid,varid,data)
+    CALL check(stat)
+
+    DEALLOCATE(data)
+
+  END SUBROUTINE Write_GBCS_Float_to_Int
+
+  !
+  ! Write GBCS scaled int (to float) to netcdf
+  !
+  SUBROUTINE Write_GBCS_Float_to_Int_3D(ncid,name,dim_nx,dim_ny,dim_time,nx,ny,&
+       indata,fill_value,long_name,standard_name,units,valid_min,valid_max,&
+       coordinates,scale,offset,comment)
+    
+    INTEGER, INTENT(IN) :: ncid
+    CHARACTER(LEN=*), INTENT(IN) :: name
+    INTEGER, INTENT(IN) :: dim_nx
+    INTEGER, INTENT(IN) :: dim_ny
+    INTEGER, INTENT(IN) :: dim_time
+    INTEGER, INTENT(IN) :: nx
+    INTEGER, INTENT(IN) :: ny
+    REAL, INTENT(IN) :: indata(nx,ny)
+    INTEGER(GbcsInt2), INTENT(IN) :: fill_value
+    CHARACTER(LEN=*), INTENT(IN) :: long_name
+    CHARACTER(LEN=*), INTENT(IN) :: standard_name
+    CHARACTER(LEN=*), INTENT(IN) :: units
+    INTEGER(GbcsInt2), INTENT(IN) :: valid_min
+    INTEGER(GbcsInt2), INTENT(IN) :: valid_max
+    CHARACTER(LEN=*), INTENT(IN) :: coordinates
+    REAL, INTENT(IN) :: scale
+    REAL, INTENT(IN) :: offset
+    CHARACTER(LEN=*), INTENT(IN) :: comment
+
+    ! Local variables
+    INTEGER :: I,J
+    INTEGER :: stat
+    INTEGER :: dims3(3)
+    INTEGER :: varid
+    REAL :: valid_min_f, valid_max_f
+    INTEGER(GbcsInt2), ALLOCATABLE :: data(:,:,:)
+
+    ALLOCATE(data(nx,ny,1),STAT=STAT)
+    IF( 0 .ne. STAT )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot allocate data',&
+            'Write_GBCS_Float_to_Int_3D',&
+            'fiduceo_uncertainties.f90')
+    ENDIF
+
+    !
+    ! Fill with fill values (GBCS)
+    !
+    valid_min_f = valid_min*scale+offset
+    valid_max_f = valid_max*scale+offset
+    DO I=1,ny
+       DO J=1,nx
+          IF( indata(J,I) .lt. valid_min_f .or. &
+               indata(J,I) .gt. valid_max_f )THEN
+             data(J,I,1) = fill_value
+          ELSE
+             data(J,I,1) = INT((indata(J,I)-offset)/scale,KIND=GbcsInt2)
+          ENDIF
+       END DO
+    END DO
+
+    !
+    ! Go into define mode
+    !
+    stat = NF90_REDEF(ncid)
+    CALL check(stat)
+
+    !
+    ! Define variable
+    !
+    dims3 = (/dim_nx,dim_ny,dim_time/)
+    stat = NF90_DEF_VAR(ncid,name,NF90_SHORT,dims3,varid)
+    CALL check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, varid, 1, 1, 9)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, varid, 0, fill_value)
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'long_name',TRIM(long_name))
+    call check(stat)
+    IF( "" .ne. standard_name )THEN
+       stat = NF90_PUT_ATT(ncid,varid,'standard_name',TRIM(standard_name))
+       call check(stat)
+    ENDIF
+    stat = NF90_PUT_ATT(ncid,varid,'units',TRIM(units))
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'add_offset',offset)
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'scale_factor',scale)
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'valid_max',valid_max)
+    call check(stat)
+    IF( "" .ne. coordinates )THEN
+       stat = NF90_PUT_ATT(ncid,varid,'coordinates',TRIM(coordinates))
+       call check(stat)
+    ENDIF
+    IF( "" .ne. comment )THEN
+       stat = NF90_PUT_ATT(ncid,varid,'comment',TRIM(comment))
+       call check(stat)
+    ENDIF
+    
+    stat = NF90_ENDDEF(ncid)
+    CALL check(stat)
+
+    stat = NF90_PUT_VAR(ncid,varid,data)
+    CALL check(stat)
+
+    DEALLOCATE(data)
+
+  END SUBROUTINE Write_GBCS_Float_to_Int_3D
+
+  SUBROUTINE Write_GBCS_Byte(ncid,name,dim_nx,dim_ny,dim_time,nx,ny,&
+       indata,fill_value,long_name,flag_meanings,nflags,flag_values,&
+       valid_min,valid_max,comment,scale,offset)
+    
+    INTEGER, INTENT(IN) :: ncid
+    CHARACTER(LEN=*), INTENT(IN) :: name
+    INTEGER, INTENT(IN) :: dim_nx
+    INTEGER, INTENT(IN) :: dim_ny
+    INTEGER, INTENT(IN) :: dim_time
+    INTEGER, INTENT(IN) :: nx
+    INTEGER, INTENT(IN) :: ny
+    INTEGER(GbcsInt1), INTENT(IN) :: indata(ny)
+    INTEGER(GbcsInt1), INTENT(IN) :: fill_value
+    CHARACTER(LEN=*), INTENT(IN) :: long_name
+    CHARACTER(LEN=*), INTENT(IN) :: flag_meanings
+    INTEGER, INTENT(IN) :: nflags
+    INTEGER(GbcsInt1), INTENT(IN) :: flag_values(nflags)
+    INTEGER(GbcsInt1), INTENT(IN) :: valid_min
+    INTEGER(GbcsInt1), INTENT(IN) :: valid_max
+    CHARACTER(LEN=*), INTENT(IN) :: comment
+    REAL, INTENT(IN), OPTIONAL :: scale
+    REAL, INTENT(IN), OPTIONAL :: offset
+
+    ! Local variables
+    INTEGER :: I,J
+    INTEGER :: stat
+    INTEGER :: dims3(3)
+    INTEGER :: varid
+    INTEGER(GbcsInt1), ALLOCATABLE :: data(:,:,:)
+    
+    ALLOCATE(data(nx,ny,1),STAT=STAT)
+    IF( 0 .ne. STAT )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot allocate data',&
+            'Write_GBCS_Byte',&
+            'fiduceo_uncertainties.f90')
+    ENDIF
+
+    DO I=1,ny
+       data(:,I,1) = indata(I)
+    END DO
+
+    !
+    ! Go into define mode
+    !
+    stat = NF90_REDEF(ncid)
+    CALL check(stat)
+
+    !
+    ! Define variable
+    !
+    dims3 = (/dim_nx,dim_ny,dim_time/)
+    stat = NF90_DEF_VAR(ncid,name,NF90_BYTE,dims3,varid)
+    CALL check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, varid, 1, 1, 9)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, varid, 0, fill_value)
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'long_name',TRIM(long_name))
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'flag_meaings',TRIM(flag_meanings))
+    call check(stat)
+    stat = NF90_PUT_ATT(ncid,varid,'flag_values',flag_values)
+    call check(stat)
+    IF( "" .ne. comment )THEN
+       stat = NF90_PUT_ATT(ncid,varid,'comment',TRIM(comment))
+       call check(stat)
+    ENDIF
+
+    IF( PRESENT(scale) )THEN
+       stat = NF90_PUT_ATT(ncid,varid,'scale_factor',scale)
+       call check(stat)
+    ENDIF
+    IF( PRESENT(offset) )THEN
+       stat = NF90_PUT_ATT(ncid,varid,'add_offset',offset)
+       call check(stat)
+    ENDIF
+    
+    stat = NF90_ENDDEF(ncid)
+    CALL check(stat)
+
+    stat = NF90_PUT_VAR(ncid,varid,data)
+    CALL check(stat)
+
+    DEALLOCATE(data)
+
+  END SUBROUTINE Write_GBCS_Byte
+
+  SUBROUTINE Get_DateTime(AVHRR,stime,time_secs,start_year)
+
+    TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
+    INTEGER, INTENT(OUT) :: stime
+    REAL, INTENT(OUT), ALLOCATABLE :: time_secs(:)
+    INTEGER, INTENT(IN) :: start_year
+
+    ! Local variables
+    INTEGER :: I
+    INTEGER :: stat
+    TYPE(DateTime) :: date_time
+    REAL(GbcsDble) :: jd
+    REAL(GbcsDble) :: jd_start
+
+    ALLOCATE(time_secs(AVHRR%arraySize),STAT=stat)
+    IF( 0 .ne. stat )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot allocate time_secs','Get_DateTime',&
+            'fiduceo_uncertainties.f90')
+    ENDIF
+
+    !
+    ! Get since time
+    !
+    date_time%year = start_year
+    date_time%month = 1
+    date_time%day = 1
+    date_time%hour = 0
+    date_time%minute = 0
+    date_time%seconds = 0
+    date_time%sec1000 = 0
+    date_time%utc_offset = 0
+    jd_start = Date_to_Jd(date_time)
+
+    !
+    ! Get start time
+    !
+    CALL Convert_to_Datetime(AVHRR,1,date_time)
+    jd = Date_to_Jd(date_time)
+    stime = INT((jd-jd_start)*86400.d0)
+
+    !
+    ! Now loop round for times
+    !
+    DO I=1,AVHRR%arraySize
+       IF( AVHRR%year(I) .gt. 0 .and. AVHRR%month(I) .gt. 0 .and. &
+            AVHRR%day(i) .gt. 0 )THEN
+          CALL Convert_to_Datetime(AVHRR,I,date_time)
+          jd = Date_to_Jd(date_time)
+          time_secs(I) = INT((jd-jd_start)*86400.d0)
+       ELSE
+          time_secs(I) = NAN_R
+       ENDIF
+    END DO
+
+  END SUBROUTINE Get_DateTime
+
+  SUBROUTINE Convert_to_DateTime(AVHRR,I,date_time)
+
+    TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
+    INTEGER, INTENT(IN) :: I
+    TYPE(DateTime), INTENT(OUT) :: date_time
+
+    ! Local variables
+    REAL :: temp
+
+    date_time%year = AVHRR%year(I)
+    date_time%month = AVHRR%month(I)
+    date_time%day = AVHRR%day(I)
+    
+    date_time%hour = INT(AVHRR%hours(I))
+    temp = (AVHRR%hours(I)-date_time%hour)*60.
+    date_time%minute = INT(temp)
+    temp = (temp - date_time%minute)*60.
+    date_time%seconds = INT(temp)
+    date_time%sec1000 = INT((temp - date_time%seconds)*1000.)
+    date_time%utc_offset = 0
+
+  END SUBROUTINE Convert_to_DateTime
+
+  !
+  ! Make flags
+  !
+  SUBROUTINE Make_Flags(AVHRR,nflags,flags,flags_meanings,flag_values,&
+       valid_min,valid_max)
+
+    TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
+    INTEGER, INTENT(OUT) :: nflags
+    INTEGER(GbcsInt1), ALLOCATABLE, INTENT(OUT) :: flags(:)
+    CHARACTER(LEN=*), INTENT(OUT) :: flags_meanings
+    INTEGER(GbcsInt1), ALLOCATABLE, INTENT(OUT) :: flag_values(:)
+    INTEGER(GbcsInt1), INTENT(OUT) :: valid_min
+    INTEGER(GbcsInt1), INTENT(OUT) :: valid_max
+
+    ! Local variables
+    INTEGER :: I
+    INTEGER :: STAT
+
+    nflags = 7
+    flags_meanings = 'bad_navigation bad_calibration bad_timing missing_line &
+         &solar_contamination_3B solar_contamination_4 solar_contamination_5'
+    valid_min = 0_GbcsInt1
+    ALLOCATE(flags(AVHRR%arraySize),flag_values(nflags),STAT=stat)
+    IF( 0 .ne. stat )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot allocate flag_values',&
+            'Make_Flags','fiduceo_uncertainties.f90')
+    ENDIF
+    DO I=1,nflags
+       flag_values(I) = IBSET(0,I-1)       
+    END DO
+
+    valid_max = flag_values(nflags)
+
+    flags = 0
+    DO I=1,AVHRR%arraySize
+       IF( AVHRR%badNavigation(I) )THEN
+          flags(I) = IBSET(flags(I),0)
+       ENDIF
+       IF( AVHRR%badCalibration(I) )THEN
+          flags(I) = IBSET(flags(I),1)
+       ENDIF
+       IF( AVHRR%badTime(I) )THEN
+          flags(I) = IBSET(flags(I),2)
+       ENDIF
+       IF( AVHRR%missingLines(I) )THEN
+          flags(I) = IBSET(flags(I),3)
+       ENDIF
+       IF( AVHRR%solar_contamination_3b(I) )THEN
+          flags(I) = IBSET(flags(I),4)
+       ENDIF
+       IF( AVHRR%solar_contamination_4(I) )THEN
+          flags(I) = IBSET(flags(I),5)
+       ENDIF
+       IF( AVHRR%solar_contamination_5(I) )THEN
+          flags(I) = IBSET(flags(I),6)
+       ENDIF
+    END DO
+
+  END SUBROUTINE Make_Flags
+
+  !
+  ! Strip out just GAC filename from full path
+  !
+  SUBROUTINE get_filename(infile,ofile)
+    
+    CHARACTER(LEN=*), INTENT(IN) :: infile
+    CHARACTER(LEN=*), INTENT(OUT) :: ofile
+
+    ! Local variables
+    INTEGER :: I
+    INTEGER :: POS
+    
+    POS = -1
+    Loop: DO I=LEN_TRIM(infile),1,-1
+       IF( '/' .eq. infile(I:I) )THEN
+          POS=I+1
+          EXIT Loop
+       ENDIF
+    END DO Loop
+
+    IF( -1 .eq. POS )THEN
+       ofile = infile(1:42)
+    ELSE
+       ofile = infile(POS:POS+41)
+    ENDIF
+
+  END SUBROUTINE get_filename
+
+  !
+  ! Write global attributes
+  !
+  SUBROUTINE Write_GBCS_L1C_Global(AVHRR,ncid,uuid,noaa_string)
+    
+    TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
+    INTEGER, INTENT(IN) :: ncid
+    CHARACTER(LEN=*), INTENT(IN) :: uuid
+    CHARACTER(LEN=*), INTENT(IN) :: noaa_string
+    
+    ! Local variables
+    INTEGER :: I
+    INTEGER :: stat
+    CHARACTER(LEN=256) :: string
+    CHARACTER(LEN=512) :: ofile
+    TYPE(DateTime) :: date_time
+    TYPE(DateTime) :: date_time2
+    
+    WRITE(*,'('' ****** Writing CCI L1C format ******'')')
+    stat = NF90_REDEF(ncid)
+    CALL check(stat)
+
+    WRITE(string,&
+         '(''AVHRR Pre-Processing: '',a,'' L1C product (FIDUCEO based)'')')&
+         TRIM(noaa_string)
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'title',TRIM(string))
+    CALL check(stat)
+
+    WRITE(string,&
+         '(a,''-ESACCI-L1C-vFIDUCEO'')')TRIM(noaa_string)
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'id',TRIM(string))
+    CALL check(stat)
+    
+    WRITE(string,&
+         '(a,'' L1C product from the FIDUCEO project'')')TRIM(noaa_string)
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'summary',TRIM(string))
+    CALL check(stat)
+    
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'references','http://www.fiduceo,eu')
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'institution','FIDUCEO')
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'history','Created using FIDUCEO code')
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'license','This dataset is released &
+         &for use under CC-BY licence &
+         &(https://creativecommons.org/licenses/by/4.0/) and was developed &
+         &in the EC FIDUCEO project \"Fidelity and Uncertainty in Climate &
+         &Data Records from Earth Observations\". Grant Agreement: 638822.')
+    CALL check(stat)
+
+    stat = NF90_ENDDEF(ncid)
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'product_version','v0.5 pre-beta')
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'uuid',TRIM(uuid))
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'tracking_id',TRIM(uuid))
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'netcdf_version_id',&
+         TRIM(nf90_inq_libvers()))
+    CALL check(stat)
+
+    CALL Get_Time(date_time)
+    CALL write_isodate(string,date_time)
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'date_created',&
+         TRIM(string))
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'file_quality_level',3)
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'spatial_resolution',&
+         '4.0 km at nadir')
+    CALL check(stat)
+
+    CALL Convert_to_Datetime(AVHRR,1,date_time)
+    CALL write_isodate(string,date_time)
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'start_time',TRIM(string))
+    CALL check(stat)
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'time_coverage_start',TRIM(string))
+    CALL check(stat)
+
+    CALL Convert_to_Datetime(AVHRR,AVHRR%arraySize,date_time2)
+    CALL write_isodate(string,date_time2)
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'stop_time',TRIM(string))
+    CALL check(stat)
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'time_coverage_end',TRIM(string))
+    CALL check(stat)
+
+    CALL write_isoduration(string,date_time,date_time2)
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'time_coverage_duration',TRIM(string))
+    CALL check(stat)
+
+    date_time%year = 2010
+    date_time%month = 1
+    date_time%day = 1
+    date_time%hour = 0
+    date_time%minute = 0
+    date_time%seconds = 0
+    date_time%sec1000 = 0
+    date_time%utc_offset = 0
+    date_time2%year = 2010
+    date_time2%month = 1
+    date_time2%day = 1
+    date_time2%hour = 0
+    date_time2%minute = 0
+    date_time2%seconds = 1
+    date_time2%sec1000 = 0
+    date_time2%utc_offset = 0
+    CALL write_isoduration(string,date_time,date_time2)
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'time_coverage_resolution',&
+         TRIM(string))
+    CALL check(stat)
+
+    WRITE(string,'(a,''-NOAA-L1-v1'')')TRIM(noaa_string)
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'source',&
+         TRIM(string))
+    CALL check(stat)
+
+    CALL noaa_name(AVHRR,string,noaa=.TRUE.)
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'platform',&
+         TRIM(string))
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'sensor','AVHRR_GAC')
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'Metadata_Conventions',&
+         'Unidata Dataset Discovery v1.0')
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'metadata_link',&
+         'http://www.esa-cci.org')
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'keywords',&
+         'AVHRR > L1C')
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'standard_name_vocabularly',&
+         'NetCDF Climate and Forecast (CF) Metadata Convention')
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'geospatial_lat_units',&
+         'degrees_north')
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'geospatial_lat_resolution',&
+         0.04)
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'geospatial_lon_units',&
+         'degrees_east')
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'geospatial_lon_resolution',&
+         0.04)
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'acknowledgement',&
+         'NOAA GAC Data. Processing funded by H2020 (EC)')
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'creator_name',&
+         'FIDUCEO')
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'creator_email',&
+         'Fiduceo-coordinator@lists.reading.ac.uk')
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'creator_url',&
+         'http://www.fiduceo.eu')
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'creator_processing_institution',&
+         'These data were produced on the JASMIN infrastructure at STFC as &
+         &part of the H2020 FIDUCEO project')
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'project',&
+         'EC H2020 FIDUCEO project')
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'northernmost_latitude',90.)
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'southernmost_latitude',90.)
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'easternmost_longitude',180.)
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'westernmost_longitude',-180.)
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'geospatial_lat_min',-90.)
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'geospatial_lat_max',90.)
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'geospatial_lon_min',-180.)
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'geospatial_lon_max',180.)
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'processing_level','L1C')
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'cdm_data_type','swath')
+    CALL check(stat)
+
+    string = 'merged files: '
+    DO I=1,AVHRR%norig_l1b
+       string = TRIM(string)//' '//TRIM(AVHRR%orig_l1b(I))
+    END DO
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'source_file',TRIM(string))
+    CALL check(stat)
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'gac_file',TRIM(string))
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'lines_truncated_start',1)
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'lines_truncated_end',AVHRR%arraySize)
+    CALL check(stat)
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'orbital_temperature',&
+         AVHRR%orbital_temperature)
+    CALL check(stat)    
+
+  END SUBROUTINE Write_GBCS_L1C_Global
+
+  !
+  ! Routine to write out the GBCS CCI L1C format for use with the GBCS
+  !
+  SUBROUTINE Write_GBCS_L1C(AVHRR,FCDR,uuid,twelve_micron_there,&
+       output_cal)
+
+    TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
+    TYPE(FIDUCEO_Data) :: FCDR
+    CHARACTER(LEN=*), INTENT(IN) :: uuid
+    LOGICAL, INTENT(IN) :: twelve_micron_there
+    LOGICAL, INTENT(IN) :: output_cal
+
+    ! Local variables
+    INTEGER :: stat
+    INTEGER :: hour
+    INTEGER :: minute
+    INTEGER :: second
+    INTEGER :: ncid
+    INTEGER :: dimid_nx
+    INTEGER :: dimid_ny
+    INTEGER :: dimid_time
+    INTEGER :: dimid_band
+    INTEGER :: dims1(1)
+    INTEGER :: dims2(2)
+    INTEGER :: stime
+    INTEGER :: nx
+    INTEGER :: ny
+    INTEGER :: nflags
+    INTEGER :: varid
+    INTEGER(GbcsInt1), ALLOCATABLE :: flags(:)
+    INTEGER(GbcsInt1), ALLOCATABLE :: flag_values(:)
+    INTEGER(GbcsInt1) :: valid_min
+    INTEGER(GbcsInt1) :: valid_max
+    REAL :: temp
+    REAL, ALLOCATABLE :: noise(:,:)
+    REAL, ALLOCATABLE :: time_secs(:)
+    CHARACTER(LEN=10) :: noaa_string
+    CHARACTER(LEN=256) :: output_filename
+    CHARACTER(LEN=256) :: flags_meaning
+    REAL, ALLOCATABLE :: lon(:,:)
+    
+    nx = AVHRR%nelem
+    ny = AVHRR%arraySize
+    ALLOCATE(noise(AVHRR%nelem,AVHRR%arraySize),STAT=stat)
+    IF( 0 .ne. stat )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot allocate noise','Write_GBCS_L1C',&
+            'fiduceo_uncertainties.f90')
+    ENDIF
+
+    !
+    ! Parse start time/AVHRR_No to filename
+    !
+    CALL NOAA_Name(AVHRR,noaa_string,noaa=.FALSE.)
+    IF( 0 .gt. AVHRR%year(1) .or. 0 .gt. AVHRR%month(1) .or. &
+         0 .gt. AVHRR%day(1) .or. 0 .gt. AVHRR%hours(1) )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot get start time','Write_GBCS_L1C',&
+            'fiduceo_uncertainties.f90')
+    ENDIF
+    hour = INT(AVHRR%hours(1))
+    temp = (AVHRR%hours(1)-hour)*60.
+    minute = INT(temp)
+    second = INT((temp-minute)*60.)
+    WRITE(output_filename,'(i4.4,i2.2,i2.2,i2.2,i2.2,i2.2,&
+         &''-ESACCI-L1C-'',a,''-fv01.0.nc'')')AVHRR%year(1),&
+         AVHRR%month(1),AVHRR%day(1),hour,minute,second,&
+         TRIM(noaa_string)
+
+    !
+    ! Open file
+    !
+    stat = NF90_CREATE(output_filename,IOR(NF90_HDF5,NF90_CLOBBER),ncid)
+    call check(stat)
+    
+    stat = NF90_DEF_DIM(ncid,'ni',AVHRR%nelem,dimid_nx)
+    call check(stat)
+
+    stat = NF90_DEF_DIM(ncid,'nj',AVHRR%arraySize,dimid_ny)
+    call check(stat)
+
+    stat = NF90_DEF_DIM(ncid,'time',1,dimid_time)
+    call check(stat)
+
+    stat = NF90_DEF_DIM(ncid,'band',3,dimid_band)
+    call check(stat)
+
+    !
+    ! Make sure we are out of define mode
+    !
+    stat = NF90_ENDDEF(ncid)
+    call check(stat)
+
+    !
+    ! Write variables
+    !
+    CALL Write_GBCS_Float(ncid,'lat',dimid_nx,dimid_ny,nx,ny,AVHRR%lat,&
+         -32768.,'Latitude coordinates','latitude','degrees_north',&
+         -90.,90.,'geographical coordinates, WGS84 projection')
+    !
+    ! make sure -180,180
+    !
+    ALLOCATE(lon(nx,ny),STAT=stat)
+    IF( 0 .ne. stat )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot allocate lon','Write_GBCS_L1C',&
+            'fiduceo_uncertainties.f90')
+    ENDIF
+    WHERE( AVHRR%lon .gt. 180. )
+       lon = AVHRR%lon-360.
+    ELSEWHERE
+       lon = AVHRR%lon
+    ENDWHERE
+    CALL Write_GBCS_Float(ncid,'lon',dimid_nx,dimid_ny,nx,ny,lon,&
+         -32768.,'Longitude coordinates','longitude','degrees_east',&
+         -180.,180.,'geographical coordinates, WGS84 projection')
+    DEALLOCATE(lon)
+
+    !
+    ! Get time in right units
+    !
+    CALL Get_DateTime(AVHRR,stime,time_secs,1981)
+
+    !
+    ! Write out time
+    !
+    CALL Write_GBCS_time(ncid,dimid_time,stime,'seconds since 1981-01-01 00:00:00')
+    CALL Write_GBCS_dtime(ncid,dimid_nx,dimid_ny,dimid_time,nx,ny,stime,&
+         time_secs,'scanline time difference from start time',&
+         'seconds','lon lat',-32768.)
+
+    !
+    ! Now channels
+    !
+    CALL Write_GBCS_Float_to_Int_3D(ncid,'ch1',dimid_nx,dimid_ny,dimid_time,&
+         nx,ny,AVHRR%new_array1,-32768_GbcsInt2,'Channel 1 Reflectance','',&
+         'reflectance',0_GbcsInt2,15000_GbcsInt2,&
+         'lon lat',0.0001,0.,'')
+    
+    CALL Write_GBCS_Float_to_Int_3D(ncid,'ch2',dimid_nx,dimid_ny,dimid_time,&
+         nx,ny,AVHRR%new_array2,-32768_GbcsInt2,'Channel 2 Reflectance','',&
+         'reflectance',0_GbcsInt2,15000_GbcsInt2,&
+         'lon lat',0.0001,0.,'')
+    
+    CALL Write_GBCS_Float_to_Int_3D(ncid,'ch3b',dimid_nx,dimid_ny,dimid_time,&
+         nx,ny,FCDR%btf3,-32768_GbcsInt2,&
+         'Channel 3b Brightness Temperature','',&
+         'kelvin',-20000_GbcsInt2,10000_GbcsInt2,&
+         'lon lat',0.01,273.15,'')
+
+    CALL Write_GBCS_Float_to_Int_3D(ncid,'ch4',dimid_nx,dimid_ny,dimid_time,&
+         nx,ny,FCDR%btf4,-32768_GbcsInt2,'Channel 4 Brightness Temperature','',&
+         'kelvin',-20000_GbcsInt2,10000_GbcsInt2,&
+         'lon lat',0.01,273.15,'')
+    
+    CALL Write_GBCS_Float_to_Int_3D(ncid,'ch5',dimid_nx,dimid_ny,dimid_time,&
+         nx,ny,FCDR%btf5,-32768_GbcsInt2,'Channel 5 Brightness Temperature','',&
+         'kelvin',-20000_GbcsInt2,10000_GbcsInt2,&
+         'lon lat',0.01,273.15,'')
+    
+    !
+    ! Now noise estimates - not here we combine independent and structured
+    ! from FIDUCEO information
+    !
+    noise = NAN_R
+    WHERE(AVHRR%new_array1 .gt. 0. .and. AVHRR%new_array1_error .gt. 0.)
+       noise = SQRT((0.03*AVHRR%new_array1)**2+AVHRR%new_array1_error**2)
+    ENDWHERE
+    CALL Write_GBCS_Float_to_Int_3D(ncid,'ch1_noise',dimid_nx,dimid_ny,&
+         dimid_time,nx,ny,noise,-32768_GbcsInt2,'Channel 1 noise estimate','',&
+         'reflectance',0_GbcsInt2,10000_GbcsInt2,&
+         'lon lat',1.e-5,0.,'')
+    
+    noise = NAN_R
+    WHERE(AVHRR%new_array2 .gt. 0. .and. AVHRR%new_array2_error .gt. 0.)
+       noise = SQRT((0.05*AVHRR%new_array2)**2+AVHRR%new_array2_error**2)
+    ENDWHERE
+    CALL Write_GBCS_Float_to_Int_3D(ncid,'ch2_noise',dimid_nx,dimid_ny,&
+         dimid_time,nx,ny,noise,-32768_GbcsInt2,'Channel 2 noise estimate','',&
+         'reflectance',0_GbcsInt2,10000_GbcsInt2,&
+         'lon lat',1.e-5,0.,'')
+    
+    noise = NAN_R
+    WHERE( FCDR%ur3 .gt. 0. .and. FCDR%us3 .gt. 0 )
+       noise = SQRT(FCDR%ur3**2 + FCDR%us3**2 + FCDR%uc3**2)
+    ENDWHERE
+    CALL Write_GBCS_Float_to_Int_3D(ncid,'ch3b_nedt',dimid_nx,dimid_ny,&
+         dimid_time,nx,ny,noise,-32768_GbcsInt2,'Channel 3b noise estimate','',&
+         'kelvin',0_GbcsInt2,10000_GbcsInt2,&
+         'lon lat',0.001,0.,'')
+    
+    noise = NAN_R
+    WHERE( FCDR%ur4 .gt. 0. .and. FCDR%us4 .gt. 0 )
+       noise = SQRT(FCDR%ur4**2 + FCDR%us4**2 + FCDR%uc4**2)
+    ENDWHERE
+    CALL Write_GBCS_Float_to_Int_3D(ncid,'ch4_nedt',dimid_nx,dimid_ny,&
+         dimid_time,nx,ny,noise,-32768_GbcsInt2,'Channel 4 noise estimate','',&
+         'kelvin',0_GbcsInt2,10000_GbcsInt2,&
+         'lon lat',0.001,0.,'')
+    
+    noise = NAN_R
+    WHERE( FCDR%ur5 .gt. 0. .and. FCDR%us5 .gt. 0 )
+       noise = SQRT(FCDR%ur5**2 + FCDR%us5**2 + FCDR%uc5**2)
+    ENDWHERE
+    CALL Write_GBCS_Float_to_Int_3D(ncid,'ch5_nedt',dimid_nx,dimid_ny,&
+         dimid_time,nx,ny,noise,-32768_GbcsInt2,'Channel 5 noise estimate','',&
+         'kelvin',0_GbcsInt2,10000_GbcsInt2,&
+         'lon lat',0.001,0.,'')
+    !
+    ! Angles
+    !
+    CALL Write_GBCS_Float_to_Int_3D(ncid,'satellite_zenith_angle',&
+         dimid_nx,dimid_ny,dimid_time,nx,ny,AVHRR%satza,-32768_GbcsInt2,&
+         'satellite zenith angle','zenith angle',&
+         'angular_degree',0_GbcsInt2,10000_GbcsInt2,&
+         'lon lat',0.01,0.,&
+         'The satellite zenith angle at time of the observations')
+    
+    CALL Write_GBCS_Float_to_Int_3D(ncid,'solar_zenith_angle',&
+         dimid_nx,dimid_ny,dimid_time,nx,ny,AVHRR%solza,-32768_GbcsInt2,&
+         'solar zenith angle','zenith angle',&
+         'angular_degree',0_GbcsInt2,18000_GbcsInt2,&
+         'lon lat',0.01,0.,&
+         'The solar zenith angle at time of the observations')
+    
+    CALL Write_GBCS_Float_to_Int_3D(ncid,'relative_azimuth_angle',&
+         dimid_nx,dimid_ny,dimid_time,nx,ny,AVHRR%relaz,-32768_GbcsInt2,&
+         'relative azimuth angle','zenith angle',&
+         'angular_degree',0_GbcsInt2,10000_GbcsInt2,&
+         'lon lat',0.01,0.,&
+         'The relative azimuth angle at time of the observations')
+    
+    !
+    ! ICT temperature
+    !
+    CALL Write_GBCS_Float_Time(ncid,'ict_temp',dimid_ny,dimid_time,&
+         ny,AVHRR%smoothPRT,-32768_GbcsInt2,&
+         'Temperature of internal calibration target',&
+         'kelvin',-20000_GbcsInt2,10000_GbcsInt2,0.01,273.15)
+
+    !
+    ! Quality flags
+    !
+    CALL Make_Flags(AVHRR,nflags,flags,flags_meaning,flag_values,&
+         valid_min,valid_max)
+    CALL Write_GBCS_Byte(ncid,'qual_flags',dimid_nx,dimid_ny,dimid_time,nx,ny,&
+       flags,-128_GbcsInt1,'Quality Flags',flags_meaning,nflags,flag_values,&
+       valid_min,valid_max,'Bad data is flagged when any one of the other &
+         &categories (bad navigation, calibration, timing or missing line) &
+         &are flagged')
+
+    !
+    ! Cloud masks
+    !
+    flags = 0
+    flag_values(1) = 0_GbcsInt2
+    CALL Write_GBCS_Byte(ncid,'cloud_mask',dimid_nx,dimid_ny,dimid_time,nx,ny,&
+         flags,-128_GbcsInt1,'No Cloud Mask','None',1,flag_values,&
+         0_GbcsInt1,0_GbcsInt1,'')
+    CALL Write_GBCS_Byte(ncid,'cloud_probability',dimid_nx,dimid_ny,&
+         dimid_time,nx,ny,flags,-128_GbcsInt1,'No Cloud Mask',&
+         'None',1,flag_values,0_GbcsInt1,0_GbcsInt1,'',scale=0.,offset=0.)
+    DEALLOCATE(flags,flag_values)
+
+    !
+    ! Line numbers
+    !
+    CALL Write_GBCS_Float_Time_Int(ncid,'l1b_line_number',dimid_ny,dimid_time,&
+         ny,AVHRR%scanLineNumber,-32768_GbcsInt2,&
+         'FIDUCEO Level 1 line number',0_GbcsInt2)
+
+    !
+    ! If calibration data wanted, then output it here
+    !
+    IF( output_cal )THEN
+       !
+       ! Write out - smoothPRT, prt_correction, ICT counts, Space counts
+       ! Earth counts, nuc, aval, bval all at full resolution
+       !
+       CALL Write_GBCS_Float_1d(ncid,'smoothprt',dimid_ny,ny,&
+            AVHRR%smoothPRT,NAN_R,'Smoothed average PRT temperature',&
+            'ICT_T','Kelvin',0.,400.)
+       
+       CALL Write_GBCS_Float_1d(ncid,'smoothprt1',dimid_ny,ny,&
+            AVHRR%smoothPRT1,NAN_R,'Smoothed PRT1 temperature',&
+            'ICT_T','Kelvin',0.,400.)
+       
+       CALL Write_GBCS_Float_1d(ncid,'smoothprt2',dimid_ny,ny,&
+            AVHRR%smoothPRT2,NAN_R,'Smoothed PRT2 temperature',&
+            'ICT_T','Kelvin',0.,400.)
+       
+       CALL Write_GBCS_Float_1d(ncid,'smoothprt3',dimid_ny,ny,&
+            AVHRR%smoothPRT3,NAN_R,'Smoothed PRT3 temperature',&
+            'ICT_T','Kelvin',0.,400.)
+       
+       CALL Write_GBCS_Float_1d(ncid,'smoothprt4',dimid_ny,ny,&
+            AVHRR%smoothPRT4,NAN_R,'Smoothed PRT4 temperature',&
+            'ICT_T','Kelvin',0.,400.)
+       
+       CALL Write_GBCS_Float_1d(ncid,'prt_correction',dimid_ny,ny,&
+            AVHRR%prt_correction,NAN_R,'Correction to ICT temperature',&
+            'ICT_T_Corr','Kelvin',-100.,100.)
+       
+       CALL Write_GBCS_Float_1d(ncid,'bb3',dimid_ny,ny,&
+            AVHRR%bb3,NAN_R,'Blackbody counts 3.7 micron',&
+            'BB3','Counts',-10.,1000.)
+              
+       CALL Write_GBCS_Float_1d(ncid,'bb4',dimid_ny,ny,&
+            AVHRR%bb4,NAN_R,'Blackbody counts 11 micron',&
+            'BB4','Counts',-10.,1000.)
+              
+       CALL Write_GBCS_Float_1d(ncid,'bb5',dimid_ny,ny,&
+            AVHRR%bb5,NAN_R,'Blackbody counts 12 micron',&
+            'BB5','Counts',-10.,1000.)
+              
+       CALL Write_GBCS_Float_1d(ncid,'sp3',dimid_ny,ny,&
+            AVHRR%sp3,NAN_R,'Space counts 3.7 micron',&
+            'Sp3','Counts',-10.,1000.)
+              
+       CALL Write_GBCS_Float_1d(ncid,'sp4',dimid_ny,ny,&
+            AVHRR%sp4,NAN_R,'Space counts 11 micron',&
+            'Sp4','Counts',-10.,1000.)
+              
+       CALL Write_GBCS_Float_1d(ncid,'sp5',dimid_ny,ny,&
+            AVHRR%sp5,NAN_R,'Space counts 12 micron',&
+            'Sp5','Counts',-10.,1000.)
+              
+       CALL Write_GBCS_Float(ncid,'counts3',dimid_nx,dimid_ny,nx,ny,&
+            AVHRR%counts3,NAN_R,'Earth Counts (3.7 mu)',&
+            'CE_3','Counts',&
+            -10.,1000.,'')
+
+       CALL Write_GBCS_Float(ncid,'counts4',dimid_nx,dimid_ny,nx,ny,&
+            AVHRR%counts4,NAN_R,'Earth Counts (11 mu)',&
+            'CE_4','Counts',&
+            -10.,1000.,'')
+
+       CALL Write_GBCS_Float(ncid,'counts5',dimid_nx,dimid_ny,nx,ny,&
+            AVHRR%counts5,NAN_R,'Earth Counts (12 mu)',&
+            'CE_5','Counts',&
+            -10.,1000.,'')
+
+       !
+       ! Band coefficients
+       !
+       stat = NF90_REDEF(ncid)
+       call check(stat)
+
+       dims1 = dimid_band
+       stat = NF90_DEF_VAR(ncid,'nuc',NF90_FLOAT,dims1,varid)
+       call check(stat)
+       stat = NF90_DEF_VAR_DEFLATE(ncid, varid, 1, 1, 9)
+       call check(stat)
+       stat = NF90_PUT_VAR(ncid,varid,AVHRR%nuc)
+       CALL check(stat)
+
+       stat = NF90_DEF_VAR(ncid,'aval',NF90_FLOAT,dims1,varid)
+       call check(stat)
+       stat = NF90_DEF_VAR_DEFLATE(ncid, varid, 1, 1, 9)
+       call check(stat)
+       stat = NF90_PUT_VAR(ncid,varid,AVHRR%aval)
+       CALL check(stat)
+
+       stat = NF90_DEF_VAR(ncid,'bval',NF90_FLOAT,dims1,varid)
+       call check(stat)
+       stat = NF90_DEF_VAR_DEFLATE(ncid, varid, 1, 1, 9)
+       call check(stat)
+       stat = NF90_PUT_VAR(ncid,varid,AVHRR%bval)
+       CALL check(stat)
+
+    ENDIF
+    
+    !
+    ! Write Global attributes
+    !
+    CALL Write_GBCS_L1C_Global(AVHRR,ncid,uuid,noaa_string)
+
+    !
+    ! Close file
+    !
+    stat = NF90_CLOSE(ncid)
+    call check(stat)
+
+  END SUBROUTINE Write_GBCS_L1C
 
   !
   ! NetCDF check code - from Marines code
