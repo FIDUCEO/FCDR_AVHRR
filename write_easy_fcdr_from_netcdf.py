@@ -21,6 +21,7 @@
 # * MT: 10-11-2017: spatial_correlation_scale added (sensor specific)
 # * JM: 06-07-2018: Real channel/spatial correlation scales added plus SRF
 # * JM: 07-07-2018: Output GBCS L1C option for SST with channel covariance
+# * JM: 07-02-2019: Fix issues with CURUC
 
 from fiduceo.fcdr.writer.fcdr_writer import FCDRWriter
 from fiduceo.fcdr.writer.templates import avhrr
@@ -32,6 +33,7 @@ import xarray
 from optparse import OptionParser
 import FCDR_HIRS.metrology as met
 import write_l1c_data as l1c
+import matplotlib.pyplot as plt
 
 class read_netcdf(object):
 
@@ -89,12 +91,11 @@ class read_netcdf(object):
         self.ch1 = ncid.variables['ch1'][:,:]
         self.ch2 = ncid.variables['ch2'][:,:]
         self.ch3a = ncid.variables['ch3a'][:,:]
-        self.ch3a_there=False
-        if np.ma.is_masked(self.ch3a):
-            if np.any(~self.ch3a.mask):
-                self.ch3a_there=True
-        if np.any(np.isfinite(self.ch3a)):
-            self.ch3a_there=True            
+        self.ch3a_there_int = ncid.variables['ch3a_there'][:]
+        self.ch3a_there = False
+        gd = (self.ch3a_there_int == 1)
+        if np.sum(gd) > 0:
+            self.ch3a_there = True
         self.ch3b = ncid.variables['ch3b'][:,:]
         self.ch4 = ncid.variables['ch4'][:,:]
         try:
@@ -149,10 +150,14 @@ class read_netcdf(object):
         self.cnts_noise = ncid.variables['cnts_noise'][:]
         self.spatial_correlation_scale = ncid.spatial_correlation_scale
         self.ICT_Temperature_Uncertainty = ncid.ICT_Temperature_Uncertainty
+        self.PRT_Uncertainty = ncid.PRT_Uncertainty
         self.noaa_string = ncid.noaa_string
         self.orbital_temperature = ncid.orbital_temperature
         self.scanline = ncid.variables['scanline'][:]
         self.orig_scanline = ncid.variables['orig_scanline'][:]
+        self.ch3b_harm = ncid.variables['ch3b_harm_uncertainty'][:,:]
+        self.ch4_harm = ncid.variables['ch4_harm_uncertainty'][:,:]
+        self.ch5_harm = ncid.variables['ch5_harm_uncertainty'][:,:]
 
         self.badNav = ncid.variables['badNavigation'][:]
         self.badCal = ncid.variables['badCalibration'][:]
@@ -167,62 +172,63 @@ class read_netcdf(object):
 
         ncid.close()
 
-        self.lat = np.ma.filled(self.lat,np.NaN)
-        self.lon = np.ma.filled(self.lon,np.NaN)
-        self.time = np.ma.filled(self.time,np.NaN)
-        self.satza = np.ma.filled(self.satza,np.NaN)
-        self.solza = np.ma.filled(self.solza,np.NaN)
-        self.relaz = np.ma.filled(self.relaz,np.NaN)
-        self.ch1 = np.ma.filled(self.ch1,np.NaN)
-        self.ch2 = np.ma.filled(self.ch2,np.NaN)
-        if self.ch3a_there:
-            self.ch3a = np.ma.filled(self.ch3a,np.NaN)
-        self.ch3b = np.ma.filled(self.ch3b,np.NaN)
-        self.ch4 = np.ma.filled(self.ch4,np.NaN)
-        if self.ch5_there:
-            self.ch5 = np.ma.filled(self.ch5,np.NaN)
-        self.u_random_ch1 = np.ma.filled(self.u_random_ch1,np.NaN)
-        self.u_random_ch2 = np.ma.filled(self.u_random_ch2,np.NaN)
-        if self.ch3a_there:
-            self.u_random_ch3a = np.ma.filled(self.u_random_ch3a,np.NaN)
-        self.u_random_ch3b = np.ma.filled(self.u_random_ch3b,np.NaN)
-        self.u_random_ch4 = np.ma.filled(self.u_random_ch4,np.NaN)
-        if self.ch5_there:
-            self.u_random_ch5 = np.ma.filled(self.u_random_ch5,np.NaN)
-        self.u_non_random_ch1 = np.ma.filled(self.u_non_random_ch1,np.NaN)
-        self.u_non_random_ch2 = np.ma.filled(self.u_non_random_ch2,np.NaN)
-        if self.ch3a_there:
-            self.u_non_random_ch3a = np.ma.filled(self.u_non_random_ch3a,np.NaN)
-        self.u_non_random_ch3b = np.ma.filled(self.u_non_random_ch3b,np.NaN)
-        self.u_non_random_ch4 = np.ma.filled(self.u_non_random_ch4,np.NaN)
-        if self.ch5_there:
-            self.u_non_random_ch5 = np.ma.filled(self.u_non_random_ch5,np.NaN)
-        self.u_common_ch1 = np.ma.filled(self.u_common_ch1,np.NaN)
-        self.u_common_ch2 = np.ma.filled(self.u_common_ch2,np.NaN)
-        if self.ch3a_there:
-            self.u_common_ch3a = np.ma.filled(self.u_common_ch3a,np.NaN)
-        self.u_common_ch3b = np.ma.filled(self.u_common_ch3b,np.NaN)
-        self.u_common_ch4 = np.ma.filled(self.u_common_ch4,np.NaN)
-        if self.ch5_there:
-            self.u_common_ch5 = np.ma.filled(self.u_common_ch5,np.NaN)
-        self.dBT3_over_dT = np.ma.filled(self.dBT3_over_dT,np.NaN)
-        self.dBT4_over_dT = np.ma.filled(self.dBT4_over_dT,np.NaN)
-        if self.ch5_there:
-            self.dBT5_over_dT = np.ma.filled(self.dBT5_over_dT,np.NaN)
-        self.dRe1_over_dCS = np.ma.filled(self.dRe1_over_dCS,np.NaN)
-        self.dRe2_over_dCS = np.ma.filled(self.dRe2_over_dCS,np.NaN)
-        if self.ch3a_there:
-            self.dRe3a_over_dCS = np.ma.filled(self.dRe3a_over_dCS,np.NaN)
-        self.dBT3_over_dCS = np.ma.filled(self.dBT3_over_dCS,np.NaN)
-        self.dBT4_over_dCS = np.ma.filled(self.dBT4_over_dCS,np.NaN)
-        if self.ch5_there:
-            self.dBT5_over_dCS = np.ma.filled(self.dBT5_over_dCS,np.NaN)
-        self.dBT3_over_dCICT = np.ma.filled(self.dBT3_over_dCICT,np.NaN)
-        self.dBT4_over_dCICT = np.ma.filled(self.dBT4_over_dCICT,np.NaN)
-        if self.ch5_there:
-            self.dBT5_over_dCICT = np.ma.filled(self.dBT5_over_dCICT,np.NaN)
-        self.cal_cnts_noise = np.ma.filled(self.cal_cnts_noise,np.NaN)
-        self.cnts_noise = np.ma.filled(self.cnts_noise,np.NaN)
+        if False:
+            self.lat = np.ma.filled(self.lat,np.NaN)
+            self.lon = np.ma.filled(self.lon,np.NaN)
+            self.time = np.ma.filled(self.time,np.NaN)
+            self.satza = np.ma.filled(self.satza,np.NaN)
+            self.solza = np.ma.filled(self.solza,np.NaN)
+            self.relaz = np.ma.filled(self.relaz,np.NaN)
+            self.ch1 = np.ma.filled(self.ch1,np.NaN)
+            self.ch2 = np.ma.filled(self.ch2,np.NaN)
+            if self.ch3a_there:
+                self.ch3a = np.ma.filled(self.ch3a,np.NaN)
+            self.ch3b = np.ma.filled(self.ch3b,np.NaN)
+            self.ch4 = np.ma.filled(self.ch4,np.NaN)
+            if self.ch5_there:
+                self.ch5 = np.ma.filled(self.ch5,np.NaN)
+            self.u_random_ch1 = np.ma.filled(self.u_random_ch1,np.NaN)
+            self.u_random_ch2 = np.ma.filled(self.u_random_ch2,np.NaN)
+            if self.ch3a_there:
+                self.u_random_ch3a = np.ma.filled(self.u_random_ch3a,np.NaN)
+            self.u_random_ch3b = np.ma.filled(self.u_random_ch3b,np.NaN)
+            self.u_random_ch4 = np.ma.filled(self.u_random_ch4,np.NaN)
+            if self.ch5_there:
+                self.u_random_ch5 = np.ma.filled(self.u_random_ch5,np.NaN)
+            self.u_non_random_ch1 = np.ma.filled(self.u_non_random_ch1,np.NaN)
+            self.u_non_random_ch2 = np.ma.filled(self.u_non_random_ch2,np.NaN)
+            if self.ch3a_there:
+                self.u_non_random_ch3a = np.ma.filled(self.u_non_random_ch3a,np.NaN)
+            self.u_non_random_ch3b = np.ma.filled(self.u_non_random_ch3b,np.NaN)
+            self.u_non_random_ch4 = np.ma.filled(self.u_non_random_ch4,np.NaN)
+            if self.ch5_there:
+                self.u_non_random_ch5 = np.ma.filled(self.u_non_random_ch5,np.NaN)
+            self.u_common_ch1 = np.ma.filled(self.u_common_ch1,np.NaN)
+            self.u_common_ch2 = np.ma.filled(self.u_common_ch2,np.NaN)
+            if self.ch3a_there:
+                self.u_common_ch3a = np.ma.filled(self.u_common_ch3a,np.NaN)
+            self.u_common_ch3b = np.ma.filled(self.u_common_ch3b,np.NaN)
+            self.u_common_ch4 = np.ma.filled(self.u_common_ch4,np.NaN)
+            if self.ch5_there:
+                self.u_common_ch5 = np.ma.filled(self.u_common_ch5,np.NaN)
+            self.dBT3_over_dT = np.ma.filled(self.dBT3_over_dT,np.NaN)
+            self.dBT4_over_dT = np.ma.filled(self.dBT4_over_dT,np.NaN)
+            if self.ch5_there:
+                self.dBT5_over_dT = np.ma.filled(self.dBT5_over_dT,np.NaN)
+            self.dRe1_over_dCS = np.ma.filled(self.dRe1_over_dCS,np.NaN)
+            self.dRe2_over_dCS = np.ma.filled(self.dRe2_over_dCS,np.NaN)
+            if self.ch3a_there:
+                self.dRe3a_over_dCS = np.ma.filled(self.dRe3a_over_dCS,np.NaN)
+            self.dBT3_over_dCS = np.ma.filled(self.dBT3_over_dCS,np.NaN)
+            self.dBT4_over_dCS = np.ma.filled(self.dBT4_over_dCS,np.NaN)
+            if self.ch5_there:
+                self.dBT5_over_dCS = np.ma.filled(self.dBT5_over_dCS,np.NaN)
+            self.dBT3_over_dCICT = np.ma.filled(self.dBT3_over_dCICT,np.NaN)
+            self.dBT4_over_dCICT = np.ma.filled(self.dBT4_over_dCICT,np.NaN)
+            if self.ch5_there:
+                self.dBT5_over_dCICT = np.ma.filled(self.dBT5_over_dCICT,np.NaN)
+            self.cal_cnts_noise = np.ma.filled(self.cal_cnts_noise,np.NaN)
+            self.cnts_noise = np.ma.filled(self.cnts_noise,np.NaN)
 
         self.lat = self.add_nan_values(self.lat)
         self.lon = self.add_nan_values(self.lon)
@@ -274,12 +280,15 @@ class read_netcdf(object):
         if self.ch5_there:
             self.dBT5_over_dCS = self.add_nan_values(self.dBT5_over_dCS)
         self.dBT3_over_dCICT = self.add_nan_values(self.dBT3_over_dCICT)
-        self.dBT5_over_dCICT = self.add_nan_values(self.dBT4_over_dCICT)
+        self.dBT4_over_dCICT = self.add_nan_values(self.dBT4_over_dCICT)
         if self.ch5_there:
             self.dBT5_over_dCICT = self.add_nan_values(self.dBT5_over_dCICT)
         self.cal_cnts_noise = self.add_nan_values(self.cal_cnts_noise)
         self.cnts_noise = self.add_nan_values(self.cnts_noise)
-            
+        self.ch3b_harm = self.add_nan_values(self.ch3b_harm)
+        self.ch4_harm = self.add_nan_values(self.ch4_harm)
+        self.ch5_harm = self.add_nan_values(self.ch5_harm)
+
 #        self.ch1 = self.scale_values(self.ch1)
 #        self.ch2 = self.scale_values(self.ch2)
 #        if self.ch3a_there:
@@ -292,6 +301,111 @@ class read_netcdf(object):
 #        self.u_non_random_ch2 = self.scale_values(self.u_non_random_ch2)
 #        if self.ch3a_there:
 #            self.u_non_random_ch3a = self.scale_values(self.u_non_random_ch3a)
+
+        gd = np.zeros(len(self.time),dtype=np.bool)
+        gd[:] = True
+        for i in range(len(self.time)):
+            if self.time[i] < 0:
+                gd[i] = False
+            else:
+                break
+        for i in range(len(self.time)-1,0,-1):
+            if self.time[i] < 0:
+                gd[i] = False
+            else:
+                break
+        if np.sum(gd) == 0:
+            raise Exception("cannot find good times")
+
+        self.time = self.time[gd]
+        ggd = (self.time < 0)
+        if np.sum(ggd) > 0:
+            self.time[ggd] = float('nan')
+        date_time=[]
+        for i in range(len(gd)):
+            if gd[i]:
+                date_time.append(self.date_time[i])
+        self.date_time = date_time[:]
+        self.lat = self.lat[gd,:]
+        self.lon = self.lon[gd,:]
+        self.satza = self.satza[gd,:]
+        self.solza = self.solza[gd,:]
+        self.relaz = self.relaz[gd,:]
+        self.ch1 = self.ch1[gd,:]
+        self.ch2 = self.ch2[gd,:]
+        self.ch3a = self.ch3a[gd,:]
+        self.ch3a_there_int = self.ch3a_there_int[gd]
+        self.ch3b = self.ch3b[gd,:]
+        self.ch4 = self.ch4[gd,:]
+        if self.ch5_there:
+            self.ch5 = self.ch5[gd,:]
+
+        self.u_random_ch1 = self.u_random_ch1[gd,:]
+        self.u_random_ch2 = self.u_random_ch2[gd,:]
+        if self.ch3a_there:
+            self.u_random_ch3a = self.u_random_ch3a[gd,:]
+        self.u_random_ch3b = self.u_random_ch3b[gd,:]
+        self.u_random_ch4 = self.u_random_ch4[gd,:]
+        if self.ch5_there:
+            self.u_random_ch5 = self.u_random_ch5[gd,:]
+
+        self.u_non_random_ch1 = self.u_non_random_ch1[gd,:]
+        self.u_non_random_ch2 = self.u_non_random_ch2[gd,:]
+        if self.ch3a_there:
+            self.u_non_random_ch3a = self.u_non_random_ch3a[gd,:]
+        self.u_non_random_ch3b = self.u_non_random_ch3b[gd,:]
+        self.u_non_random_ch4 = self.u_non_random_ch4[gd,:]
+        if self.ch5_there:
+            self.u_non_random_ch5 = self.u_non_random_ch5[gd,:]
+
+        self.u_common_ch1 = self.u_common_ch1[gd,:]
+        self.u_common_ch2 = self.u_common_ch2[gd,:]
+        if self.ch3a_there:
+            self.u_common_ch3a = self.u_common_ch3a[gd,:]
+        self.u_common_ch3b = self.u_common_ch3b[gd,:]
+        self.u_common_ch4 = self.u_common_ch4[gd,:]
+        if self.ch5_there:
+            self.u_common_ch5 = self.u_common_ch5[gd,:]
+
+        self.scan_qual = self.scan_qual[gd]
+        self.chan_qual = self.chan_qual[gd,:]
+
+        self.dBT3_over_dT = self.dBT3_over_dT[gd,:]
+        self.dBT4_over_dT = self.dBT4_over_dT[gd,:]
+        if self.ch5_there:
+            self.dBT5_over_dT = self.dBT5_over_dT[gd,:]
+
+        self.dRe1_over_dCS = self.dRe1_over_dCS[gd,:]
+        self.dRe2_over_dCS = self.dRe2_over_dCS[gd,:]
+        if self.ch3a_there:
+            self.dRe3a_over_dCS = self.dRe3a_over_dCS[gd,:]
+        self.dBT3_over_dCS = self.dBT3_over_dCS[gd,:]
+        self.dBT4_over_dCS = self.dBT4_over_dCS[gd,:]
+        if self.ch5_there:
+            self.dBT5_over_dCS = self.dBT5_over_dCS[gd,:]
+
+        self.dBT3_over_dCICT = self.dBT3_over_dCICT[gd,:]
+        self.dBT4_over_dCICT = self.dBT4_over_dCICT[gd,:]
+        if self.ch5_there:
+            self.dBT5_over_dCICT = self.dBT5_over_dCICT[gd,:]
+
+        self.smoothPRT = self.smoothPRT[gd]
+        self.scanline = self.scanline[gd]
+        self.orig_scanline = self.orig_scanline[gd]
+        self.ch3b_harm = self.ch3b_harm[gd,:]
+        self.ch4_harm = self.ch4_harm[gd,:]
+        self.ch5_harm = self.ch5_harm[gd,:]
+
+        self.badNav = self.badNav[gd]
+        self.badCal = self.badCal[gd]
+        self.badTime = self.badTime[gd]
+        self.missingLines = self.missingLines[gd]
+        self.solar3 = self.solar3[gd]
+        self.solar4 = self.solar4[gd]
+        self.solar5 = self.solar5[gd]
+
+        self.nx = self.lat.shape[1]
+        self.ny = self.lat.shape[0]
 
     def __init__(self,filename):
 
@@ -320,17 +434,18 @@ def set_to_nan(TL):
 #
 # Copy over to sensitivity using the coords (xarray) arrays
 #
-def copy_over_C(inarray,n_l_coord,n_e_coord,inverse=False):
+def copy_over_C(inarray,n_l_coord,n_e_coord,inverse=False,string=''):
 
+    nbad = 0
+    nbad_orig = 0
     if inverse:
-        outarray = np.zeros((len(n_e_coord),len(n_l_coord)))
-        for i in range(len(n_l_coord)):
-            outarray[:,i] = inarray[n_l_coord[i],n_e_coord]
+        outarray = np.zeros((len(n_e_coord.values),len(n_l_coord.values)))
+        for i in range(len(n_l_coord.values)):
+            outarray[:,i] = np.copy(inarray[n_l_coord.values[i],n_e_coord.values])
     else:
-        outarray = np.zeros((len(n_l_coord),len(n_e_coord)))
-        for i in range(len(n_l_coord)):
-            outarray[i,:] = inarray[n_l_coord[i],n_e_coord]
-
+        outarray = np.zeros((len(n_l_coord.values),len(n_e_coord.values)))
+        for i in range(len(n_l_coord.values)):
+            outarray[i,:] = np.copy(inarray[n_l_coord.values[i],n_e_coord.values])
     return outarray
 
 #
@@ -344,85 +459,145 @@ def copy_C3(dBT3_over_dX,dBT4_over_dX,dBT5_over_dX,\
             output = np.zeros((len(n_e),len(n_l),len(chans)))
             for i in range(len(chans)):
                 if 3 == chans[i]:
-                    output[:,:,i] = copy_over_C(dBT3_over_dX,n_l,n_e,inverse=True)
+                    output[:,:,i] = copy_over_C(dBT3_over_dX,n_l,n_e,inverse=True,\
+                                                    string='dBT3_over_dX xchan inverse')
                 elif 4 == chans[i]:
-                    output[:,:,i] = copy_over_C(dBT4_over_dX,n_l,n_e,inverse=True)
+                    output[:,:,i] = copy_over_C(dBT4_over_dX,n_l,n_e,inverse=True,\
+                                                    string='dBT3_over_dX xchan inverse')
                 elif 5 == chans[i]:
-                    output[:,:,i] = copy_over_C(dBT5_over_dX,n_l,n_e,inverse=True)
+                    output[:,:,i] = copy_over_C(dBT5_over_dX,n_l,n_e,inverse=True,\
+                                                    string='dBT3_over_dX xchan inverse')
         else:
             output = np.zeros((len(n_l),len(n_e),len(chans)))
             for i in range(len(chans)):
                 if 3 == chans[i]:
-                    output[:,:,i] = copy_over_C(dBT3_over_dX,n_l,n_e)
+                    output[:,:,i] = copy_over_C(dBT3_over_dX,n_l,n_e,\
+                                                    string='dBT3_over_dX xchan')
                 elif 4 == chans[i]:
-                    output[:,:,i] = copy_over_C(dBT4_over_dX,n_l,n_e)
+                    output[:,:,i] = copy_over_C(dBT4_over_dX,n_l,n_e,\
+                                                    string='dBT3_over_dX xchan')
                 elif 5 == chans[i]:
-                    output[:,:,i] = copy_over_C(dBT5_over_dX,n_l,n_e)
+                    output[:,:,i] = copy_over_C(dBT5_over_dX,n_l,n_e,\
+                                                    string='dBT3_over_dX xchan')
     else:
         if inverse:
             output = np.zeros((len(chans),len(n_e),len(n_l)))
             for i in range(len(chans)):
                 if 3 == chans[i]:
-                    output[i,:,:] = copy_over_C(dBT3_over_dX,n_l,n_e,inverse=True)
+                    output[i,:,:] = copy_over_C(dBT3_over_dX,n_l,n_e,inverse=True,\
+                                                    string='dBT3_over_dX not xchan inverse')
                 elif 4 == chans[i]:
-                    output[i,:,:] = copy_over_C(dBT4_over_dX,n_l,n_e,inverse=True)
+                    output[i,:,:] = copy_over_C(dBT4_over_dX,n_l,n_e,inverse=True,\
+                                                    string='dBT3_over_dX not xchan inverse')
                 elif 5 == chans[i]:
-                    output[i,:,:] = copy_over_C(dBT5_over_dX,n_l,n_e,inverse=True)
+                    output[i,:,:] = copy_over_C(dBT5_over_dX,n_l,n_e,inverse=True,\
+                                                    string='dBT3_over_dX not xchan inverse')
         else:
             output = np.zeros((len(chans),len(n_l),len(n_e)))
             for i in range(len(chans)):
                 if 3 == chans[i]:
-                    output[i,:,:] = copy_over_C(dBT3_over_dX,n_l,n_e)
+                    output[i,:,:] = copy_over_C(dBT3_over_dX,n_l,n_e,\
+                                                    string='dBT3_over_dX not xchan')
                 elif 4 == chans[i]:
-                    output[i,:,:] = copy_over_C(dBT4_over_dX,n_l,n_e)
+                    output[i,:,:] = copy_over_C(dBT4_over_dX,n_l,n_e,\
+                                                    string='dBT3_over_dX not xchan')
                 elif 5 == chans[i]:
-                    output[i,:,:] = copy_over_C(dBT5_over_dX,n_l,n_e)
+                    output[i,:,:] = copy_over_C(dBT5_over_dX,n_l,n_e,\
+                                                    string='dBT3_over_dX not xchan')
                     
     return output
 #
 # No 12 micron channel case
 #
 def copy_C2(dBT3_over_dX,dBT4_over_dX,\
-                n_l,n_e,chans,inverse=False,xchan=False):
+                n_l,n_e,chans,inverse=False,xchan=False,ch3a=False):
 
-    if xchan:
-        if inverse:
-            output = np.zeros((len(n_e),len(n_l),len(chans)))
-            for i in range(len(chans)):
-                if 3 == chans[i]:
-                    output[:,:,i] = copy_over_C(dBT3_over_dX,n_l,n_e,inverse=True)
-                elif 4 == chans[i]:
-                    output[:,:,i] = copy_over_C(dBT4_over_dX,n_l,n_e,inverse=True)
-                else:
-                    raise Exception('chans out of range in copy_C2')
+    if ch3a:
+        if xchan:
+            if inverse:
+                output = np.zeros((len(n_e),len(n_l),len(chans)))
+                for i in range(len(chans)):
+                    if 4 == chans[i]:
+                        output[:,:,i] = copy_over_C(dBT3_over_dX,n_l,n_e,inverse=True)
+                    elif 5 == chans[i]:
+                        output[:,:,i] = copy_over_C(dBT4_over_dX,n_l,n_e,inverse=True)
+                    else:
+                        print('chans:',chans)
+                        raise Exception('chans out of range in copy_C2')
+            else:
+                output = np.zeros((len(n_l),len(n_e),len(chans)))
+                for i in range(len(chans)):
+                    if 4 == chans[i]:
+                        output[:,:,i] = copy_over_C(dBT3_over_dX,n_l,n_e)
+                    elif 5 == chans[i]:
+                        output[:,:,i] = copy_over_C(dBT4_over_dX,n_l,n_e)
+                    else:
+                        print('chans:',chans)
+                        raise Exception('chans out of range in copy_C2')
         else:
-            output = np.zeros((len(n_l),len(n_e),len(chans)))
-            for i in range(len(chans)):
-                if 3 == chans[i]:
-                    output[:,:,i] = copy_over_C(dBT3_over_dX,n_l,n_e)
-                elif 4 == chans[i]:
-                    output[:,:,i] = copy_over_C(dBT4_over_dX,n_l,n_e)
-                else:
-                    raise Exception('chans out of range in copy_C2')
+            if inverse:
+                output = np.zeros((len(chans),len(n_e),len(n_l)))
+                for i in range(len(chans)):
+                    if 4 == chans[i]:
+                        output[i,:,:] = copy_over_C(dBT3_over_dX,n_l,n_e,inverse=True)
+                    elif 5 == chans[i]:
+                        output[i,:,:] = copy_over_C(dBT4_over_dX,n_l,n_e,inverse=True)
+                    else:
+                        print('chans:',chans)
+                        raise Exception('chans out of range in copy_C2')
+            else:
+                output = np.zeros((len(chans),len(n_l),len(n_e)))
+                for i in range(len(chans)):
+                    if 4 == chans[i]:
+                        output[i,:,:] = copy_over_C(dBT3_over_dX,n_l,n_e)
+                    elif 5 == chans[i]:
+                        output[i,:,:] = copy_over_C(dBT4_over_dX,n_l,n_e)
+                    else:
+                        print('chans:',chans)
+                        raise Exception('chans out of range in copy_C2')
     else:
-        if inverse:
-            output = np.zeros((len(chans),len(n_e),len(n_l)))
-            for i in range(len(chans)):
-                if 3 == chans[i]:
-                    output[i,:,:] = copy_over_C(dBT3_over_dX,n_l,n_e,inverse=True)
-                elif 4 == chans[i]:
-                    output[i,:,:] = copy_over_C(dBT4_over_dX,n_l,n_e,inverse=True)
-                else:
-                    raise Exception('chans out of range in copy_C2')
+        if xchan:
+            if inverse:
+                output = np.zeros((len(n_e),len(n_l),len(chans)))
+                for i in range(len(chans)):
+                    if 3 == chans[i]:
+                        output[:,:,i] = copy_over_C(dBT3_over_dX,n_l,n_e,inverse=True)
+                    elif 4 == chans[i]:
+                        output[:,:,i] = copy_over_C(dBT4_over_dX,n_l,n_e,inverse=True)
+                    else:
+                        print('chans:',chans)
+                        raise Exception('chans out of range in copy_C2')
+            else:
+                output = np.zeros((len(n_l),len(n_e),len(chans)))
+                for i in range(len(chans)):
+                    if 3 == chans[i]:
+                        output[:,:,i] = copy_over_C(dBT3_over_dX,n_l,n_e)
+                    elif 4 == chans[i]:
+                        output[:,:,i] = copy_over_C(dBT4_over_dX,n_l,n_e)
+                    else:
+                        print('chans:',chans)
+                        raise Exception('chans out of range in copy_C2')
         else:
-            output = np.zeros((len(chans),len(n_l),len(n_e)))
-            for i in range(len(chans)):
-                if 3 == chans[i]:
-                    output[i,:,:] = copy_over_C(dBT3_over_dX,n_l,n_e)
-                elif 4 == chans[i]:
-                    output[i,:,:] = copy_over_C(dBT4_over_dX,n_l,n_e)
-                else:
-                    raise Exception('chans out of range in copy_C2')
+            if inverse:
+                output = np.zeros((len(chans),len(n_e),len(n_l)))
+                for i in range(len(chans)):
+                    if 3 == chans[i]:
+                        output[i,:,:] = copy_over_C(dBT3_over_dX,n_l,n_e,inverse=True)
+                    elif 4 == chans[i]:
+                        output[i,:,:] = copy_over_C(dBT4_over_dX,n_l,n_e,inverse=True)
+                    else:
+                        print('chans:',chans)
+                        raise Exception('chans out of range in copy_C2')
+            else:
+                output = np.zeros((len(chans),len(n_l),len(n_e)))
+                for i in range(len(chans)):
+                    if 3 == chans[i]:
+                        output[i,:,:] = copy_over_C(dBT3_over_dX,n_l,n_e)
+                    elif 4 == chans[i]:
+                        output[i,:,:] = copy_over_C(dBT4_over_dX,n_l,n_e)
+                    else:
+                        print('chans:',chans)
+                        raise Exception('chans out of range in copy_C2')
 
     return output
 
@@ -608,20 +783,261 @@ def check_bad_data_no5(lines,elems,quality,dBT3_over_dT,dBT4_over_dT,\
 
     return index
 
-def run_CURUC(data,inchans,line_skip=5,elem_skip=25):
+def check_bad_data_3(lines,elems,quality,\
+                         dRe1_over_dCS,\
+                         dRe2_over_dCS,\
+                         dRe3_over_dCS):
+
+    index = np.zeros(len(lines),dtype=np.int32)
+    
+    j=0
+    for i in range(len(lines)): 
+        test = (quality[lines[i]] > 0) or \
+            check_for_bad_data_TL(dRe1_over_dCS[lines[i],elems]) or \
+            check_for_bad_data_TL(dRe2_over_dCS[lines[i],elems]) or \
+            check_for_bad_data_TL(dRe3_over_dCS[lines[i],elems]) 
+        if test:
+            index[j] = i
+            j=j+1
+
+    index = index[0:j]
+
+    return index
+
+def check_bad_data_no3(lines,elems,quality,\
+                         dRe1_over_dCS,\
+                         dRe2_over_dCS):
+
+    index = np.zeros(len(lines),dtype=np.int32)
+    
+    j=0
+    for i in range(len(lines)): 
+        test = (quality[lines[i]] > 0) or \
+            check_for_bad_data_TL(dRe1_over_dCS[lines[i],elems]) or \
+            check_for_bad_data_TL(dRe2_over_dCS[lines[i],elems]) 
+        if test:
+            index[j] = i
+            j=j+1
+
+    index = index[0:j]
+
+    return index
+
+#
+# Replace bad lines with NaNs
+#
+def replace_NaN_ind(array,mask,datatype=1):
+
+    if datatype == 1:
+        for i in range(array.values.shape[0]):
+            if mask[i]:
+                array.values[i,:,:,:] = float('nan')
+    elif datatype == 2:
+        for i in range(array.values.shape[1]):
+            if mask[i]:
+                array.values[:,i,:,:] = float('nan')
+    elif datatype == 3:
+        for i in range(array.values.shape[2]):
+            if mask[i]:
+                array.values[:,:,i,:] = float('nan')
+    elif datatype == 4:
+        for i in range(array.values.shape[3]):
+            if mask[i]:
+                array.values[:,:,:,i] = float('nan')
+
+    return array
+                            
+#
+# Replace TINY for individual array and then replace bad lines with NaNs
+#
+def replace_TINY_ind(array,derivative=None,derivative_there=False,datatype=1,\
+                         datatype_nan=1,mask=None,outprint=None):
+
+    if 1 == datatype:
+        for i in range(array.values.shape[0]):
+            for j in range(array.values.shape[1]):
+                for k in range(array.values.shape[2]):                    
+                    testarray = array.values[i,j,k,:]
+                    if derivative_there:
+                        derarray = derivative.values[i,j,k,:]
+                        gd = (derarray == 1e-10)
+                    else:
+                        gd = (testarray == 1e-10)
+                    if np.sum(gd) > 0:
+                        gd2 = (testarray != 1e-10)
+                        if np.sum(gd2) > 0:
+                            newarray = testarray[gd2]
+                            array.values[i,j,k,:] = np.median(newarray)
+    elif 2 == datatype:
+        for i in range(array.values.shape[0]):
+            for j in range(array.values.shape[1]):
+                for k in range(array.values.shape[3]):
+                    testarray = array.values[i,j,:,k]
+                    if derivative_there:
+                        derarray = derivative.values[i,j,:,k]
+                        gd = (derarray == 1e-10)
+                    else:
+                        gd = (testarray == 1e-10)
+                    if np.sum(gd) > 0:
+                        gd2 = (testarray != 1e-10)
+                        if np.sum(gd2) > 0:
+                            newarray = testarray[gd2]
+                            array.values[i,j,:,k] = np.median(newarray)
+    elif 3 == datatype:
+        for i in range(array.values.shape[0]):
+            for j in range(array.values.shape[2]):
+                for k in range(array.values.shape[3]):
+                    testarray = array.values[i,:,j,k]
+                    if derivative_there:
+                        #
+                        # Note that for some reason the shape of the derivative
+                        # in this case is different, so different ordering
+                        #
+                        derarray = derivative.values[j,i,:,k]
+                        gd = (derarray == 1e-10)
+                    else:
+                        gd = (testarray == 1e-10)
+                    if np.sum(gd) > 0:
+                        gd2 = (testarray != 1e-10)
+                        if np.sum(gd2) > 0:
+                            newarray = testarray[gd2]
+                            array.values[i,:,j,k] = np.median(newarray)
+
+    #
+    # Anything < -1e20 with nans
+    #
+    gd = (array.values < -1e20)
+    if np.sum(gd) > 0:
+        array.values[gd] = float('nan')
+
+    #
+    # Replace data in bad lines with NaNs if mask present
+    #
+    if mask is None:
+        pass
+    else:
+        array = replace_NaN_ind(array,mask,datatype=datatype_nan)
+
+    return array
+                            
+#
+# Replace TINY values with median values
+# Used for HIRS based on Gerrit's comments
+#
+def replace_TINY(U_xelem_s,U_xline_s,U_xchan_i,U_xchan_s,\
+                     C_xelem_s,C_xline_s,C_xchan_i,C_xchan_s,mask=None):
+
+    U_xelem_s_new = replace_TINY_ind(U_xelem_s,\
+                                         derivative=C_xelem_s,\
+                                         derivative_there=True,\
+                                         datatype=1,datatype_nan=3,\
+                                         mask=mask,outprint='U_xelem_s')
+    C_xelem_s_new = replace_TINY_ind(C_xelem_s,datatype=1,\
+                                         datatype_nan=3,\
+                                         mask=mask,outprint='C_xelem_s')
+    U_xline_s_new = replace_TINY_ind(U_xline_s,derivative=C_xline_s,\
+                                         derivative_there=True,\
+                                         datatype=2,datatype_nan=4,\
+                                         mask=mask,outprint='U_xline_s')
+    C_xline_s_new = replace_TINY_ind(C_xline_s,datatype=2,\
+                                         datatype_nan=4,\
+                                         mask=mask,outprint='C_xline_s')
+    U_xchan_i_new = replace_TINY_ind(U_xchan_i,derivative=C_xchan_i,\
+                                         derivative_there=True,datatype=2,\
+                                         datatype_nan=2,\
+                                         mask=mask,outprint='U_xchan_i')
+    C_xchan_i_new = replace_TINY_ind(C_xchan_i,datatype=2,\
+                                         datatype_nan=2,\
+                                         mask=mask,outprint='C_xchan_i')
+    U_xchan_s_new = replace_TINY_ind(U_xchan_s,derivative=C_xchan_s,\
+                                         derivative_there=True,datatype=3,\
+                                         datatype_nan=1,\
+                                         mask=mask,outprint='U_xchan_s')
+    C_xchan_s_new = replace_TINY_ind(C_xchan_s,datatype=3,\
+                                         datatype_nan=2,\
+                                         mask=mask,outprint='C_xchan_s')
+    gd = np.isfinite(U_xelem_s_new.values)
+
+    return U_xelem_s_new,U_xline_s_new,U_xchan_i_new,U_xchan_s_new,\
+                     C_xelem_s_new,C_xline_s_new,C_xchan_i_new,C_xchan_s_new
+
+def plot_hist(datum,mask,title,subplot,datatype):
+    
+    if -1 != subplot:
+        plt.subplot(2,2,subplot)
+    if datatype == 1:
+        ndata = datum.values.shape[0]
+        array = np.zeros((1,datum.values.shape[1],datum.values.shape[2],datum.values.shape[3])) 
+        inarray = np.zeros((1,datum.values.shape[1],datum.values.shape[2],datum.values.shape[3])) 
+    elif datatype == 2:
+        ndata = datum.values.shape[1]
+        array = np.zeros((1,datum.values.shape[0],datum.values.shape[2],datum.values.shape[3])) 
+        inarray = np.zeros((1,datum.values.shape[0],datum.values.shape[2],datum.values.shape[3])) 
+    elif datatype == 3:
+        ndata = datum.values.shape[2]
+        array = np.zeros((1,datum.values.shape[0],datum.values.shape[1],datum.values.shape[3])) 
+        inarray = np.zeros((1,datum.values.shape[0],datum.values.shape[1],datum.values.shape[3])) 
+    elif datatype == 4:
+        ndata = datum.values.shape[3]
+        array = np.zeros((1,datum.values.shape[0],datum.values.shape[1],datum.values.shape[2])) 
+        inarray = np.zeros((1,datum.values.shape[0],datum.values.shape[1],datum.values.shape[2])) 
+
+    j=0
+    for i in range(ndata):
+        if not mask[i]:
+            if 0 == j:
+                if datatype == 1:
+                    array[0,:,:,:] = datum.values[i,:,:,:]
+                elif datatype == 2:
+                    array[0,:,:,:] = datum.values[:,i,:,:]
+                elif datatype == 3:
+                    array[0,:,:,:] = datum.values[:,:,i,:]
+                elif datatype == 4:
+                    array[0,:,:,:] = datum.values[:,:,:,i]
+                j=j+1
+            else:
+                if datatype == 1:
+                    inarray[0,:,:,:] = datum.values[i,:,:,:]
+                elif datatype == 2:
+                    inarray[0,:,:,:] = datum.values[:,i,:,:]
+                elif datatype == 3:
+                    inarray[0,:,:,:] = datum.values[:,:,i,:]
+                elif datatype == 4:
+                    inarray[0,:,:,:] = datum.values[:,:,:,i]
+                array = np.append(array,inarray,axis=0)
+                j=j+1
+    print('For {0} : nlines={1:d}'.format(title,j))
+    arr = array.flatten()
+    plt.hist(arr,bins=100)
+    plt.title(title)
+    gd = (arr == 0.)
+    if np.sum(gd) > 0:
+        print('There are ZEROs present')
+
+#
+# Set 1's for bad scanline quality
+#
+def bad_scan_quality(scan_qual):
+
+#         1,        2,              4,               8,                16,                        32,                  64
+#DO_NOT_USE, BAD_TIME, BAD_NAVIGATION, BAD_CALIBRATION, CHANNEL3A_PRESENT,SOLAR_CONTAMINATION_FAILURE,SOLAR_CONTAMINATION
+
+    out_scan = np.zeros(len(scan_qual),dtype=np.int8)
+    for i in range(len(scan_qual)):
+        if 1 == scan_qual[i]&1 or 2 == scan_qual[i]&2 or \
+                4 == scan_qual[i]&4 or 8 == scan_qual[i]&8 or \
+                32 == scan_qual[i]&32:
+            out_scan[i] = 1
+
+    return out_scan
+
+def run_CURUC(data,inchans,vis_chans=False,common=False,\
+                  line_skip=5,elem_skip=25,ch3a_version=False):
 
     #
     # Check chans in right order - note chans goes from 0 to 5
     #
     chans = np.sort(inchans)
-    #
-    # Make two sets of chans - one visible, one IR
-    #
-    gd = (chans <= 2)
-    vis_chans = chans[gd]
-    ir_start = vis_chans[-1]+1
-    gd = (chans >= 3)
-    ir_chans = chans[gd]
     #
     # Allocate CURUC arrays
     #
@@ -639,7 +1055,21 @@ def run_CURUC(data,inchans,line_skip=5,elem_skip=25):
     #
     nlines = data.ch1.shape[0]
     nelems = data.ch1.shape[1]
-    neffects_s = 3
+    #
+    # Define number of structured and common effects to deal with (common 
+    # effects for channel to channel only)
+    #
+    if vis_chans:
+        # CS only
+        neffects_s = 1
+    else:
+        if common:
+            # ICT T and Harmonisation
+            neffects_s = 2
+        else:
+            # CS, CICT, ICT T
+            neffects_s = 3
+    # Noise
     neffects_i = 1
     nchans = len(chans)
     R_xelem_s, R_xline_s, R_xchan_i, R_xchan_s,\
@@ -683,14 +1113,23 @@ def run_CURUC(data,inchans,line_skip=5,elem_skip=25):
     # Take into account visible channels which are not correlated with
     # the first effect (Tict)
     # Diagnonal for the vis chans, full matrix for the IR chans
-    for i in range(ir_start-1):
-        R_xchan_s.values[0,:,:,i,i] = 1
-    R_xchan_s.values[0,:,:,ir_start:,ir_start:] = 1
-    Temp_array = np.zeros((len(R_xline_s.coords['n_c']),\
+    if vis_chans:
+        for i in range(len(chans)):
+            R_xchan_s.values[0,:,:,i,i] = 1
+    else:
+        #
+        # Note that Harmonisation is uncorrelated in channel space
+        #
+        R_xchan_s.values[0,:,:,:,:] = 1
+        Temp_array = np.zeros((len(R_xline_s.coords['n_c']),\
                                    len(R_xline_s.coords['n_c'])))
-    Temp_array[:,:] = np.identity(len(R_xline_s.coords['n_c']))
-    R_xchan_s.values[1,:,:,:,:] = Temp_array[np.newaxis,np.newaxis,:,:]
-    R_xchan_s.values[2,:,:,:,:] = Temp_array[np.newaxis,np.newaxis,:,:]
+        Temp_array[:,:] = np.identity(len(R_xline_s.coords['n_c']))
+        R_xchan_s.values[1,:,:,:,:] = Temp_array[np.newaxis,np.newaxis,:,:]
+        if not common:
+            #
+            # Add last effect if not common (systematic)
+            #
+            R_xchan_s.values[2,:,:,:,:] = Temp_array[np.newaxis,np.newaxis,:,:]
 
     # Map uncertainties (which are constant in the T, Counts space).
     # All these are averaged over the smoothing scale (+/-)
@@ -698,30 +1137,79 @@ def run_CURUC(data,inchans,line_skip=5,elem_skip=25):
     # n_c, n_s, n_l, n_e
     #
     # First one is the ICT temperature one
-    U_xelem_s.values[ir_start:,0,:,:] = data.ICT_Temperature_Uncertainty
+    if vis_chans:
+        # noise term only
+        for i in range(len(chans)):
+            U_xelem_s.values[i,0,:,:] = data.cal_cnts_noise[chans[i]]
+    else:
+        U_xelem_s.values[:,0,:,:] = \
+            np.sqrt(data.ICT_Temperature_Uncertainty**2+\
+                        data.PRT_Uncertainty**2)
 
-    # Second is the Space view one
-    for i in range(len(chans)):
-        U_xelem_s.values[i,1,:,:] = data.cal_cnts_noise[chans[i]]
-        
-    # Third is the ICT view one
-    for i in range(ir_start,len(chans)):
-        U_xelem_s.values[i,2,:,:] = data.cal_cnts_noise[chans[i]]
+        if common:
+            for i in range(len(chans)):
+                if chans[i] == 3:
+                    newarray = copy_over_C(data.ch3b_harm,\
+                                               U_xelem_s.coords['n_l'],\
+                                               U_xelem_s.coords['n_e'])
+                elif chans[i] == 4:
+                    newarray = copy_over_C(data.ch4_harm,\
+                                               U_xelem_s.coords['n_l'],\
+                                               U_xelem_s.coords['n_e'])
+                elif chans[i] == 5:
+                    newarray = copy_over_C(data.ch5_harm,\
+                                               U_xelem_s.coords['n_l'],\
+                                               U_xelem_s.coords['n_e'])
+                U_xelem_s.values[i,1,:,:] = newarray[:,:]
+        else:
+            # Second is the Space view one
+            for i in range(len(chans)):
+                U_xelem_s.values[i,1,:,:] = data.cal_cnts_noise[chans[i]]
+                
+            # Third is the ICT view one
+            for i in range(len(chans)):
+                U_xelem_s.values[i,2,:,:] = data.cal_cnts_noise[chans[i]]
 
     # Cross line case
     # Elements
     # n_c, n_s, n_e, n_l
     #
-    # First one is the ICT temperature one
-    U_xline_s.values[:,0,:,:] = data.ICT_Temperature_Uncertainty
+    # For vis just av noise, IR three component
+    #
+    if vis_chans:
+        for i in range(len(chans)):
+            U_xline_s.values[i,0,:,:] = data.cal_cnts_noise[chans[i]]
+    else:
+        U_xline_s.values[:,0,:,:] = \
+            np.sqrt(data.ICT_Temperature_Uncertainty**2+\
+                        data.PRT_Uncertainty**2)
 
-    # Second is the Space view one
-    for i in range(len(chans)):
-        U_xline_s.values[i,1,:,:] = data.cal_cnts_noise[chans[i]]
+        if common:
+            for i in range(len(chans)):
+                if chans[i] == 3:
+                    newarray = copy_over_C(data.ch3b_harm,\
+                                               U_xline_s.coords['n_l'],\
+                                               U_xline_s.coords['n_e'],\
+                                               inverse=True)
+                elif chans[i] == 4:
+                    newarray = copy_over_C(data.ch4_harm,\
+                                               U_xline_s.coords['n_l'],\
+                                               U_xline_s.coords['n_e'],\
+                                               inverse=True)
+                elif chans[i] == 5:
+                    newarray = copy_over_C(data.ch5_harm,\
+                                               U_xline_s.coords['n_l'],\
+                                               U_xline_s.coords['n_e'],\
+                                               inverse=True)
+                U_xline_s.values[i,1,:,:] = newarray[:,:]
+        else:
+            # Second is the Space view one
+            for i in range(len(chans)):
+                U_xline_s.values[i,1,:,:] = data.cal_cnts_noise[chans[i]]
 
-    # Third is the ICT view one
-    for i in range(len(chans)):
-        U_xline_s.values[i,2,:,:] = data.cal_cnts_noise[chans[i]]
+            # Third is the ICT view one
+            for i in range(len(chans)):
+                U_xline_s.values[i,2,:,:] = data.cal_cnts_noise[chans[i]]
 
     # Uncertainties for channel to channel (systematic)
     # Elements
@@ -735,13 +1223,33 @@ def run_CURUC(data,inchans,line_skip=5,elem_skip=25):
     # Note have to remember first 2/3 channels are vis chans so no
     # temperature uncertainty
     #
-    U_xchan_s.values[:,:,0,ir_start:] = data.ICT_Temperature_Uncertainty
-    for i in range(len(chans)):
-        U_xchan_s.values[:,:,1,i] = data.cal_cnts_noise[chans[i]]
-    # Only IR channels as this is noise on ICT counts
-    for i in range(len(chans)):
-        if chans[i] >= 3:
-            U_xchan_s.values[:,:,2,i] = data.cal_cnts_noise[chans[i]]
+    if vis_chans:
+        pass
+    else:
+        U_xchan_s.values[:,:,0,:] = \
+            np.sqrt(data.ICT_Temperature_Uncertainty**2+\
+                        data.PRT_Uncertainty**2)
+        if  common:
+            for i in range(len(chans)):
+                if chans[i] == 3:
+                    newarray = copy_over_C(data.ch3b_harm,\
+                                               U_xchan_s.coords['n_l'],\
+                                               U_xchan_s.coords['n_e'])
+                elif chans[i] == 4:
+                    newarray = copy_over_C(data.ch4_harm,\
+                                               U_xchan_s.coords['n_l'],\
+                                               U_xchan_s.coords['n_e'])
+                elif chans[i] == 5:
+                    newarray = copy_over_C(data.ch5_harm,\
+                                               U_xchan_s.coords['n_l'],\
+                                               U_xchan_s.coords['n_e'])
+                U_xchan_s.values[:,:,1,i] = newarray[:,:]
+        else:
+            for i in range(len(chans)):
+                U_xchan_s.values[:,:,1,i] = data.cal_cnts_noise[chans[i]]
+            # Only IR channels as this is noise on ICT counts
+            for i in range(len(chans)):
+                U_xchan_s.values[:,:,2,i] = data.cal_cnts_noise[chans[i]]
 
     # Uncertainties for channel to channel (independent) - zero
     # Note single pixel noise here
@@ -752,128 +1260,205 @@ def run_CURUC(data,inchans,line_skip=5,elem_skip=25):
     # This has to use the coordinates to make correctly as the sensitivities
     # change pixel to pixel
     # 3.7 micron channel
-    if data.ch5_there:
-        C_xelem_s.values[ir_start:,0,:,:] = \
-            copy_C3(data.dBT3_over_dT,data.dBT4_over_dT,data.dBT5_over_dT,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        ir_chans)
-        C_xelem_s.values[ir_start:,1,:,:] = \
-            copy_C3(data.dBT3_over_dCS,data.dBT4_over_dCS,data.dBT5_over_dCS,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        ir_chans)
-        C_xelem_s.values[ir_start:,2,:,:] = \
-            copy_C3(data.dBT3_over_dCICT,data.dBT4_over_dCICT,\
-                        data.dBT5_over_dCICT,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        ir_chans)
-
-        C_xline_s.values[ir_start:,0,:,:] = \
-            copy_C3(data.dBT3_over_dT,data.dBT4_over_dT,data.dBT5_over_dT,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        ir_chans,inverse=True)
-        C_xline_s.values[ir_start:,1,:,:] = \
-            copy_C3(data.dBT3_over_dCS,data.dBT4_over_dCS,data.dBT5_over_dCS,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        ir_chans,inverse=True)
-        C_xline_s.values[ir_start:,2,:,:] = \
-            copy_C3(data.dBT3_over_dCICT,data.dBT4_over_dCICT,\
-                        data.dBT5_over_dCICT,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        ir_chans,inverse=True)
-
-        # Now X channel
-        C_xchan_s.values[0,:,:,ir_start:] = \
-            copy_C3(data.dBT3_over_dT,data.dBT4_over_dT,data.dBT5_over_dT,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        ir_chans,xchan=True)
-        C_xchan_s.values[1,:,:,ir_start:] = \
-            copy_C3(data.dBT3_over_dCS,data.dBT4_over_dCS,data.dBT5_over_dCS,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        ir_chans,xchan=True)
-        C_xchan_s.values[2,:,:,ir_start:] = \
-            copy_C3(data.dBT3_over_dCICT,data.dBT4_over_dCICT,\
-                        data.dBT5_over_dCICT,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        ir_chans,xchan=True)
-
+    if vis_chans:
         #
-        # Independent effects
+        # Visible channel case now - only for CS averaging no X channel
         #
-        C_xchan_i.values[0,:,:,ir_start:] = \
-            copy_C3(data.dBT3_over_dT,data.dBT4_over_dT,data.dBT5_over_dT,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        ir_chans,xchan=True)
+        if ch3a_version:
+            C_xelem_s.values[:,0,:,:] = \
+                copy_C3_vis(data.dRe1_over_dCS,data.dRe2_over_dCS,data.dRe3a_over_dCS,\
+                                C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                                chans)
 
-    else: # Don't have channel 5
-        C_xelem_s.values[:,0,:,ir_start:] = \
-            copy_C2(data.dBT3_over_dT,data.dBT4_over_dT,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        ir_chans)
-        C_xelem_s.values[:,1,:,ir_start:] = \
-            copy_C2(data.dBT3_over_dCS,data.dBT4_over_dCS,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        ir_chans)
-        C_xelem_s.values[:,2,:,ir_start:] = \
-            copy_C2(data.dBT3_over_dCICT,data.dBT4_over_dCICT,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        ir_chans)
+            C_xline_s.values[:,0,:,:] = \
+                copy_C3_vis(data.dRe1_over_dCS,data.dRe2_over_dCS,data.dRe3a_over_dCS,\
+                                C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                                chans,inverse=True)
 
-        C_xline_s.values[:,0,:,ir_start:] = \
-            copy_C2(data.dBT3_over_dT,data.dBT4_over_dT,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        ir_chans,inverse=True)
-        C_xline_s.values[:,1,:,ir_start:] = \
-            copy_C2(data.dBT3_over_dCS,data.dBT4_over_dCS,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        ir_chans,inverse=True)
-        C_xline_s.values[:,2,:,ir_start:] = \
-            copy_C2(data.dBT3_over_dCICT,data.dBT4_over_dCICT,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        ir_chans,inverse=True)
+        else: # Don't have channel 1.6 and no X channel
+            C_xelem_s.values[:,0,:,:] = \
+                copy_C2_vis(data.dRe1_over_dCS,data.dRe2_over_dCS,\
+                                C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                                chans)
 
-        # Now X channel
-        C_xchan_s.values[0,:,:,ir_start:] = \
-            copy_C2(data.dBT3_over_dT,data.dBT4_over_dT,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        ir_chans,xchan=True)
-        C_xchan_s.values[1,:,:,ir_start:] = \
-            copy_C2(data.dBT3_over_dCS,data.dBT4_over_dCS,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        ir_chans,xchan=True)
-        C_xchan_s.values[2,:,:,ir_start:] = \
-            copy_C2(data.dBT3_over_dCICT,data.dBT4_over_dCICT,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        ir_chans,xchan=True)
+            C_xline_s.values[:,0,:,:] = \
+                copy_C2_vis(data.dRe1_over_dCS,data.dRe2_over_dCS,\
+                                C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                                chans,inverse=True)
+    else:
+        # 3.7,11 and 12 micron channels present
+        if data.ch5_there and not ch3a_version:
+            C_xelem_s.values[:,0,:,:] = \
+                copy_C3(data.dBT3_over_dT,data.dBT4_over_dT,data.dBT5_over_dT,\
+                            C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                            chans)
+            if common:
+                C_xelem_s.values[:,1,:,:] = 1
+            else:
+                C_xelem_s.values[:,1,:,:] = \
+                    copy_C3(data.dBT3_over_dCS,data.dBT4_over_dCS,data.dBT5_over_dCS,\
+                                C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                                chans)
+                C_xelem_s.values[:,2,:,:] = \
+                    copy_C3(data.dBT3_over_dCICT,data.dBT4_over_dCICT,\
+                                data.dBT5_over_dCICT,\
+                                C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                                chans)
 
-        C_xchan_i.values[0,:,:,ir_start:] = \
-            copy_C2(data.dBT3_over_dT,data.dBT4_over_dT,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        ir_chans,xchan=True)
+            C_xline_s.values[:,0,:,:] = \
+                copy_C3(data.dBT3_over_dT,data.dBT4_over_dT,data.dBT5_over_dT,\
+                            C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                            chans,inverse=True)
+            if common:
+                C_xline_s.values[:,1,:,:] = 1
+            else:
+                C_xline_s.values[:,1,:,:] = \
+                    copy_C3(data.dBT3_over_dCS,data.dBT4_over_dCS,data.dBT5_over_dCS,\
+                                C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                                chans,inverse=True)
+                C_xline_s.values[:,2,:,:] = \
+                    copy_C3(data.dBT3_over_dCICT,data.dBT4_over_dCICT,\
+                                data.dBT5_over_dCICT,\
+                                C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                                chans,inverse=True)
 
-    #
-    # Visible channel case now - only for CS averaging no X channel
-    #
-    if data.ch3a_there:
-        C_xelem_s.values[0:ir_start,1,:,:] = \
-            copy_C3_vis(data.dRe1_over_dCS,data.dRe2_over_dCS,data.dRe3a_over_dCS,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        vis_chans)
+            # Now X channel
+            C_xchan_s.values[0,:,:,:] = \
+                copy_C3(data.dBT3_over_dT,data.dBT4_over_dT,data.dBT5_over_dT,\
+                            C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                            chans,xchan=True)
+            if common:
+                C_xchan_s.values[1,:,:,:] = 1
+            else:
+                C_xchan_s.values[1,:,:,:] = \
+                    copy_C3(data.dBT3_over_dCS,data.dBT4_over_dCS,data.dBT5_over_dCS,\
+                                C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                                chans,xchan=True)
+                C_xchan_s.values[2,:,:,:] = \
+                    copy_C3(data.dBT3_over_dCICT,data.dBT4_over_dCICT,\
+                                data.dBT5_over_dCICT,\
+                                C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                                chans,xchan=True)
 
-        C_xline_s.values[0:ir_start,1,:,:] = \
-            copy_C3_vis(data.dRe1_over_dCS,data.dRe1_over_dCS,data.dRe3a_over_dCS,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        vis_chans,inverse=True)
+            #
+            # Independent effects
+            #
+            C_xchan_i.values[0,:,:,:] = \
+                copy_C3(data.dBT3_over_dT,data.dBT4_over_dT,data.dBT5_over_dT,\
+                            C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                            chans,xchan=True)
 
-    else: # Don't have channel 1.6 and no X channel
-        C_xelem_s.values[0:ir_start,1,:,:] = \
-            copy_C2_vis(data.dRe1_over_dCS,data.dRe2_over_dCS,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        vis_chans)
+        elif not ch3a_version: # Don't have channel 5 but have 3.7
 
-        C_xline_s.values[0:ir_start,1,:,:] = \
-            copy_C2_vis(data.dRe1_over_dCS,data.dRe2_over_dCS,\
-                        C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
-                        vis_chans,inverse=True)
+            C_xelem_s.values[:,0,:,:] = \
+                copy_C2(data.dBT3_over_dT,data.dBT4_over_dT,\
+                            C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                            chans)
+            if common:
+                C_xelem_s.values[:,1,:,:] = 1
+            else:
+                C_xelem_s.values[:,1,:,:] = \
+                    copy_C2(data.dBT3_over_dCS,data.dBT4_over_dCS,\
+                                C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                                chans)
+                C_xelem_s.values[:,2,:,:] = \
+                    copy_C2(data.dBT3_over_dCICT,data.dBT4_over_dCICT,\
+                                C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                                chans)
+                
+            C_xline_s.values[:,0,:,:] = \
+                copy_C2(data.dBT3_over_dT,data.dBT4_over_dT,\
+                            C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                            chans,inverse=True)
+            if common:
+                C_xline_s.values[:,1,:,:] = 1
+            else:
+                C_xline_s.values[:,1,:,:] = \
+                    copy_C2(data.dBT3_over_dCS,data.dBT4_over_dCS,\
+                                C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                                chans,inverse=True)
+                C_xline_s.values[:,2,:,:] = \
+                    copy_C2(data.dBT3_over_dCICT,data.dBT4_over_dCICT,\
+                                C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                                chans,inverse=True)
+            
+            # Now X channel
+            C_xchan_s.values[0,:,:,:] = \
+                copy_C2(data.dBT3_over_dT,data.dBT4_over_dT,\
+                            C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                            chans,xchan=True)
+            if common:
+                C_xchan_s.values[1,:,:,:] = 1
+            else:
+                C_xchan_s.values[1,:,:,:] = \
+                    copy_C2(data.dBT3_over_dCS,data.dBT4_over_dCS,\
+                                C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                                chans,xchan=True)
+                C_xchan_s.values[2,:,:,:] = \
+                    copy_C2(data.dBT3_over_dCICT,data.dBT4_over_dCICT,\
+                                C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                                chans,xchan=True)
+            
+            C_xchan_i.values[0,:,:,:] = \
+                copy_C2(data.dBT3_over_dT,data.dBT4_over_dT,\
+                            C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                            chans,xchan=True)
+
+        else:
+            # Channel 11 and 12 only (no 3.7 micron channel)
+            C_xelem_s.values[:,0,:,:] = \
+                copy_C2(data.dBT4_over_dT,data.dBT5_over_dT,\
+                            C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                            chans,ch3a=True)
+            if common:
+                C_xelem_s.values[:,1,:,:] = 1
+            else:
+                C_xelem_s.values[:,1,:,:] = \
+                    copy_C2(data.dBT4_over_dCS,data.dBT5_over_dCS,\
+                                C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                                chans,ch3a=True)
+                C_xelem_s.values[:,2,:,:] = \
+                    copy_C2(data.dBT4_over_dCICT,data.dBT5_over_dCICT,\
+                                C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                                chans,ch3a=True)
+                
+            C_xline_s.values[:,0,:,:] = \
+                copy_C2(data.dBT4_over_dT,data.dBT5_over_dT,\
+                            C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                            chans,inverse=True,ch3a=True)
+            if common:
+                C_xline_s.values[:,1,:,:] = 1
+            else:
+                C_xline_s.values[:,1,:,:] = \
+                    copy_C2(data.dBT4_over_dCS,data.dBT5_over_dCS,\
+                                C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                                chans,inverse=True,ch3a=True)
+                C_xline_s.values[:,2,:,:] = \
+                    copy_C2(data.dBT4_over_dCICT,data.dBT5_over_dCICT,\
+                                C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                                chans,inverse=True,ch3a=True)
+            
+            # Now X channel
+            C_xchan_s.values[0,:,:,:] = \
+                copy_C2(data.dBT4_over_dT,data.dBT5_over_dT,\
+                            C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                            chans,xchan=True,ch3a=True)
+            if common:
+                C_xchan_s.values[1,:,:,:] = 1
+            else:
+                C_xchan_s.values[1,:,:,:] = \
+                    copy_C2(data.dBT4_over_dCS,data.dBT5_over_dCS,\
+                                C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                                chans,xchan=True,ch3a=True)
+                C_xchan_s.values[2,:,:,:] = \
+                    copy_C2(data.dBT4_over_dCICT,data.dBT5_over_dCICT,\
+                                C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                                chans,xchan=True,ch3a=True)
+            
+            C_xchan_i.values[0,:,:,:] = \
+                copy_C2(data.dBT4_over_dT,data.dBT5_over_dT,\
+                            C_xelem_s.coords['n_l'],C_xelem_s.coords['n_e'],\
+                            chans,xchan=True,ch3a=True)
 
     # make mask data (xarray bool)
     # Keep all channels (dtype='?' means boolean)
@@ -886,31 +1471,102 @@ def run_CURUC(data,inchans,line_skip=5,elem_skip=25):
     #
     # Check for bad scan lines and lines with bad TLs
     #
-    if data.ch5_there:
-        index = check_bad_data_5(R_xline_s.coords['n_l'].values,\
-                                     R_xline_s.coords['n_e'].values,\
-                                     data.scan_qual,\
-                                     data.dBT3_over_dT,\
-                                     data.dBT4_over_dT,\
-                                     data.dBT5_over_dT,\
-                                     data.dBT3_over_dCS,\
-                                     data.dBT4_over_dCS,\
-                                     data.dBT5_over_dCS,\
-                                     data.dBT3_over_dCICT,\
-                                     data.dBT4_over_dCICT,\
-                                     data.dBT5_over_dCICT)
+    scan_qual = bad_scan_quality(data.scan_qual)
+    if vis_chans:
+        if ch3a_version:
+            index = check_bad_data_3(R_xline_s.coords['n_l'].values,\
+                                         R_xline_s.coords['n_e'].values,\
+                                         scan_qual,\
+                                         data.dRe1_over_dCS,\
+                                         data.dRe2_over_dCS,\
+                                         data.dRe3a_over_dCS)
+        else:
+            index = check_bad_data_no3(R_xline_s.coords['n_l'].values,\
+                                           R_xline_s.coords['n_e'].values,\
+                                           scan_qual,\
+                                           data.dRe1_over_dCS,\
+                                           data.dRe2_over_dCS)
     else:
-        index = check_bad_data_no5(R_xline_s.coords['n_l'].values,\
-                                       R_xline_s.coords['n_e'].values,\
-                                       data.scan_qual,\
-                                       data.dBT3_over_dT,\
-                                       data.dBT4_over_dT,\
-                                       data.dBT3_over_dCS,\
-                                       data.dBT4_over_dCS,\
-                                       data.dBT3_over_dCICT,\
-                                       data.dBT4_over_dCICT)
+        if data.ch5_there and not ch3a_version:
+            index = check_bad_data_5(R_xline_s.coords['n_l'].values,\
+                                         R_xline_s.coords['n_e'].values,\
+                                         scan_qual,\
+                                         data.dBT3_over_dT,\
+                                         data.dBT4_over_dT,\
+                                         data.dBT5_over_dT,\
+                                         data.dBT3_over_dCS,\
+                                         data.dBT4_over_dCS,\
+                                         data.dBT5_over_dCS,\
+                                         data.dBT3_over_dCICT,\
+                                         data.dBT4_over_dCICT,\
+                                         data.dBT5_over_dCICT)
+        elif not ch3a_version:
+            index = check_bad_data_no5(R_xline_s.coords['n_l'].values,\
+                                           R_xline_s.coords['n_e'].values,\
+                                           scan_qual,\
+                                           data.dBT3_over_dT,\
+                                           data.dBT4_over_dT,\
+                                           data.dBT3_over_dCS,\
+                                           data.dBT4_over_dCS,\
+                                           data.dBT3_over_dCICT,\
+                                           data.dBT4_over_dCICT)
+        else:
+            index = check_bad_data_no5(R_xline_s.coords['n_l'].values,\
+                                           R_xline_s.coords['n_e'].values,\
+                                           scan_qual,\
+                                           data.dBT4_over_dT,\
+                                           data.dBT5_over_dT,\
+                                           data.dBT4_over_dCS,\
+                                           data.dBT5_over_dCS,\
+                                           data.dBT4_over_dCICT,\
+                                           data.dBT5_over_dCICT)
     mask2.values[index] = True
-    
+
+    # 
+    # Replace TINY numbers with scanline median and
+    # Fill masked values with nan's
+    # Should be done in the CURUC code but is only done for a subset of
+    # arrays (I think). Leads to nan's in outputs
+    #
+    U_xelem_s_new,U_xline_s_new,U_xchan_i_new,U_xchan_s_new,\
+                     C_xelem_s_new,C_xline_s_new,C_xchan_i_new,\
+                     C_xchan_s_new = \
+                     replace_TINY(U_xelem_s,U_xline_s,U_xchan_i,U_xchan_s,\
+                                      C_xelem_s,C_xline_s,C_xchan_i,C_xchan_s,\
+                                      mask=mask2.values)
+    # Per line
+    if not vis_chans and not common:
+        for i in range(U_xchan_s.values.shape[0]):
+            # Per element
+            for j in range(U_xchan_s.values.shape[1]):
+                # Per effect
+                for k in range(U_xchan_s.values.shape[2]):
+                    # Per channel
+                    array = np.zeros(4+U_xchan_s.values.shape[3]+\
+                                         C_xchan_s.values.shape[3]+\
+                                         U_xchan_s_new.values.shape[3]+\
+                                         C_xchan_s_new.values.shape[3],\
+                                         dtype=np.float32)
+                    array[0] = i # scanlines
+                    array[1] = j # element
+                    array[2] = k # effect
+                    if mask2.values[i]:
+                        array[3] = 1
+                    else:
+                        array[3] = 0
+                    offset=4
+                    array[offset:offset+U_xchan_s.values.shape[3]] = \
+                        U_xchan_s.values[i,j,k,:]
+                    offset=offset+U_xchan_s.values.shape[3]
+                    array[offset:offset+C_xchan_s.values.shape[3]] = \
+                        C_xchan_s.values[k,i,j,:]
+                    offset=offset+C_xchan_s.values.shape[3]
+                    array[offset:offset+U_xchan_s_new.values.shape[3]] = \
+                        U_xchan_s_new.values[i,j,k,:]
+                    offset=offset+U_xchan_s_new.values.shape[3]
+                    array[offset:offset+C_xchan_s_new.values.shape[3]] = \
+                        C_xchan_s_new.values[k,i,j,:]
+    gd = np.isfinite(U_xelem_s.values) 
     # Now run CURUC
     ny = int(data.ch1.shape[0]/line_skip)
     if 0 == ny:
@@ -918,11 +1574,12 @@ def run_CURUC(data,inchans,line_skip=5,elem_skip=25):
     nx = int(data.ch1.shape[1]/elem_skip)
     if 0 == nx:
         nx = 1
-#    np.seterr(divide="raise",over="raise",invalid="raise",under="ignore")
     xline_length, xelem_length, xchan_corr_i, xchan_corr_s, xl_all, xe_all = \
         met.apply_curuc(R_xelem_s, R_xline_s, R_xchan_i, R_xchan_s,\
-                            U_xelem_s, U_xline_s, U_xchan_s, U_xchan_i,\
-                            C_xelem_s, C_xline_s, C_xchan_s, C_xchan_i,\
+                            U_xelem_s, U_xline_s, \
+                            U_xchan_s, U_xchan_i,\
+                            C_xelem_s, C_xline_s, \
+                            C_xchan_s, C_xchan_i,\
                             coords,mask1,mask2,return_vectors=True,\
                             interpolate_lengths=True,\
                             cutoff_l=ny,cutoff_e=nx)    
@@ -936,7 +1593,7 @@ def run_CURUC(data,inchans,line_skip=5,elem_skip=25):
 def get_srf(noaa,allchans):
 
     srf_dir = \
-        '/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/Mike/FCDR_AVHRR/SRF/data/'
+        '/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/Mike/FCDR_AVHRR/SRF/data/'
 
     #
     # Remove visible channels as they are not controlled by a FIDUCEO
@@ -1072,9 +1729,10 @@ def get_srf(noaa,allchans):
     out_bt = out_bt.transpose()
 
     # Set 0's in srf to NaN
-    gd = (wave == 0)
-    out_wave[gd] = float('nan')
-    out_srf[gd] = float('nan')
+    gd = (out_wave == 0)
+    if np.sum(gd) > 0:
+        out_wave[gd] = float('nan')
+        out_srf[gd] = float('nan')
 
     return out_wave,out_srf,out_radiance,out_bt
 
@@ -1101,75 +1759,146 @@ def main_outfile(data,ch3a_version,fileout='None',split=False,gbcs_l1c=False):
             chans = np.array([0,1,3,4,5],dtype=np.int8)
     else:
         raise Exception('noaa_string not found')
-    xline_length, xelem_length, xchan_corr_i, xchan_corr_s, \
-        xl_all, xe_all = run_CURUC(data,chans,line_skip=5,elem_skip=25)
+    inchans = np.sort(chans)
+    #
+    # Make two sets of chans - one visible, one IR
+    #
+    gd = (inchans <= 2)
+    vis_chans = inchans[gd]
+    gd = (inchans >= 3)
+    ir_chans = inchans[gd]
+    #
+    # Run CURUC for vis chans only
+    #
+    vis_xline_length, vis_xelem_length, vis_xchan_corr_i, \
+        vis_xchan_corr_s, vis_xl_all, vis_xe_all = \
+        run_CURUC(data,vis_chans,vis_chans=True,common=False,\
+                      line_skip=5,elem_skip=25,ch3a_version=ch3a_version)
+    #
+    # Run CURUC for IR chans only - not common
+    #
+    ir_xline_length, ir_xelem_length, ir_xchan_corr_i, \
+        ir_xchan_corr_s, ir_xl_all, ir_xe_all = \
+        run_CURUC(data,ir_chans,vis_chans=False,common=False,\
+                      line_skip=5,elem_skip=25,ch3a_version=ch3a_version)
+    #
+    # Run CURUC for IR chans only - common effects
+    #
+    com_xline_length, com_xelem_length, com_xchan_corr_i, \
+        com_xchan_corr_s, com_xl_all, com_xe_all = \
+        run_CURUC(data,ir_chans,vis_chans=False,common=True,\
+                      line_skip=5,elem_skip=25,ch3a_version=ch3a_version)
 
-    gd = (xl_all.values > 0.)
-    corr_l = xl_all.values[gd]
+    xline_length = np.copy(vis_xline_length.values)
+    xline_length = np.append(xline_length,ir_xline_length.values,axis=0)
+
+    xelem_length = np.copy(vis_xelem_length.values)
+    xelem_length = np.append(xelem_length,ir_xelem_length.values,axis=0)
+
+    xl_all = np.copy(vis_xl_all.values)
+    xl_all = np.append(xl_all,ir_xl_all.values,axis=1)
+
+    xe_all = np.copy(vis_xe_all.values)
+    xe_all = np.append(xe_all,ir_xe_all.values,axis=1)
+
+    gd = (xl_all > 0.)
+    corr_l = xl_all[gd]
     corr_l = np.append(corr_l,np.array([0.]))
 
     # Get SRF and lookup tables
     srf_x,srf_y,lut_rad,lut_bt = get_srf(data.noaa_string,chans)
 
-
 # MT: 09-11-2017: define sensor specific channel_correlation_matrix (ccm)
+# JM: Now merge separate CURUC runs (vis, IR structured, IR common)
     noch3a=False
     noch5=False
     if data.noaa_string in ['NOAA06','NOAA08','NOAA10']:
         # Run CURUC for 2 channel IR AVHRR
-        inS_s = np.array([[xchan_corr_s.values[0,0],\
-                             xchan_corr_s.values[0,1]],\
-                            [xchan_corr_s.values[1,0],\
-                                 xchan_corr_s.values[1,1]]])
+        inS_s = np.array([[ir_xchan_corr_s.values[0,0],\
+                             ir_xchan_corr_s.values[0,1]],\
+                            [ir_xchan_corr_s.values[1,0],\
+                                 ir_xchan_corr_s.values[1,1]]])
+        # Run CURUC for 2 channel IR AVHRR
+        inS_c = np.array([[com_xchan_corr_s.values[0,0],\
+                             com_xchan_corr_s.values[0,1]],\
+                            [com_xchan_corr_s.values[1,0],\
+                                 com_xchan_corr_s.values[1,1]]])
         inS_i = np.array([[1.,0.,],[0.,1.]])
         start=3
         stop=5
         noch3a=True
         noch5=True
     elif data.noaa_string in ['NOAA07','NOAA09','NOAA11','NOAA12','NOAA14']:
-        inS_s = np.array([[xchan_corr_s.values[0,0],\
-                             xchan_corr_s.values[0,1],\
-                             xchan_corr_s.values[0,2]],\
-                            [xchan_corr_s.values[1,0],\
-                                 xchan_corr_s.values[1,1],\
-                                 xchan_corr_s.values[1,2]],\
-                            [xchan_corr_s.values[2,0],\
-                                 xchan_corr_s.values[2,1],\
-                                 xchan_corr_s.values[2,2]]])
+        inS_s = np.array([[ir_xchan_corr_s.values[0,0],\
+                             ir_xchan_corr_s.values[0,1],\
+                             ir_xchan_corr_s.values[0,2]],\
+                            [ir_xchan_corr_s.values[1,0],\
+                                 ir_xchan_corr_s.values[1,1],\
+                                 ir_xchan_corr_s.values[1,2]],\
+                            [ir_xchan_corr_s.values[2,0],\
+                                 ir_xchan_corr_s.values[2,1],\
+                                 ir_xchan_corr_s.values[2,2]]])
+        inS_c = np.array([[com_xchan_corr_s.values[0,0],\
+                             com_xchan_corr_s.values[0,1],\
+                             com_xchan_corr_s.values[0,2]],\
+                            [com_xchan_corr_s.values[1,0],\
+                                 com_xchan_corr_s.values[1,1],\
+                                 com_xchan_corr_s.values[1,2]],\
+                            [com_xchan_corr_s.values[2,0],\
+                                 com_xchan_corr_s.values[2,1],\
+                                 com_xchan_corr_s.values[2,2]]])
         inS_i = np.array([[1.,0.,0.],[0.,1.,0.],[0.,0.,1.]])
         start=3
         stop=6
         noch3a=True
     elif data.noaa_string in ['NOAA15','NOAA16','NOAA17','NOAA18','NOAA19','METOPA','METOPB','METOPC']:
-        if ch3a_version:
-            inS_i = np.array([[0.,0.,0.],[0.,1.,0.],[0.,0.,1.]])
-            inS_s = np.diag([0,\
-                               xchan_corr_s.values[0,1],\
-                               xchan_corr_s.values[0,2],\
-                               xchan_corr_s.values[1,0],\
-                               xchan_corr_s.values[1,1],\
-                               xchan_corr_s.values[1,2],\
-                               xchan_corr_s.values[2,0],\
-                               xchan_corr_s.values[2,1],\
-                               xchan_corr_s.values[2,2]])
-        else:
+        if not ch3a_version:
             inS_i = np.array([[1.,0.,0.],[0.,1.,0.],[0.,0.,1.]])
+            inS_s = np.array([[ir_xchan_corr_s.values[0,0],\
+                               ir_xchan_corr_s.values[0,1],\
+                               ir_xchan_corr_s.values[0,2]],\
+                              [ir_xchan_corr_s.values[1,0],\
+                               ir_xchan_corr_s.values[1,1],\
+                               ir_xchan_corr_s.values[1,2]],\
+                              [ir_xchan_corr_s.values[2,0],\
+                               ir_xchan_corr_s.values[2,1],\
+                               ir_xchan_corr_s.values[2,2]]])
+            inS_c = np.array([[com_xchan_corr_s.values[0,0],\
+                               com_xchan_corr_s.values[0,1],\
+                               com_xchan_corr_s.values[0,2]],\
+                              [com_xchan_corr_s.values[1,0],\
+                               com_xchan_corr_s.values[1,1],\
+                               com_xchan_corr_s.values[1,2]],\
+                              [com_xchan_corr_s.values[2,0],\
+                               com_xchan_corr_s.values[2,1],\
+                               com_xchan_corr_s.values[2,2]]])
+        else:
+            inS_i = np.array([[0.,0.,0.],[0.,1.,0.],[0.,0.,1.]])
             inS_s = np.array([[0,0,0],\
-                                [0,xchan_corr_s.values[0,0],\
-                                     xchan_corr_s.values[0,1]],\
-                                [0,xchan_corr_s.values[1,0],\
-                                     xchan_corr_s.values[1,1]]])
+                                [0,ir_xchan_corr_s.values[0,0],\
+                                     ir_xchan_corr_s.values[0,1]],\
+                                [0,ir_xchan_corr_s.values[1,0],\
+                                     ir_xchan_corr_s.values[1,1]]])
+            inS_c = np.array([[0,0,0],\
+                                [0,com_xchan_corr_s.values[0,0],\
+                                     com_xchan_corr_s.values[0,1]],\
+                                [0,com_xchan_corr_s.values[1,0],\
+                                     com_xchan_corr_s.values[1,1]]])
         start=3
         stop=6
 
+    S_c = np.identity(6)
     S_s = np.identity(6)
     S_i = np.identity(6)
     if noch3a:
+        S_c[2,2]=0.
         S_s[2,2]=0.
         S_i[2,2]=0.
     if noch5:
+        S_c[5,5]=0.
         S_s[5,5]=0.
         S_i[5,5]=0.
+    S_c[start:stop,start:stop] = inS_c
     S_s[start:stop,start:stop] = inS_s
     S_i[start:stop,start:stop] = inS_i
 
@@ -1193,11 +1922,11 @@ def main_outfile(data,ch3a_version,fileout='None',split=False,gbcs_l1c=False):
 
         # set some mandatory global attributes. Writing will fail if not all of them are filled
         dataset.attrs["institution"] = "University of Reading"
-        dataset.attrs["title"] = "pre-B version of AVHRR Fundamental Climate Data Records"
+        dataset.attrs["title"] = data.version+" version of AVHRR Fundamental Climate Data Records"
         dataset.attrs["source"] = data.sources
         dataset.attrs["history"] = ""
         dataset.attrs["references"] = "CDF_FCDR_File Spec"
-        dataset.attrs["comment"] = "This version is a pre-B one and aims at showing the kind of uncertainties we are aiming to deliver within FIDUCEO. The values are not final ones and should not be used for science purposes."
+        dataset.attrs["comment"] = "This version is a "+data.version+" one and does not contain the final complete uncertainty model though many error effects have been included."
         dataset.attrs['sensor'] = "AVHRR"
         dataset.attrs['platform'] = data.noaa_string
         dataset.attrs['software_version'] = data.version
@@ -1234,19 +1963,20 @@ def main_outfile(data,ch3a_version,fileout='None',split=False,gbcs_l1c=False):
         dataset.variables["u_structured_Ch4"].data = data.u_non_random_ch4
         if data.ch5_there:
             dataset.variables["u_structured_Ch5"].data = data.u_non_random_ch5
-        dataset.variables["u_common_Ch1"].data = data.u_common_ch1
-        dataset.variables["u_common_Ch2"].data = data.u_common_ch2
-        if data.ch3a_there:
-            dataset.variables["u_common_Ch3a"].data = data.u_common_ch3a
-        dataset.variables["u_common_Ch3b"].data = data.u_common_ch3b
-        dataset.variables["u_common_Ch4"].data = data.u_common_ch4
-        if data.ch5_there:
-            dataset.variables["u_common_Ch5"].data = data.u_common_ch5
+#        dataset.variables["u_common_Ch1"].data = data.u_common_ch1
+#        dataset.variables["u_common_Ch2"].data = data.u_common_ch2
+#        if data.ch3a_there:
+#            dataset.variables["u_common_Ch3a"].data = data.u_common_ch3a
+#        dataset.variables["u_common_Ch3b"].data = data.u_common_ch3b
+#        dataset.variables["u_common_Ch4"].data = data.u_common_ch4
+#        if data.ch5_there:
+#            dataset.variables["u_common_Ch5"].data = data.u_common_ch5
 # MT: 18-10-2017: added quality flag fields
         dataset.variables["quality_scanline_bitmask"].data = data.scan_qual
         dataset.variables["quality_channel_bitmask"].data = data.chan_qual
 
-# Update for reader version 1.1.5
+# Update for reader version 1.1.5 and now version 2.1
+        dataset.variables["channel_correlation_matrix_common"].data = S_c
         dataset.variables["channel_correlation_matrix_structured"].data = S_s
         dataset.variables["channel_correlation_matrix_independent"].data = S_i
         elem_corr = np.zeros((data.lat.shape[1],stop-start))
@@ -1261,7 +1991,7 @@ def main_outfile(data,ch3a_version,fileout='None',split=False,gbcs_l1c=False):
         
 # JM: 05/07/2018: Added in SRF data and rad->BT etc. lookup tables
         dataset.variables["SRF_weights"].data[start:stop,:] = srf_y
-        dataset.variables["SRF_frequencies"].data[start:stop,:] = srf_x
+        dataset.variables["SRF_wavelengths"].data[start:stop,:] = srf_x
         dataset.variables["lookup_table_BT"].data[:,start:stop] = lut_bt
         dataset.variables["lookup_table_radiance"].data[:,start:stop] = lut_rad
 
@@ -1293,11 +2023,17 @@ def main_outfile(data,ch3a_version,fileout='None',split=False,gbcs_l1c=False):
 class copy_to_data(object):
 
     def copy(self,data,gd):
+        self.nx = data.nx
+        self.ny = np.sum(gd)
         self.ch3a_there = data.ch3a_there
         self.ch5_there = data.ch5_there
         self.lat = data.lat[gd,:]
         self.lon = data.lon[gd,:]
         self.time = data.time[gd]
+        self.date_time=[]
+        for i in range(len(gd)):
+            if gd[i]:
+                self.date_time.append(data.date_time[i])
         self.satza = data.satza[gd,:]
         self.solza = data.solza[gd,:]
         self.relaz = data.relaz[gd,:]
@@ -1325,6 +2061,11 @@ class copy_to_data(object):
         self.u_non_random_ch4 = data.u_non_random_ch4[gd,:]
         if self.ch5_there:
             self.u_non_random_ch5 = data.u_non_random_ch5[gd,:]
+        self.scan_qual = data.scan_qual[gd]
+        self.chan_qual = data.chan_qual[gd,:]
+        self.dRe1_over_dCS = data.dRe1_over_dCS[gd,:]
+        self.dRe2_over_dCS = data.dRe2_over_dCS[gd,:]
+        self.dRe3a_over_dCS = data.dRe3a_over_dCS[gd,:]
         self.dBT3_over_dT = data.dBT3_over_dT[gd,:]
         self.dBT4_over_dT = data.dBT4_over_dT[gd,:]
         self.dBT5_over_dT = data.dBT5_over_dT[gd,:]
@@ -1334,35 +2075,302 @@ class copy_to_data(object):
         self.dBT3_over_dCICT = data.dBT3_over_dCICT[gd,:]
         self.dBT4_over_dCICT = data.dBT4_over_dCICT[gd,:]
         self.dBT5_over_dCICT = data.dBT5_over_dCICT[gd,:]
+        self.scanline = data.scanline[gd]
+        self.orig_scanline = data.orig_scanline[gd]
+        self.badNav = data.badNav[gd]
+        self.badCal = data.badCal[gd]
+        self.badTime = data.badTime[gd]
+        self.missingLines = data.missingLines[gd]
+        self.solar3 = data.solar3[gd]
+        self.solar4 = data.solar4[gd]
+        self.solar5 = data.solar5[gd]
 
+        self.ch3b_harm = data.ch3b_harm[gd,:]
+        self.ch4_harm = data.ch4_harm[gd,:]
+        self.ch5_harm = data.ch5_harm[gd,:]
+
+        self.orbital_temperature = data.orbital_temperature
         self.cal_cnts_noise = data.cal_cnts_noise[:]
         self.cnts_noise = data.cnts_noise[:]
         self.spatial_correlation_scale = data.spatial_correlation_scale
         self.ICT_Temperature_Uncertainty = data.ICT_Temperature_Uncertainty
+        self.PRT_Uncertainty = data.PRT_Uncertainty
         self.noaa_string = data.noaa_string
+        self.sources = data.sources
+        self.version = data.version
 
     def __init__(self,data,gd):
 
         self.copy(data,gd)
 
 #
-# Split out data with and without ch3a data
+# Mask data into data class based on filter
 #
-def get_split_data(data,ch3a=False):
+class mask_data(object):
 
-    try:
-        gd = np.zeros(data.ch4.shape[0],dtype='?')
-        if ch3a:
-            for i in range(len(gd)):
-                gd[i] = np.any(np.isfinite(data.ch3a[i,:])) 
-        else:
-            for i in range(len(gd)):
-                gd[i] = np.any(np.isfinite(data.ch3b[i,:])) 
-        
-    except:
-        raise Exception('Cannot find c3a data when trying to split')
+    def mask(self,data,gd):
+        self.nx = np.copy(data.nx)
+        self.ny = np.copy(data.ny)
+        self.ch3a_there = np.copy(data.ch3a_there)
+        self.ch5_there = np.copy(data.ch5_there)
+        self.lat = np.copy(data.lat[:,:])
+        self.lon = np.copy(data.lon[:,:])
+        self.time = np.copy(data.time[:])
+        self.date_time=[]
+        for i in range(len(gd)):
+            self.date_time.append(data.date_time[i])
+        self.satza = np.copy(data.satza[:,:])
+        self.satza[gd,:] = float('nan')
+        self.solza = np.copy(data.solza[:,:])
+        self.solza[gd,:] = float('nan')
+        self.relaz = np.copy(data.relaz[:,:])
+        self.relaz[gd,:] = float('nan')
+        self.ch1 = np.copy(data.ch1[:,:])
+        self.ch1[gd,:] = float('nan')
+        self.ch2 = np.copy(data.ch2[:,:])
+        self.ch2[gd,:] = float('nan')
+        if self.ch3a_there:
+            self.ch3a = np.copy(data.ch3a[:,:])
+            self.ch3a[gd,:] = float('nan')
+        self.ch3b = np.copy(data.ch3b[:,:])
+        self.ch3b[gd,:] = float('nan')
+        self.ch4 = np.copy(data.ch4[:,:])
+        self.ch4[gd,:] = float('nan')
+        if self.ch5_there:
+            self.ch5 = np.copy(data.ch5[:,:])
+            self.ch5[gd,:] = float('nan')
+        self.u_random_ch1 = np.copy(data.u_random_ch1[:,:])
+        self.u_random_ch1[gd,:] = float('nan')
+        self.u_random_ch2 = np.copy(data.u_random_ch2[:,:])
+        self.u_random_ch2[gd,:] = float('nan')
+        if self.ch3a_there:
+            self.u_random_ch3a = np.copy(data.u_random_ch3a[:,:])
+            self.u_random_ch3a[gd,:] = float('nan')
+        self.u_random_ch3b = np.copy(data.u_random_ch3b[:,:])
+        self.u_random_ch3b[gd,:] = float('nan')
+        self.u_random_ch4 = np.copy(data.u_random_ch4[:,:])
+        self.u_random_ch4[gd,:] = float('nan')
+        if self.ch5_there:
+            self.u_random_ch5 = np.copy(data.u_random_ch5[:,:])
+            self.u_random_ch5[gd,:] = float('nan')
+        self.u_non_random_ch1 = np.copy(data.u_non_random_ch1[:,:])
+        self.u_non_random_ch1[gd,:] = float('nan')
+        self.u_non_random_ch2 = np.copy(data.u_non_random_ch2[:,:])
+        self.u_non_random_ch2[gd,:] = float('nan')
+        if self.ch3a_there:
+            self.u_non_random_ch3a = np.copy(data.u_non_random_ch3a[:,:])
+            self.u_non_random_ch3a[gd,:] = float('nan')
+        self.u_non_random_ch3b = np.copy(data.u_non_random_ch3b[:,:])
+        self.u_non_random_ch3b[gd,:] = float('nan')
+        self.u_non_random_ch4 = np.copy(data.u_non_random_ch4[:,:])
+        self.u_non_random_ch4[gd,:] = float('nan')
+        if self.ch5_there:
+            self.u_non_random_ch5 = np.copy(data.u_non_random_ch5[:,:])
+            self.u_non_random_ch5[gd,:] = float('nan')
+        #
+        # set quality to bad
+        #
+        self.scan_qual = np.copy(data.scan_qual[:])
+        self.scan_qual[gd] = 1
+        self.chan_qual = np.copy(data.chan_qual[:,:])
+        self.chan_qual[gd,:] = 1
+        self.dRe1_over_dCS = np.copy(data.dRe1_over_dCS[:,:])
+        self.dRe1_over_dCS[gd,:] = float('nan')
+        self.dRe2_over_dCS = np.copy(data.dRe2_over_dCS[:,:])
+        self.dRe2_over_dCS[gd,:] = float('nan')
+        self.dRe3a_over_dCS = np.copy(data.dRe3a_over_dCS[:,:])
+        self.dRe3a_over_dCS[gd,:] = float('nan')
+        self.dBT3_over_dT = np.copy(data.dBT3_over_dT[:,:])
+        self.dBT3_over_dT[gd,:] = float('nan')
+        self.dBT4_over_dT = np.copy(data.dBT4_over_dT[:,:])
+        self.dBT4_over_dT[gd,:] = float('nan')
+        self.dBT5_over_dT = np.copy(data.dBT5_over_dT[:,:])
+        self.dBT5_over_dT[gd,:] = float('nan')
+        self.dBT3_over_dCS = np.copy(data.dBT3_over_dCS[:,:])
+        self.dBT3_over_dCS[gd,:] = float('nan')
+        self.dBT4_over_dCS = np.copy(data.dBT4_over_dCS[:,:])
+        self.dBT4_over_dCS[gd,:] = float('nan')
+        self.dBT5_over_dCS = np.copy(data.dBT5_over_dCS[:,:])
+        self.dBT5_over_dCS[gd,:] = float('nan')
+        self.dBT3_over_dCICT = np.copy(data.dBT3_over_dCICT[:,:])
+        self.dBT3_over_dCICT[gd,:] = float('nan')
+        self.dBT4_over_dCICT = np.copy(data.dBT4_over_dCICT[:,:])
+        self.dBT4_over_dCICT[gd,:] = float('nan')
+        self.dBT5_over_dCICT = np.copy(data.dBT5_over_dCICT[:,:])
+        self.dBT5_over_dCICT[gd,:] = float('nan')
+        self.scanline = np.copy(data.scanline[:])
+        self.scanline[gd] = 255
+        self.orig_scanline = np.copy(data.orig_scanline[:])
+        self.orig_scanline[gd] = -32767
+        self.badNav = np.copy(data.badNav[:])
+        self.badNav[gd] = 0
+        self.badCal = np.copy(data.badCal[:])
+        self.badCal[gd] = 0
+        self.badTime = np.copy(data.badTime[:])
+        self.badTime[gd] = 0
+        self.missingLines = np.copy(data.missingLines[:])
+        self.missingLines[gd] = 1
+        self.solar3 = np.copy(data.solar3[:])
+        self.solar3[gd] = 0
+        self.solar4 = np.copy(data.solar4[:])
+        self.solar4[gd] = 0
+        self.solar5 = np.copy(data.solar5[:])
+        self.solar5[gd] = 0
+
+        self.ch3b_harm = np.copy(data.ch3b_harm[:,:])
+        self.ch3b_harm[gd,:] = float('nan')
+        self.ch4_harm = np.copy(data.ch4_harm[:,:])
+        self.ch4_harm[gd,:] = float('nan')
+        self.ch5_harm = np.copy(data.ch5_harm[:,:])
+        self.ch5_harm[gd,:] = float('nan')
+
+        self.orbital_temperature = np.copy(data.orbital_temperature)
+        self.cal_cnts_noise = np.copy(data.cal_cnts_noise[:])
+        self.cnts_noise = np.copy(data.cnts_noise[:])
+        self.spatial_correlation_scale = np.copy(data.spatial_correlation_scale)
+        self.ICT_Temperature_Uncertainty = np.copy(data.ICT_Temperature_Uncertainty)
+        self.PRT_Uncertainty = np.copy(data.PRT_Uncertainty)
+        self.noaa_string = data.noaa_string
+        self.sources = data.sources
+        self.version = data.version
+
+        #
+        # Top and Tail data if needed - using scan_qual flag
+        # Original start/end time already filtered to have good data only
+        #
+        ok=False
+        ggd = np.zeros(len(gd),dtype=np.bool)
+        ggd[:] = True
+        for i in range(len(self.scan_qual)):
+            if 1 == self.scan_qual[i]:
+                ggd[i] = False
+                ok=True
+            else:
+                break
+        for i in range(len(self.scan_qual)-1,0,-1):
+            if 1 == self.scan_qual[i]:
+                ggd[i] = False
+                ok=True
+            else:
+                break
+
+        if ok:
+            self.nx = data.nx
+            self.ny = np.sum(ggd)
+            self.lat = self.lat[ggd,:]
+            self.lon = self.lon[ggd,:]
+            self.time = self.time[ggd]
+            date_time=[]
+            for i in range(len(ggd)):
+                if ggd[i]:
+                    date_time.append(self.date_time[i])
+            self.date_time = date_time[:]
+            self.satza = self.satza[ggd,:]
+            self.solza = self.solza[ggd,:]
+            self.relaz = self.relaz[ggd,:]
+            self.ch1 = self.ch1[ggd,:]
+            self.ch2 = self.ch2[ggd,:]
+            if self.ch3a_there:
+                self.ch3a = self.ch3a[ggd,:]
+            self.ch3b = self.ch3b[ggd,:]
+            self.ch4 = self.ch4[ggd,:]
+            if self.ch5_there:
+                self.ch5 = self.ch5[ggd,:]
+            self.u_random_ch1 = self.u_random_ch1[ggd,:]
+            self.u_random_ch2 = self.u_random_ch2[ggd,:]
+            if self.ch3a_there:
+                self.u_random_ch3a = self.u_random_ch3a[ggd,:]
+            self.u_random_ch3b = self.u_random_ch3b[ggd,:]
+            self.u_random_ch4 = self.u_random_ch4[ggd,:]
+            if self.ch5_there:
+                self.u_random_ch5 = self.u_random_ch5[ggd,:]
+            self.u_non_random_ch1 = self.u_non_random_ch1[ggd,:]
+            self.u_non_random_ch2 = self.u_non_random_ch2[ggd,:]
+            if self.ch3a_there:
+                self.u_non_random_ch3a = self.u_non_random_ch3a[ggd,:]
+            self.u_non_random_ch3b = self.u_non_random_ch3b[ggd,:]
+            self.u_non_random_ch4 = self.u_non_random_ch4[ggd,:]
+            if self.ch5_there:
+                self.u_non_random_ch5 = self.u_non_random_ch5[ggd,:]
+            self.scan_qual = self.scan_qual[ggd]
+            self.chan_qual = self.chan_qual[ggd,:]
+            self.dRe1_over_dCS = self.dRe1_over_dCS[ggd,:]
+            self.dRe2_over_dCS = self.dRe2_over_dCS[ggd,:]
+            self.dRe3a_over_dCS = self.dRe3a_over_dCS[ggd,:]
+            self.dBT3_over_dT = self.dBT3_over_dT[ggd,:]
+            self.dBT4_over_dT = self.dBT4_over_dT[ggd,:]
+            self.dBT5_over_dT = self.dBT5_over_dT[ggd,:]
+            self.dBT3_over_dCS = self.dBT3_over_dCS[ggd,:]
+            self.dBT4_over_dCS = self.dBT4_over_dCS[ggd,:]
+            self.dBT5_over_dCS = self.dBT5_over_dCS[ggd,:]
+            self.dBT3_over_dCICT = self.dBT3_over_dCICT[ggd,:]
+            self.dBT4_over_dCICT = self.dBT4_over_dCICT[ggd,:]
+            self.dBT5_over_dCICT = self.dBT5_over_dCICT[ggd,:]
+            self.scanline = self.scanline[ggd]
+            self.orig_scanline = self.orig_scanline[ggd]
+            self.badNav = self.badNav[ggd]
+            self.badCal = self.badCal[ggd]
+            self.badTime = self.badTime[ggd]
+            self.missingLines = self.missingLines[ggd]
+            self.solar3 = self.solar3[ggd]
+            self.solar4 = self.solar4[ggd]
+            self.solar5 = self.solar5[ggd]
+
+            self.ch3b_harm = self.ch3b_harm[ggd,:]
+            self.ch4_harm = self.ch4_harm[ggd,:]
+            self.ch5_harm = self.ch5_harm[ggd,:]
+
+    def __init__(self,data,gd):
+
+        self.mask(data,gd)
+
+#
+# Split out data with and without ch3a data (use ch3b being there or not)
+#
+def get_split_data_remove(data,ch3a=False):
+
+    if ch3a:
+        gd = (data.ch3a_there_int == 1)
+    else:
+        gd = (data.ch3a_there_int == 0)
+#    try:
+#        gd = np.zeros(data.ch3a_there_int.shape[0],dtype='?')
+#        if ch3a:
+#            for i in range(len(gd)):
+#                gd[i] = not np.any(np.isfinite(data.ch3b[i,:])) 
+#        else:
+#            for i in range(len(gd)):
+#                gd[i] = np.any(np.isfinite(data.ch3b[i,:])) 
+#        
+#    except:
+#        raise Exception('Cannot find c3a data when trying to split')
 
     newdata = copy_to_data(data,gd)
+    
+    return newdata
+
+def get_split_data(data,ch3a=False):
+
+    #
+    # Find where the data needs to be made NaNs
+    #
+    if ch3a:
+        gd = (data.ch3a_there_int == 0)
+    else:
+        gd = (data.ch3a_there_int == 1)
+#    try:
+#        gd = np.zeros(data.ch3a_there_int.shape[0],dtype='?')
+#        if ch3a:
+#            for i in range(len(gd)):
+#                gd[i] = not np.any(np.isfinite(data.ch3b[i,:])) 
+#        else:
+#            for i in range(len(gd)):
+#                gd[i] = np.any(np.isfinite(data.ch3b[i,:])) 
+#        
+#    except:
+#        raise Exception('Cannot find c3a data when trying to split')
+
+    newdata = mask_data(data,gd)
     
     return newdata
 
@@ -1380,11 +2388,13 @@ def main(file_in,fileout='None'):
     if data.ch3a_there:
         #
         # Have to split orbit into two to ensure CURUC works
-        #
+        #        
         data1 = get_split_data(data,ch3a=True)
-        main_outfile(data1,ch3a_version=True,fileout=fileout,split=True)
+        if data1.ny >= 1280:
+            main_outfile(data1,ch3a_version=True,fileout=fileout,split=True)
         data2 = get_split_data(data,ch3a=False)
-        main_outfile(data1,ch3a_version=False,fileout=fileout,split=True)
+        if data2.ny >= 1280:
+            main_outfile(data2,ch3a_version=False,fileout=fileout,split=True)
     else:
         main_outfile(data,ch3a_version=False,fileout=fileout)
 
