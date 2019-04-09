@@ -226,7 +226,7 @@ class blacklist(object):
     # Read in one day of blacklist
     def get_blacklist_day(self,instrument,year,month,day):
         # Get filename of blacklist
-        mtaylor_path = "/group_workspaces/cems2/fiduceo/Users/mtaylor/avhrr_l1b/"
+        mtaylor_path = "/gws/nopw/j04/fiduceo/Users/mtaylor/avhrr_l1b/"
         dir_in = '{0}/listes_orbites/liste_orbites_day/{1}/{2:04d}/{3:02d}/'.\
             format(mtaylor_path,instrument,year,month)
         file_in = '{0}/blackliste_{1}_{2:04d}_{3:02d}_{4:02d}.data'.\
@@ -312,35 +312,50 @@ class tle_data(object):
         time = datetime.datetime(year,month,day)
         self.name = instr
         if 'NOAA06' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-06.txt'
+#            filename = '/gws/nopw/j04/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-06.txt'
+            filename = '/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-06.txt'
         elif 'NOAA07' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-07.txt'
+#            filename = '/gws/nopw/j04/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-07.txt'
+            filename = '/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-07.txt'
         elif 'NOAA08' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-08.txt'
+#            filename = '/gws/nopw/j04/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-08.txt'
+            filename = '/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-08.txt'
         elif 'NOAA09' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-09.txt'
+#            filename = '/gws/nopw/j04/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-09.txt'
+            filename = '/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-09.txt'
         elif 'NOAA10' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-10.txt'
+#            filename = '/gws/nopw/j04/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-10.txt'
+            filename = '/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-10.txt'
         elif 'NOAA11' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-11.txt'
+#            filename = '/gws/nopw/j04/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-11.txt'
+            filename = '/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-11.txt'
         elif 'NOAA12' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-12.txt'
+#            filename = '/gws/nopw/j04/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-12.txt'
+            filename = '/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-12.txt'
         elif 'NOAA14' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-14.txt'
+#            filename = '/gws/nopw/j04/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-14.txt'
+            filename = '/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-14.txt'
         elif 'NOAA15' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-15.txt'
+#            filename = '/gws/nopw/j04/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-15.txt'
+            filename = '/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-15.txt'
         elif 'NOAA16' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-16.txt'
+#            filename = '/gws/nopw/j04/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-16.txt'
+            filename = '/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-16.txt'
         elif 'NOAA17' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-17.txt'
+#            filename = '/gws/nopw/j04/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-17.txt'
+            filename = '/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-17.txt'
         elif 'NOAA18' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-18.txt'
+#            filename = '/gws/nopw/j04/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-18.txt'
+            filename = '/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-18.txt'
         elif 'NOAA19' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-19.txt'
+#            filename = '/gws/nopw/j04/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/noaa-19.txt'
+            filename = '/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/noaa-19.txt'
         elif 'METOPA' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/metop-a.txt'
+#            filename = '/gws/nopw/j04/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/metop-a.txt'
+            filename = '/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/metop-a.txt'
         elif 'METOPB' == instr:
-            filename = '/group_workspaces/cems2/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/metop-b.txt'
+#            filename = '/gws/nopw/j04/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/metop-b.txt'
+            filename = '/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/metop-b.txt'
         else:
             print 'instr = ',instr
             raise Exception,"Cannot find instr"
@@ -496,7 +511,7 @@ def __get_filelist(low_time,high_time,avhrr_dir_name):
     ect2_time = high_time - datetime.timedelta(seconds=5400)
 
     # Make directory name
-    dir_name_list = '/group_workspaces/cems2/esacci_sst/input/avhrr/l1b/{0}/v1/{1:04d}/{2:02d}/{3:02d}/NSS.*'.\
+    dir_name_list = '/gws/nopw/j04/esacci_sst/input/avhrr/l1b/{0}/v1/{1:04d}/{2:02d}/{3:02d}/NSS.*'.\
         format(avhrr_dir_name,low_time.year,\
                    low_time.month,low_time.day)
     
@@ -507,7 +522,7 @@ def __get_filelist(low_time,high_time,avhrr_dir_name):
     # If not then need second day
     add_day=False
     if low_time.day != high_time.day:
-        dir_name_list = '/group_workspaces/cems2/esacci_sst/input/avhrr/l1b/{0}/v1/{1:04d}/{2:02d}/{3:02d}/NSS.*'.\
+        dir_name_list = '/gws/nopw/j04/esacci_sst/input/avhrr/l1b/{0}/v1/{1:04d}/{2:02d}/{3:02d}/NSS.*'.\
             format(avhrr_dir_name,high_time.year,\
                        high_time.month,high_time.day)
 
@@ -576,7 +591,8 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
                            equ_time1,equ_time2,split_single,spawn_job,\
                            test=False,gbcs_l1c_args='N',\
                            walton_only=False,keep_temp=False,\
-                           write_fcdr=True,walton_cal=False):
+                           write_fcdr=True,walton_cal=False,\
+                           get_stats=False):
     
     curr_dir = os.getcwd()
     # Check to see if we've already made this directory
@@ -588,29 +604,34 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
     os.chdir(outdir)
     # Make link to make_fcdr.exe
     try:
-        os.symlink('/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/Mike/FCDR_AVHRR/make_fcdr.exe','make_fcdr.exe')
+        os.symlink('/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/Mike/FCDR_AVHRR/make_fcdr.exe','make_fcdr.exe')
     except:
         pass
     try:
-        os.symlink('/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/Mike/FCDR_AVHRR/write_easy_fcdr_from_netcdf.py','write_easy_fcdr_from_netcdf.py')
+        os.symlink('/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/Mike/FCDR_AVHRR/write_easy_fcdr_from_netcdf.py','write_easy_fcdr_from_netcdf.py')
     except:
         pass
     try:
-        os.symlink('/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/Mike/FCDR_AVHRR/write_l1c_data.py','write_l1c_data.py')
+        os.symlink('/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/Mike/FCDR_AVHRR/write_l1c_data.py','write_l1c_data.py')
     except:
         pass
     try:
-        os.symlink('/group_workspaces/cems2/fiduceo/Users/jmittaz/FCDR/Mike/FCDR_AVHRR/write_easy_fcdr.sh','write_easy_fcdr.sh')
+        os.symlink('/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/Mike/FCDR_AVHRR/write_easy_fcdr.sh','write_easy_fcdr.sh')
     except:
         pass
     try:
         os.symlink('/home/users/jpdmittaz/Python/jpdm/lib/python2.7/site-packages/pygac/gac_run.py','gac_run.py')
     except:
         pass
+    try:
+        os.symlink('/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/Mike/FCDR_AVHRR/get_stats.py','get_stats.py')
+    except:
+        pass
     # Write script files
     outfile = 'run.{0:06d}.sh'.format(i)
     file_log = 'run.{0:06d}.log'.format(i)
     with open(outfile,'w') as fp:
+        fp.write('export OMP_NUM_THREADS=1\n')
         fp.write('. /home/users/jpdmittaz/Python/jpdm/bin/activate\n')
         fp.write('export PYGAC_CONFIG_FILE=/home/users/jpdmittaz/pygac.cfg\n')
         outfile_stem = []
@@ -684,14 +705,24 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
             # Find first pygac file name (_avhrr_ case)
             newstr='pygac{0:1d}=`ls ECC_GAC_avhrr*.h5`\n'.format(j+1)
             fp.write(newstr)
+            # Add check to see if files created
+            newstr='if [[ ${{pygac{0:1d}}} == \'\' ]]\n'.format(j+1)
+            fp.write(newstr)
+            fp.write('then\n')
+            newstr='    pygac{0:1d}_there=0\n'.format(j+1)
+            fp.write(newstr)
+            fp.write('else\n')
+            newstr='    pygac{0:1d}_there=1\n'.format(j+1)
+            fp.write(newstr)
             # Find second pygac file name (_avhrr_ case)
-            newstr='pygac{0:1d}_2=`ls ECC_GAC_qualflags*.h5`\n'.format(j+1)
+            newstr='    pygac{0:1d}_2=`ls ECC_GAC_qualflags*.h5`\n'.format(j+1)
             fp.write(newstr)
             # Find third pygac file name (_avhrr_ case)
-            newstr='pygac{0:1d}_3=`ls ECC_GAC_sunsatangles*.h5`\n'.format(j+1)
+            newstr='    pygac{0:1d}_3=`ls ECC_GAC_sunsatangles*.h5`\n'.format(j+1)
             fp.write(newstr)
             # copy pygac files back up            
-            fp.write('mv -f ECC_GAC_*.h5 ..\n')
+            fp.write('     mv -f ECC_GAC_*.h5 ..\n')
+            fp.write('fi\n')
             # cd up a level
             fp.write('cd ..\n')
             # remove temporary directory
@@ -700,8 +731,9 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
             # Get output filename
             outfile_stem.append(out_file_stem)
         # Write merge command with all files                    
-        newstr = './make_fcdr.exe '+str(uuid.uuid4())+' '+\
-            instr+' '+gbcs_l1c_args+' '
+        uuid_str=str(uuid.uuid4())
+        # Make sure we can run CURUC
+        newstr = "initstr='{0} {1} {2} ".format(uuid_str,instr,gbcs_l1c_args)
         # Add equator crossing time estimates
         newstr = newstr + '{0:04d} {1:02d} {2:02d} {3:02d} {4:02d} '.\
             format(equ_time1.year,equ_time1.month,equ_time1.day,\
@@ -720,7 +752,7 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
                 newstr = newstr + ' N'
         else:
             newstr = newstr + ' F'
-        if keep_temp:
+        if keep_temp or get_stats:
             newstr = newstr + ' Y'
         else:
             newstr = newstr + ' N'
@@ -728,55 +760,84 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
             newstr = newstr + ' Y'
         else:
             newstr = newstr + ' N'
-        newstr = newstr + ' {0:2d}'.format(len(filelist))
-        for j in range(len(filelist)):
-            newstr = newstr+' '+outfile_stem[j]
-        if len(filelist) == 1:
-            newstr = newstr+' ${pygac1}'
-        elif len(filelist) == 2:
-            newstr = newstr+' ${pygac1} ${pygac2}'
-        elif len(filelist) == 3:
-            newstr = newstr+' ${pygac1} ${pygac2} ${pygac3}'
-        elif len(filelist) == 4:
-            newstr = newstr+' ${pygac1} ${pygac2} ${pygac3} ${pygac4}'
-        elif len(filelist) == 5:
-            newstr = newstr+' ${pygac1} ${pygac2} ${pygac3} ${pygac4} ${pygac5}'
-        newstr = newstr+'\n'
+        newstr=newstr+"'\n"
         fp.write(newstr)
+
+        # Logic to allow for bad pyGac runs
+        fp.write("file1=''\n")
+        fp.write("file2=''\n")
+        fp.write("nfiles=0\n")
+        for j in range(len(filelist)):
+            newstr='if [ 1 -eq ${{pygac{0:1d}_there}} ]\n'.format(j+1)
+            fp.write(newstr)
+            fp.write('then\n')
+            newstr="     file1=${{file1}}' '{0}\n".format(outfile_stem[j])
+            fp.write(newstr)
+            fp.write("     file2=${{file2}}' '${{pygac{0:1d}}}\n".format(j+1))
+            fp.write("     nfiles=$((nfiles+1))\n")
+            fp.write("fi\n")
+
+        fp.write('if [ ${nfiles} -gt 0 ]\n')
+        fp.write('then\n')
+        fp.write("     ./make_fcdr.exe ${initstr} ${nfiles} ${file1} ${file2}\n")
+        fp.write('fi\n')
 
         for j in range(len(filelist)):
 # MT: 12-04-2018: keep temp files for uncertainty component analysis
             newstr = 'rm -f '+outfile_stem[j]+'*\n'
             fp.write(newstr)
-#        fp.write('rm -f *.h5')
-#        fp.write('rm -f make_fcdr.exe')
-#        fp.write('rm -f gac_run.py')
-#        fp.write('rm -f write_easy_fcdr_from_netcdf.py')
+#        fp.write('rm -f *.h5\n')
+#        fp.write('rm -f make_fcdr.exe\n')
+#        fp.write('rm -f gac_run.py\n')
+#        fp.write('rm -f write_easy_fcdr_from_netcdf.py\n')
             if 0 == j:
-                fp.write('rm -f ${pygac1}\n')
-                fp.write('rm -f ${pygac1_2}\n')
-                fp.write('rm -f ${pygac1_3}\n')
+                fp.write('if [ 1 -eq ${pygac1_there} ]\n')
+                fp.write('then\n')
+                fp.write('    rm -f ${pygac1}\n')
+                fp.write('    rm -f ${pygac1_2}\n')
+                fp.write('    rm -f ${pygac1_3}\n')
+                fp.write('fi\n')
             elif 1 == j:
-                fp.write('rm -f ${pygac2}\n')
-                fp.write('rm -f ${pygac2_2}\n')
-                fp.write('rm -f ${pygac2_3}\n')
+                fp.write('if [ 1 -eq ${pygac2_there} ]\n')
+                fp.write('then\n')
+                fp.write('    rm -f ${pygac2}\n')
+                fp.write('    rm -f ${pygac2_2}\n')
+                fp.write('    rm -f ${pygac2_3}\n')
+                fp.write('fi\n')
             elif 2 == j:
-                fp.write('rm -f ${pygac3}\n')
-                fp.write('rm -f ${pygac3_2}\n')
-                fp.write('rm -f ${pygac3_3}\n')
+                fp.write('if [ 1 -eq ${pygac3_there} ]\n')
+                fp.write('then\n')
+                fp.write('    rm -f ${pygac3}\n')
+                fp.write('    rm -f ${pygac3_2}\n')
+                fp.write('    rm -f ${pygac3_3}\n')
+                fp.write('fi\n')
             elif 3 == j:
-                fp.write('rm -f ${pygac4}\n')
-                fp.write('rm -f ${pygac4_2}\n')
-                fp.write('rm -f ${pygac4_3}\n')
+                fp.write('if [ 1 -eq ${pygac4_there} ]\n')
+                fp.write('then\n')
+                fp.write('    rm -f ${pygac4}\n')
+                fp.write('    rm -f ${pygac4_2}\n')
+                fp.write('    rm -f ${pygac4_3}\n')
+                fp.write('fi\n')
             elif 4 == j:
-                fp.write('rm -f ${pygac5}\n')
-                fp.write('rm -f ${pygac5_2}\n')
-                fp.write('rm -f ${pygac5_3}\n')
+                fp.write('if [ 1 -eq ${pygac5_there} ]\n')
+                fp.write('then\n')
+                fp.write('    rm -f ${pygac5}\n')
+                fp.write('    rm -f ${pygac5_2}\n')
+                fp.write('    rm -f ${pygac5_3}\n')
+                fp.write('fi\n')
+
+        if get_stats:
+            statsfile = 'stats.{0:06d}.dat'.format(i)
+            fp.write('python2.7 get_stats.py {0} {1} Y\n'.format(uuid_str,\
+                                                                   statsfile))
+        if not keep_temp:
+            fp.write('rm -f {0}.nc\n'.format(uuid_str))
 
     # submit jobs
     os.chmod(outfile,stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
     job_name='./'+outfile
-    job = ['bsub','-q', 'short-serial','-W', '01:00','-oo', file_log, job_name]
+    job = ['bsub','-q','short-serial','-W','01:00','-M','40000','-R','rusage[mem=40000]','-oo', file_log, job_name]
+#    raise Exception
     # Actually submit jobs
     if spawn_job:
         subprocess.call(job)
@@ -788,8 +849,9 @@ def write_commands(instr,year,month,day,split_single,spawn_job,\
                        gbcs_l1c_args='N',\
                        walton_only=False,\
                        keep_temp=False,\
-                       write_fcdr=True.\
-                       walton_cal=False):
+                       write_fcdr=True,\
+                       walton_cal=False,\
+                       get_stats=False):
     
     # Get equator crossing times in the day
     t = tle_data(instr,year,month,day)
@@ -818,16 +880,17 @@ def write_commands(instr,year,month,day,split_single,spawn_job,\
                                    split_single,spawn_job,test=test,\
                                    gbcs_l1c_args=gbcs_l1c_args,\
                                    walton_only=walton_only,keep_temp=keep_temp,\
-                                   write_fcdr=write_fcdr,walton_cal=walton_cal)
+                                   write_fcdr=write_fcdr,walton_cal=walton_cal,\
+                                   get_stats=get_stats)
             nwrites=nwrites+1
 
     print 'Number of command files : ',nwrites
 
 if __name__ == "__main__":
 
-    parser = OptionParser("usage: %prog instr year month day split_single_file GBCS_L1C(Y/N/C) Spawn_Jobs(Y/N) walton_only(Y/N/F) keep_temp(Y/N) write_fcdr{Y/N) (test=Y/N)")
+    parser = OptionParser("usage: %prog instr year month day split_single_file GBCS_L1C(Y/N/C) Spawn_Jobs(Y/N) walton_only(Y/N/F) keep_temp(Y/N) write_fcdr{Y/N) get_stats(Y/N) (test=Y/N)")
     (options, args) = parser.parse_args()
-    if len(args) != 10 and len(args) != 11:
+    if len(args) != 11 and len(args) != 12:
         parser.error("incorrect number of arguments")
     year = int(args[1])
     month = int(args[2])
@@ -844,7 +907,7 @@ if __name__ == "__main__":
     else:
         walton_only=False
         if args[7] == 'F':
-            walcon_cal=False
+            walton_cal=False
     if args[8] == 'Y':
         keep_temp=True
     else:
@@ -853,7 +916,12 @@ if __name__ == "__main__":
         write_fcdr=True
     else:
         write_fcdr=False
-    if len(args) == 11:
+    if args[10] == 'Y':
+        get_stats=True
+    else:
+        get_stats=False
+
+    if len(args) == 12:
         if args[10] == 'Y':
             test=True
         else:
@@ -869,5 +937,5 @@ if __name__ == "__main__":
     write_commands(args[0],year,month,day,split_single,spawn_job,test=test,\
                        gbcs_l1c_args=gbcs_l1c_args,walton_only=walton_only,\
                        keep_temp=keep_temp,write_fcdr=write_fcdr,\
-                       walton_cal=walton_cal)
+                       walton_cal=walton_cal,get_stats=get_stats)
 
