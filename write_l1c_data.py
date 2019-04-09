@@ -243,7 +243,7 @@ def make_flags(data):
 #
 # Write GBCS L1C output including the channel to channel covariances
 #
-def write_gbcs_l1c(data,S_s,himawari=False):
+def write_gbcs_l1c(data,S_s,himawari=False,fiduceo=False):
 
     name = '{0:04d}{1:02d}{2:02d}{3:02d}{4:02d}{5:02d}-ESACCI-L1C-{6}-fv01.0.nc'.\
         format(data.date_time[0].year,\
@@ -400,190 +400,191 @@ def write_gbcs_l1c(data,S_s,himawari=False):
                                        coordinates='lon lat')
     
 
-    #
-    # Now provide separate uncertainties for more complex uncertainties
-    # for IR channels
-    #
-    noise = np.zeros(data.ch1.shape,dtype=np.float32)
-    noise[:,:] = -1e30
-    gd = (data.ch1 > 0)&(data.u_random_Ch1 > 0)
-    if np.sum(gd) > 0:
-        noise[gd] = data.u_random_ch1[gd]
-    Write_GBCS_Float_to_Int_3D(ncid,'ch1_u_random','ni','nj','time',noise,\
-                                   -32768,'Channel 1 random uncertainty estimate',\
-                                   'reflectance',0,10000,1.e-5,0.,\
-                                   coordinates='lon lat')
-    
-    noise[:,:] = -1e30
-    gd = (data.ch2 > 0)&(data.u_random_Ch2 > 0)
-    if np.sum(gd) > 0:
-        noise[gd] = data.u_random_ch2[gd]
-    Write_GBCS_Float_to_Int_3D(ncid,'ch2_u_random','ni','nj','time',noise,\
-                                   -32768,'Channel 2 random uncertainty estimate',\
-                                   'reflectance',0,10000,1.e-5,0.,\
-                                   coordinates='lon lat')
-    if data.ch3a_there:
+    if fiduceo:
+        #
+        # Now provide separate uncertainties for more complex uncertainties
+        # for IR channels
+        #
+        noise = np.zeros(data.ch1.shape,dtype=np.float32)
         noise[:,:] = -1e30
-        gd = (data.ch3a > 0)&(data.u_random_Ch3a > 0)
+        gd = (data.ch1 > 0)&(data.u_random_Ch1 > 0)
         if np.sum(gd) > 0:
-            noise[gd] = data.u_random_ch3a[gd]
-            Write_GBCS_Float_to_Int_3D(ncid,'ch3a_u_random','ni','nj','time',\
-                                           noise,-32768,\
-                                           'Channel 3A random uncertainty estimate',\
-                                           'reflectance',0,10000,1.e-5,0.,\
-                                           coordinates='lon lat')
+            noise[gd] = data.u_random_ch1[gd]
+        Write_GBCS_Float_to_Int_3D(ncid,'ch1_u_random','ni','nj','time',noise,\
+                                       -32768,'Channel 1 random uncertainty estimate',\
+                                       'reflectance',0,10000,1.e-5,0.,\
+                                       coordinates='lon lat')
     
-    noise = np.zeros(data.ch3b.shape,dtype=np.float32)
-    noise[:,:] = -1e30
-    gd = (data.ch3b > 0)&(data.u_random_Ch3b > 0)
-    if np.sum(gd) > 0:
-        noise[gd] = data.u_random_ch3b[gd]
-    Write_GBCS_Float_to_Int_3D(ncid,'ch3b_u_random','ni','nj','time',noise,\
-                                   -32768,'Channel 3B random uncertainty estimate',\
-                                   'kelvin',0,10000,0.001,0.,\
-                                   coordinates='lon lat')
-    
-    noise = np.zeros(data.ch4.shape,dtype=np.float32)
-    noise[:,:] = -1e30
-    gd = (data.ch4 > 0)&(data.u_random_Ch4 > 0)
-    if np.sum(gd) > 0:
-        noise[gd] = data.u_random_ch4[gd]
-    Write_GBCS_Float_to_Int_3D(ncid,'ch4_u_random','ni','nj','time',noise,\
-                                   -32768,'Channel 4 random uncertainty estimate',\
-                                   'kelvin',0,10000,0.001,0.,\
-                                   coordinates='lon lat')
-    
-    if data.ch5_there:
-        noise = np.zeros(data.ch4.shape,dtype=np.float32)
         noise[:,:] = -1e30
-        gd = (data.ch5 > 0)&(data.u_random_Ch5 > 0)
+        gd = (data.ch2 > 0)&(data.u_random_Ch2 > 0)
         if np.sum(gd) > 0:
-            noise[gd] = data.u_random_ch5[gd]
-        Write_GBCS_Float_to_Int_3D(ncid,'ch5_u_random','ni','nj','time',noise,\
-                                       -32768,'Channel 5 random uncertainty estimate',\
+            noise[gd] = data.u_random_ch2[gd]
+        Write_GBCS_Float_to_Int_3D(ncid,'ch2_u_random','ni','nj','time',noise,\
+                                       -32768,'Channel 2 random uncertainty estimate',\
+                                       'reflectance',0,10000,1.e-5,0.,\
+                                       coordinates='lon lat')
+        if data.ch3a_there:
+            noise[:,:] = -1e30
+            gd = (data.ch3a > 0)&(data.u_random_Ch3a > 0)
+            if np.sum(gd) > 0:
+                noise[gd] = data.u_random_ch3a[gd]
+                Write_GBCS_Float_to_Int_3D(ncid,'ch3a_u_random','ni','nj','time',\
+                                               noise,-32768,\
+                                               'Channel 3A random uncertainty estimate',\
+                                               'reflectance',0,10000,1.e-5,0.,\
+                                               coordinates='lon lat')
+    
+        noise = np.zeros(data.ch3b.shape,dtype=np.float32)
+        noise[:,:] = -1e30
+        gd = (data.ch3b > 0)&(data.u_random_Ch3b > 0)
+        if np.sum(gd) > 0:
+            noise[gd] = data.u_random_ch3b[gd]
+        Write_GBCS_Float_to_Int_3D(ncid,'ch3b_u_random','ni','nj','time',noise,\
+                                       -32768,'Channel 3B random uncertainty estimate',\
                                        'kelvin',0,10000,0.001,0.,\
                                        coordinates='lon lat')
     
-    noise = np.zeros(data.ch1.shape,dtype=np.float32)
-    noise[:,:] = -1e30
-    gd = (data.ch1 > 0)&(data.u_non_random_Ch1 > 0)
-    if np.sum(gd) > 0:
-        noise[gd] = data.u_non_random_ch1[gd]
-    Write_GBCS_Float_to_Int_3D(ncid,'ch1_u_non_random','ni','nj','time',noise,\
-                                   -32768,'Channel 1 non random uncertainty estimate',\
-                                   'reflectance',0,10000,1.e-5,0.,\
-                                   coordinates='lon lat')
-    
-    noise[:,:] = -1e30
-    gd = (data.ch2 > 0)&(data.u_non_random_Ch2 > 0)
-    if np.sum(gd) > 0:
-        noise[gd] = data.u_non_random_ch2[gd]
-    Write_GBCS_Float_to_Int_3D(ncid,'ch2_u_non_random','ni','nj','time',noise,\
-                                   -32768,'Channel 2 non random uncertainty estimate',\
-                                   'reflectance',0,10000,1.e-5,0.,\
-                                   coordinates='lon lat')
-    if data.ch3a_there:
+        noise = np.zeros(data.ch4.shape,dtype=np.float32)
         noise[:,:] = -1e30
-        gd = (data.ch3a > 0)&(data.u_non_random_Ch3a > 0)
+        gd = (data.ch4 > 0)&(data.u_random_Ch4 > 0)
         if np.sum(gd) > 0:
-            noise[gd] = data.u_non_random_ch3a[gd]
+            noise[gd] = data.u_random_ch4[gd]
+        Write_GBCS_Float_to_Int_3D(ncid,'ch4_u_random','ni','nj','time',noise,\
+                                       -32768,'Channel 4 random uncertainty estimate',\
+                                       'kelvin',0,10000,0.001,0.,\
+                                       coordinates='lon lat')
+    
+        if data.ch5_there:
+            noise = np.zeros(data.ch4.shape,dtype=np.float32)
+            noise[:,:] = -1e30
+            gd = (data.ch5 > 0)&(data.u_random_Ch5 > 0)
+            if np.sum(gd) > 0:
+                noise[gd] = data.u_random_ch5[gd]
+            Write_GBCS_Float_to_Int_3D(ncid,'ch5_u_random','ni','nj','time',noise,\
+                                           -32768,'Channel 5 random uncertainty estimate',\
+                                           'kelvin',0,10000,0.001,0.,\
+                                           coordinates='lon lat')
+    
+        noise = np.zeros(data.ch1.shape,dtype=np.float32)
+        noise[:,:] = -1e30
+        gd = (data.ch1 > 0)&(data.u_non_random_Ch1 > 0)
+        if np.sum(gd) > 0:
+            noise[gd] = data.u_non_random_ch1[gd]
+        Write_GBCS_Float_to_Int_3D(ncid,'ch1_u_non_random','ni','nj','time',noise,\
+                                           -32768,'Channel 1 non random uncertainty estimate',\
+                                           'reflectance',0,10000,1.e-5,0.,\
+                                           coordinates='lon lat')
+    
+        noise[:,:] = -1e30
+        gd = (data.ch2 > 0)&(data.u_non_random_Ch2 > 0)
+        if np.sum(gd) > 0:
+            noise[gd] = data.u_non_random_ch2[gd]
+        Write_GBCS_Float_to_Int_3D(ncid,'ch2_u_non_random','ni','nj','time',noise,\
+                                       -32768,'Channel 2 non random uncertainty estimate',\
+                                       'reflectance',0,10000,1.e-5,0.,\
+                                       coordinates='lon lat')
+        if data.ch3a_there:
+            noise[:,:] = -1e30
+            gd = (data.ch3a > 0)&(data.u_non_random_Ch3a > 0)
+            if np.sum(gd) > 0:
+                noise[gd] = data.u_non_random_ch3a[gd]
             Write_GBCS_Float_to_Int_3D(ncid,'ch3a_u_non_random','ni','nj','time',\
                                            noise,-32768,\
                                            'Channel 3A non random uncertainty estimate',\
                                            'reflectance',0,10000,1.e-5,0.,\
                                            coordinates='lon lat')
     
-    noise = np.zeros(data.ch3b.shape,dtype=np.float32)
-    noise[:,:] = -1e30
-    gd = (data.ch3b > 0)&(data.u_non_random_Ch3b > 0)
-    if np.sum(gd) > 0:
-        noise[gd] = data.u_non_random_ch3b[gd]
-    Write_GBCS_Float_to_Int_3D(ncid,'ch3b_u_non_random','ni','nj','time',noise,\
-                                   -32768,'Channel 3B non random uncertainty estimate',\
-                                   'kelvin',0,10000,0.001,0.,\
-                                   coordinates='lon lat')
-    
-    noise = np.zeros(data.ch4.shape,dtype=np.float32)
-    noise[:,:] = -1e30
-    gd = (data.ch4 > 0)&(data.u_non_random_Ch4 > 0)
-    if np.sum(gd) > 0:
-        noise[gd] = data.u_non_random_ch4[gd]
-    Write_GBCS_Float_to_Int_3D(ncid,'ch4_u_non_random','ni','nj','time',noise,\
-                                   -32768,'Channel 4 non random uncertainty estimate',\
-                                   'kelvin',0,10000,0.001,0.,\
-                                   coordinates='lon lat')
-    
-    if data.ch5_there:
-        noise = np.zeros(data.ch4.shape,dtype=np.float32)
+        noise = np.zeros(data.ch3b.shape,dtype=np.float32)
         noise[:,:] = -1e30
-        gd = (data.ch5 > 0)&(data.u_non_random_Ch5 > 0)
+        gd = (data.ch3b > 0)&(data.u_non_random_Ch3b > 0)
         if np.sum(gd) > 0:
-            noise[gd] = data.u_non_random_ch5[gd]
-        Write_GBCS_Float_to_Int_3D(ncid,'ch5_u_non_random','ni','nj','time',noise,\
-                                       -32768,'Channel 5 non random uncertainty estimate',\
+            noise[gd] = data.u_non_random_ch3b[gd]
+        Write_GBCS_Float_to_Int_3D(ncid,'ch3b_u_non_random','ni','nj','time',noise,\
+                                       -32768,'Channel 3B non random uncertainty estimate',\
                                        'kelvin',0,10000,0.001,0.,\
                                        coordinates='lon lat')
     
-
-    noise = np.zeros(data.ch1.shape,dtype=np.float32)
-    noise[:,:] = -1e30
-    gd = (data.ch1 > 0)&(data.u_common_Ch1 > 0)
-    if np.sum(gd) > 0:
-        noise[gd] = data.u_common_ch1[gd]*data.ch1[gd]
-    Write_GBCS_Float_to_Int_3D(ncid,'ch1_u_common','ni','nj','time',noise,\
-                                   -32768,'Channel 1 common uncertainty estimate',\
-                                   'reflectance',0,10000,1.e-5,0.,\
-                                   coordinates='lon lat')
-    
-    noise[:,:] = -1e30
-    gd = (data.ch2 > 0)&(data.u_common_Ch2 > 0)
-    if np.sum(gd) > 0:
-        noise[gd] = data.u_common_ch2[gd]*data.ch2[gd]
-    Write_GBCS_Float_to_Int_3D(ncid,'ch2_u_common','ni','nj','time',noise,\
-                                   -32768,'Channel 2 common uncertainty estimate',\
-                                   'reflectance',0,10000,1.e-5,0.,\
-                                   coordinates='lon lat')
-    if data.ch3a_there:
+        noise = np.zeros(data.ch4.shape,dtype=np.float32)
         noise[:,:] = -1e30
-        gd = (data.ch3a > 0)&(data.u_common_Ch3a > 0)
+        gd = (data.ch4 > 0)&(data.u_non_random_Ch4 > 0)
         if np.sum(gd) > 0:
-            noise[gd] = data.u_common_ch3a[gd]*data.cha[gd]
+            noise[gd] = data.u_non_random_ch4[gd]
+        Write_GBCS_Float_to_Int_3D(ncid,'ch4_u_non_random','ni','nj','time',noise,\
+                                       -32768,'Channel 4 non random uncertainty estimate',\
+                                       'kelvin',0,10000,0.001,0.,\
+                                       coordinates='lon lat')
+        
+        if data.ch5_there:
+            noise = np.zeros(data.ch4.shape,dtype=np.float32)
+            noise[:,:] = -1e30
+            gd = (data.ch5 > 0)&(data.u_non_random_Ch5 > 0)
+            if np.sum(gd) > 0:
+                noise[gd] = data.u_non_random_ch5[gd]
+            Write_GBCS_Float_to_Int_3D(ncid,'ch5_u_non_random','ni','nj','time',noise,\
+                                           -32768,'Channel 5 non random uncertainty estimate',\
+                                           'kelvin',0,10000,0.001,0.,\
+                                           coordinates='lon lat')
+    
+
+        noise = np.zeros(data.ch1.shape,dtype=np.float32)
+        noise[:,:] = -1e30
+        gd = (data.ch1 > 0)&(data.u_common_Ch1 > 0)
+        if np.sum(gd) > 0:
+            noise[gd] = data.u_common_ch1[gd]*data.ch1[gd]
+        Write_GBCS_Float_to_Int_3D(ncid,'ch1_u_common','ni','nj','time',noise,\
+                                       -32768,'Channel 1 common uncertainty estimate',\
+                                       'reflectance',0,10000,1.e-5,0.,\
+                                       coordinates='lon lat')
+    
+        noise[:,:] = -1e30
+        gd = (data.ch2 > 0)&(data.u_common_Ch2 > 0)
+        if np.sum(gd) > 0:
+            noise[gd] = data.u_common_ch2[gd]*data.ch2[gd]
+        Write_GBCS_Float_to_Int_3D(ncid,'ch2_u_common','ni','nj','time',noise,\
+                                       -32768,'Channel 2 common uncertainty estimate',\
+                                       'reflectance',0,10000,1.e-5,0.,\
+                                       coordinates='lon lat')
+        if data.ch3a_there:
+            noise[:,:] = -1e30
+            gd = (data.ch3a > 0)&(data.u_common_Ch3a > 0)
+            if np.sum(gd) > 0:
+                noise[gd] = data.u_common_ch3a[gd]*data.cha[gd]
             Write_GBCS_Float_to_Int_3D(ncid,'ch3a_u_common','ni','nj','time',\
                                            noise,-32768,\
                                            'Channel 3A common uncertainty estimate',\
                                            'reflectance',0,10000,1.e-5,0.,\
                                            coordinates='lon lat')
     
-    noise = np.zeros(data.ch3b.shape,dtype=np.float32)
-    noise[:,:] = -1e30
-    gd = (data.ch3b > 0)&(data.u_common_Ch3b > 0)
-    if np.sum(gd) > 0:
-        noise[gd] = data.u_common_ch3b[gd]
-    Write_GBCS_Float_to_Int_3D(ncid,'ch3b_u_common','ni','nj','time',noise,\
-                                   -32768,'Channel 3B common uncertainty estimate',\
-                                   'kelvin',0,10000,0.001,0.,\
-                                   coordinates='lon lat')
-    
-    noise = np.zeros(data.ch4.shape,dtype=np.float32)
-    noise[:,:] = -1e30
-    gd = (data.ch4 > 0)&(data.u_common_Ch4 > 0)
-    if np.sum(gd) > 0:
-        noise[gd] = data.u_common_ch4[gd]
-    Write_GBCS_Float_to_Int_3D(ncid,'ch4_u_common','ni','nj','time',noise,\
-                                   -32768,'Channel 4 non common uncertainty estimate',\
-                                   'kelvin',0,10000,0.001,0.,\
-                                   coordinates='lon lat')
-    
-    if data.ch5_there:
-        noise = np.zeros(data.ch4.shape,dtype=np.float32)
+        noise = np.zeros(data.ch3b.shape,dtype=np.float32)
         noise[:,:] = -1e30
-        gd = (data.ch5 > 0)&(data.u_common_Ch5 > 0)
+        gd = (data.ch3b > 0)&(data.u_common_Ch3b > 0)
         if np.sum(gd) > 0:
-            noise[gd] = data.u_common_ch5[gd]
-        Write_GBCS_Float_to_Int_3D(ncid,'ch5_common_random','ni','nj','time',noise,\
-                                       -32768,'Channel 5 non common uncertainty estimate',\
+            noise[gd] = data.u_common_ch3b[gd]
+        Write_GBCS_Float_to_Int_3D(ncid,'ch3b_u_common','ni','nj','time',noise,\
+                                       -32768,'Channel 3B common uncertainty estimate',\
                                        'kelvin',0,10000,0.001,0.,\
                                        coordinates='lon lat')
+    
+        noise = np.zeros(data.ch4.shape,dtype=np.float32)
+        noise[:,:] = -1e30
+        gd = (data.ch4 > 0)&(data.u_common_Ch4 > 0)
+        if np.sum(gd) > 0:
+            noise[gd] = data.u_common_ch4[gd]
+        Write_GBCS_Float_to_Int_3D(ncid,'ch4_u_common','ni','nj','time',noise,\
+                                       -32768,'Channel 4 non common uncertainty estimate',\
+                                       'kelvin',0,10000,0.001,0.,\
+                                       coordinates='lon lat')
+    
+        if data.ch5_there:
+            noise = np.zeros(data.ch4.shape,dtype=np.float32)
+            noise[:,:] = -1e30
+            gd = (data.ch5 > 0)&(data.u_common_Ch5 > 0)
+            if np.sum(gd) > 0:
+                noise[gd] = data.u_common_ch5[gd]
+            Write_GBCS_Float_to_Int_3D(ncid,'ch5_common_random','ni','nj','time',noise,\
+                                           -32768,'Channel 5 non common uncertainty estimate',\
+                                           'kelvin',0,10000,0.001,0.,\
+                                           coordinates='lon lat')
     
 
     #
@@ -604,7 +605,7 @@ def write_gbcs_l1c(data,S_s,himawari=False):
                                    comment='The solar zenith angle at time of the observations')
 
     Write_GBCS_Float_to_Int_3D(ncid,'relative_azimuth_angle','ni','nj','time',\
-                                   data.solza,-32768,'relative azimuth angle',\
+                                   data.solaz,-32768,'relative azimuth angle',\
                                    'angular degree',0,18000,0.01,0.,\
                                    standard_name='zenith angle',\
                                    coordinates='lon lat',\
@@ -658,15 +659,19 @@ def write_gbcs_l1c(data,S_s,himawari=False):
 #         'FIDUCEO Level 1 line number',0_GbcsInt2)
 
     # Global attributes
-    ncid.title = 'AVHRR Pre-Processing: {0} L1C product (FIDUCEO based)'.\
-        format(data.noaa_string)
-    ncid.id = '{0}-ESACCI-L1C-vFIDUCEO'.format(data.noaa_string)
-    ncid.summary = '{0} L1C product from the FIDUCEO project'.\
-        format(data.noaa_string)
-    ncid.reference = 'http://www.fiduceo.eu'
-    ncid.institution = 'FIDUCEO'
-    ncid.history = 'Created using FIDUCEO code'
-    ncid.license = 'This dataset is released for use under CC-BY licence (https://creativecommons.org/licenses/by/4.0/) and was developed in the EC FIDUCEO project \"Fidelity and Uncertainty in Climate Data Records from Earth Observations\". Grant Agreement: 638822.'
+    if himawari:
+        ncid.title = 'GBCS Pre-Processing: {0} L1C product'.\
+            format('Himawari')
+    else:
+        ncid.title = 'AVHRR Pre-Processing: {0} L1C product (FIDUCEO based)'.\
+            format(data.noaa_string)
+        ncid.id = '{0}-ESACCI-L1C-vFIDUCEO'.format(data.noaa_string)
+        ncid.summary = '{0} L1C product from the FIDUCEO project'.\
+            format(data.noaa_string)
+        ncid.reference = 'http://www.fiduceo.eu'
+        ncid.institution = 'FIDUCEO'
+        ncid.history = 'Created using FIDUCEO code'
+        ncid.license = 'This dataset is released for use under CC-BY licence (https://creativecommons.org/licenses/by/4.0/) and was developed in the EC FIDUCEO project \"Fidelity and Uncertainty in Climate Data Records from Earth Observations\". Grant Agreement: 638822.'
     ncid.product_version = data.version
     uuidval = uuid.uuid4()
     ncid.uuid = uuidval
@@ -684,8 +689,12 @@ def write_gbcs_l1c(data,S_s,himawari=False):
     ncid.time_coverage_resolution = \
         (data.date_time[1]-data.date_time[0]).strftime('%Y/%m/%d %H:%M:%-S')
 #    ncid.source = data.source_string
-    ncid.platform = data.noaa_string
-    ncid.sensor = 'AVHRR_GAC'
+    if himawari:
+        ncid.platform = 'Himawari'
+        ncid.sensor = 'AHI'
+    else:
+        ncid.platform = data.noaa_string
+        ncid.sensor = 'AVHRR_GAC'
     ncid.Metadata_Conventions = 'Unidata Dataset Discovery v1.0'
     ncid.metadata_link = 'http://www.esa-cci.org'
     ncid.standard_name_vocabularly = 'NetCDF Climate and Forecast (CF) Metadata Convention'
@@ -693,27 +702,45 @@ def write_gbcs_l1c(data,S_s,himawari=False):
     ncid.geospatial_lat_resolution = 0.04
     ncid.geospatial_lon_units = 'degrees_east'
     ncid.geospatial_lon_resolution = 0.04
-    ncid.acknowledgement = 'NOAA GAC Data. Processing funded by H2020 (EC)'
-    ncid.creator_name = 'FIDUCEO'
-    ncid.creator_email = 'fiduceo-coordinator@lists.reading.ac.uk'
-    ncid.creator_url = 'http://www.fiduceo.eu'
-    ncid.creator_processing_institution = 'These data were produced on the JASMIN infrastructure at STFC as part of the H2020 FIDUCEO project'
-    ncid.project = 'EC H2020 FIDUCEO project'
-    ncid.northernmost_latitude = 90.
-    ncid.southernmost_latitude = -90.
-    ncid.easternmost_longitude = 180.
-    ncid.westernmost_longitude = -180.
-    ncid.geospatial_lat_min = -90.
-    ncid.geospatial_lat_max = 90.
-    ncid.geospatial_lon_min = -180.
-    ncid.geospatial_lon_max = 180.
-    ncid.processing_level = 'L1C'
+    if not himawari:
+        ncid.acknowledgement = 'NOAA GAC Data. Processing funded by H2020 (EC)'
+    if himawari:
+        ncid.creator_name = 'J.Mittaz University of Reading'
+        ncid.creator_email = 'j.mittaz@reading.ac.uk'
+        ncid.creator_url = 'http://www.rdg.ac.uk'
+        ncid.creator_processing_institution = 'Bureau of Meteorology, Melbourne, Australia'
+        ncid.project = 'Collaboration between UoR and the Bureau'
+        ncid.northernmost_latitude = 90.
+        ncid.southernmost_latitude = -90.
+        ncid.easternmost_longitude = 180.
+        ncid.westernmost_longitude = -180.
+        ncid.geospatial_lat_min = -90.
+        ncid.geospatial_lat_max = 90.
+        ncid.geospatial_lon_min = -180.
+        ncid.geospatial_lon_max = 180.
+        ncid.processing_level = 'L1C'
+    else:
+        ncid.creator_name = 'FIDUCEO'
+        ncid.creator_email = 'fiduceo-coordinator@lists.reading.ac.uk'
+        ncid.creator_url = 'http://www.fiduceo.eu'
+        ncid.creator_processing_institution = 'These data were produced on the JASMIN infrastructure at STFC as part of the H2020 FIDUCEO project'
+        ncid.project = 'EC H2020 FIDUCEO project'
+        ncid.northernmost_latitude = 90.
+        ncid.southernmost_latitude = -90.
+        ncid.easternmost_longitude = 180.
+        ncid.westernmost_longitude = -180.
+        ncid.geospatial_lat_min = -90.
+        ncid.geospatial_lat_max = 90.
+        ncid.geospatial_lon_min = -180.
+        ncid.geospatial_lon_max = 180.
+        ncid.processing_level = 'L1C'
     ncid.cdm_data_type = 'swath'
 #    ncid.source_file = data.source_string
     ncid.gac_file = data.source_string
     ncid.lines_truncated_start = 1
     ncid.lines_truncated_end = data.lat.shape[0]
-    ncid.orbital_temperature = data.orbital_temperature
+    if not himawari:
+        ncid.orbital_temperature = data.orbital_temperature
 
     ncid.close()
 
