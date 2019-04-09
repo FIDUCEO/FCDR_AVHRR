@@ -80,6 +80,7 @@ CONTAINS
     LOGICAL :: keep_temp
     LOGICAL :: write_fcdr
     LOGICAL :: fiduceo_cal
+    INTEGER :: output_solar_temp
 
 !MT: 26-10-2017: extract list of input arguments: 
 !    INTEGER :: i
@@ -92,7 +93,8 @@ CONTAINS
 !    ENDDO
 
     nArgs = COMMAND_ARGUMENT_COUNT()
-    IF( 18 .gt. nArgs .or. 28 .le. nArgs )THEN
+    print *,'Number of Arguments : ',nArgs
+    IF( 20 .gt. nArgs .or. 30 .le. nArgs )THEN
        write(*,*)'nArgs=',nArgs
        CALL Gbcs_Critical(.TRUE.,&
             'USAGE: ./extract_l1b_data.exe uuid outfile gbcs_l1c(Y/N/C) &
@@ -228,6 +230,8 @@ CONTAINS
     ENDIF
 
     IF( nArgs .ne. 18+nfiles*2 )THEN
+       print *,'nfiles=',nfiles
+       print *,nArgs,18+nfiles*2
        CALL Gbcs_Critical(.TRUE.,'nFiles not match no of input files/pygac',&
             'Main','extract_l1b_data.f90')
     ENDIF
@@ -419,9 +423,23 @@ CONTAINS
        ENDIF
     ENDIF
 
+    output_solar_temp=-1
     IF( 'Y' .eq. keeptemp .or. 'y' .eq. keeptemp )THEN
        keep_temp = .TRUE.
     ELSE
+       IF( '1' .eq. keeptemp )THEN
+          output_solar_temp=1
+       ELSE IF( '2' .eq. keeptemp )THEN
+          output_solar_temp=2
+       ELSE IF( '3' .eq. keeptemp )THEN
+          output_solar_temp=3
+       ELSE IF( '100' .eq. keeptemp )THEN
+          output_solar_temp=100
+       ELSE IF( '101' .eq. keeptemp )THEN
+          output_solar_temp=101
+       ELSE IF( '102' .eq. keeptemp )THEN
+          output_solar_temp=102
+       ENDIF
        keep_temp = .FALSE.
     ENDIF
 
@@ -496,7 +514,8 @@ CONTAINS
          AVHRR,year1,month1,day1,hour1,minute1,year2,month2,day2,hour2,&
          minute2,ofile,.not.fiduceo_cal,split_single_file,pygac1,pygac2,pygac3,&
          pygac4,pygac5,gbcs_l1c_output=gbcs_l1c,gbcs_l1c_cal=gbcs_l1c_cal,&
-         walton_only=walton_only,keep_temp=keep_temp,write_fcdr=write_fcdr)
+         walton_only=walton_only,keep_temp=keep_temp,write_fcdr=write_fcdr,&
+         output_solar_temp=output_solar_temp)
     !
     ! Deallocate structure
     !
