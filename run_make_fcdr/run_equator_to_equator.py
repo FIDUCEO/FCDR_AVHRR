@@ -28,7 +28,7 @@ import os
 from  optparse import OptionParser
 import subprocess
 
-def run_equator_to_equator(name):
+def run_equator_to_equator(name,get_stats):
 
     if name == 'NOAA06':
         dirname = 'AVHRR06_G'
@@ -63,17 +63,25 @@ def run_equator_to_equator(name):
         for month in range(1,13):
             maxday = calendar.monthrange(year,month)[1]
             for day in range(1,maxday+1):
-                directory = '/group_workspaces/cems2/esacci_sst/input/avhrr/l1b/{0}/v1/{1:04d}/{2:02d}/{3:02d}'.format(dirname,year,month,day)
+                directory = '/gws/nopw/j04/esacci_sst/input/avhrr/l1b/{0}/v1/{1:04d}/{2:02d}/{3:02d}'.format(dirname,year,month,day)
                 if os.path.isdir(directory):
-                    command='python2.7 equator_to_equator.py {0} {1:04d} {2:02d} {3:02d} Y N Y N N Y'.format(name,year,month,day)
+                    if get_stats:
+                        command='python2.7 equator_to_equator.py {0} {1:04d} {2:02d} {3:02d} Y N Y F N Y Y'.format(name,year,month,day)
+                    else:
+                        command='python2.7 equator_to_equator.py {0} {1:04d} {2:02d} {3:02d} Y N Y F N Y N'.format(name,year,month,day)
                     subprocess.call(command,shell=True)
 
 if __name__ == "__main__":
     
-    parser = OptionParser("usage: %prog instr_name")
+    parser = OptionParser("usage: %prog instr_name get_stats(Y/N)")
     (options, args) = parser.parse_args()
-    if len(args) != 1:
+    if len(args) != 2:
         parser.error("incorrect number of arguments")
 
-    run_equator_to_equator(args[0])
+    if 'Y' == args[1]:
+        get_stats=True
+    else:
+        get_stats=False
+
+    run_equator_to_equator(args[0],get_stats)
 
