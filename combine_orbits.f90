@@ -117,6 +117,7 @@ CONTAINS
     TYPE(AVHRR_Data), INTENT(IN) :: AVHRR_New
     INTEGER, INTENT(IN) :: POS2
 
+    AVHRR%ch3a_there(POS1) = AVHRR_New%ch3a_there(POS2)
     AVHRR%scnline_l1b(POS1) = AVHRR_new%scnline_l1b(POS2)
     AVHRR%scanLineNumber(POS1) = &
          AVHRR_New%scanLineNumber(POS2)
@@ -587,6 +588,8 @@ CONTAINS
        !
        ! Now add in extra data - original raw data
        !
+       AVHRR%ch3a_there(last_position:AVHRR%arraySize) = &
+            AVHRR_New%ch3a_there(first_position:AVHRR_New%arraySize)
        AVHRR%scnline_l1b(last_position:AVHRR%arraySize) = &
             AVHRR_New%scnline_l1b(first_position:AVHRR_New%arraySize)
        AVHRR%scanLineNumber(last_position:AVHRR%arraySize) = &
@@ -941,6 +944,11 @@ CONTAINS
        check_overlap = .TRUE.
     ENDIF
 
+    !
+    ! Force check to true as check losing 10% files
+    !
+    check_overlap = .TRUE.
+
   END FUNCTION check_overlap
 
   SUBROUTINE Get_Jul_Day(file,POS_Year,POS_Start,POS_End,jday_start,jday_end)
@@ -1068,7 +1076,7 @@ CONTAINS
        AVHRRout,year1,month1,day1,hour1,minute1,year2,month2,day2,&
        hour2,minute2,output_filename,walton_cal,split_single_file,&
        pygac1,pygac2,pygac3,pygac4,pygac5,gbcs_l1c_output,gbcs_l1c_cal,&
-       walton_only,keep_temp,write_fcdr)
+       walton_only,keep_temp,write_fcdr,output_solar_temp)
 
     INTEGER, INTENT(IN) :: nFile
     CHARACTER(LEN=*), INTENT(IN) :: file1
@@ -1101,6 +1109,7 @@ CONTAINS
     LOGICAL, INTENT(IN), OPTIONAL :: walton_only
     LOGICAL, INTENT(IN), OPTIONAL :: keep_temp
     LOGICAL, INTENT(IN), OPTIONAL :: write_fcdr
+    INTEGER, INTENT(IN), OPTIONAL :: output_solar_temp
 
     ! Local variables
     TYPE(Imagery) :: IMG
@@ -1121,13 +1130,19 @@ CONTAINS
     INTEGER :: I
     TYPE(Walton_Struct) :: walton_str
     LOGICAL :: walt_only
+    INTEGER :: output_solartemp
 
     IF( PRESENT(walton_only) )THEN
        walt_only = walton_only
     ELSE
        walt_only = .FALSE.
     ENDIF
-
+    IF( PRESENT(output_solar_temp) )THEN
+       output_solartemp = output_solar_temp
+    ELSE
+       output_solartemp = -1
+    ENDIF
+       
     !
     ! Setup GbcsDataPath
     !
@@ -1339,14 +1354,44 @@ CONTAINS
           walton_biascorr = .FALSE.
           apply_scenet_bias = .FALSE.
        ENDIF
-       CALL Recalibrate_AVHRR(IMG,instr_coefs,pAVHRR,.TRUE.,walton_str,&
-            moon_events=.TRUE.,&
-            correct_solar_simple=.TRUE.,new_vis_cal=.TRUE.,&
-            noise_orbit=.TRUE.,filter_counts=.TRUE.,filter_prt=.TRUE.,&
-            dig_noise=.TRUE.,all_noise=.TRUE.,&
-            correctict=correctict,applyict=applyict,walton=walton_cal,&
-            tinstrapply=.FALSE.)
-       
+       IF( 102 .eq. output_solartemp )THEN
+          CALL Recalibrate_AVHRR(IMG,instr_coefs,pAVHRR,.TRUE.,walton_str,&
+               moon_events=.TRUE.,use_old_solar=.FALSE.,&
+               correct_solar_simple=.FALSE.,new_vis_cal=.TRUE.,&
+               noise_orbit=.TRUE.,filter_counts=.TRUE.,filter_prt=.TRUE.,&
+               dig_noise=.TRUE.,all_noise=.TRUE.,&
+               correctict=.TRUE.,applyict=.FALSE.,walton=walton_cal,&
+               tinstrapply=.FALSE.,output_solar_temp=output_solartemp,&
+               bad_tiny=.TRUE.)
+       ELSE IF( 101 .eq. output_solartemp )THEN
+          CALL Recalibrate_AVHRR(IMG,instr_coefs,pAVHRR,.TRUE.,walton_str,&
+               moon_events=.TRUE.,use_old_solar=.FALSE.,&
+               correct_solar_simple=.FALSE.,new_vis_cal=.TRUE.,&
+               noise_orbit=.TRUE.,filter_counts=.TRUE.,filter_prt=.TRUE.,&
+               dig_noise=.TRUE.,all_noise=.TRUE.,&
+               correctict=.FALSE.,applyict=.FALSE.,walton=walton_cal,&
+               tinstrapply=.FALSE.,output_solar_temp=output_solartemp,&
+               bad_tiny=.TRUE.)
+       ELSE IF( 100 .eq. output_solartemp )THEN 
+          CALL Recalibrate_AVHRR(IMG,instr_coefs,pAVHRR,.TRUE.,walton_str,&
+               moon_events=.TRUE.,use_old_solar=.FALSE.,&
+               correct_solar_simple=.TRUE.,new_vis_cal=.TRUE.,&
+               noise_orbit=.TRUE.,filter_counts=.TRUE.,filter_prt=.TRUE.,&
+               dig_noise=.TRUE.,all_noise=.TRUE.,&
+               correctict=correctict,applyict=applyict,walton=walton_cal,&
+               tinstrapply=.FALSE.,output_solar_temp=output_solartemp,&
+               bad_tiny=.TRUE.)
+       ELSE
+          CALL Recalibrate_AVHRR(IMG,instr_coefs,pAVHRR,.TRUE.,walton_str,&
+               moon_events=.TRUE.,use_old_solar=.FALSE.,&
+               correct_solar_simple=.TRUE.,new_vis_cal=.TRUE.,&
+               noise_orbit=.TRUE.,filter_counts=.TRUE.,filter_prt=.TRUE.,&
+               dig_noise=.TRUE.,all_noise=.TRUE.,&
+               correctict=correctict,applyict=applyict,walton=walton_cal,&
+               tinstrapply=.FALSE.,output_solar_temp=output_solartemp,&
+               bad_tiny=.TRUE.)
+       ENDIF
+
        IF( walton_cal )THEN
           CALL Setup_Walton( IMG, AVHRR, walton_str,&
                scenet_all_instr=.TRUE.,&
@@ -1861,6 +1906,7 @@ CONTAINS
             AVHRRout%new_array3A_dsp(AVHRRout%arraySize),&
             AVHRRout%noise_cnts(6,AVHRRout%arraySize),&
             AVHRRout%noise_cnts_cal(6,AVHRRout%arraySize),&
+            AVHRRout%noise_cnts_cal_bb(3,AVHRRout%arraySize),&
             AVHRRout%ict_prt_gain_value(AVHRRout%arraySize),&
             AVHRRout%prt_correction(AVHRRout%arraySize),&
             AVHRRout%prt_ict_temp(AVHRRout%arraySize),&
@@ -1937,6 +1983,7 @@ CONTAINS
        AVHRRout%new_array3A_dsp = NAN_R
        AVHRRout%noise_cnts = NAN_R
        AVHRRout%noise_cnts_cal = NAN_R
+       AVHRRout%noise_cnts_cal_bb = NAN_R
        IF( AVHRR%walton_there )THEN
           AVHRRout%array3B_error = NAN_R
           AVHRRout%array4_error = NAN_R
@@ -2097,6 +2144,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: K
     LOGICAL, INTENT(IN) :: alldata
 
+    AVHRRout%ch3a_there(K) = AVHRR%ch3a_there(I)
     AVHRRout%scnline_l1b(K) = AVHRR%scnline_l1b(I)
     AVHRRout%scanLineNumber(K) = AVHRR%scanLineNumber(I)
     AVHRRout%badTop(K) = AVHRR%badTop(I)
@@ -2256,6 +2304,7 @@ CONTAINS
        AVHRRout%new_array3A_dsp(K) = AVHRR%new_array3A_dsp(I)
        AVHRRout%noise_cnts(:,K) = AVHRR%noise_cnts(:,I)
        AVHRRout%noise_cnts_cal(:,K) = AVHRR%noise_cnts_cal(:,I)
+       AVHRRout%noise_cnts_cal_bb(:,K) = AVHRR%noise_cnts_cal_bb(:,I)
        AVHRRout%ict_prt_gain_value(K) = AVHRR%ict_prt_gain_value(I)
        AVHRRout%prt_correction(K) = AVHRR%prt_correction(I)
        AVHRRout%prt_ict_temp(K) = AVHRR%prt_ict_temp(I)
@@ -2263,7 +2312,6 @@ CONTAINS
        AVHRRout%prt2_plane_error(K) = AVHRR%prt2_plane_error(I)
        AVHRRout%prt3_plane_error(K) = AVHRR%prt3_plane_error(I)
        AVHRRout%prt4_plane_error(K) = AVHRR%prt4_plane_error(I)
-       AVHRRout%scnline_l1b(K) = AVHRR%scnline_l1b(I)
     ENDIF
 
   END SUBROUTINE Copy_All_Scan
@@ -3104,6 +3152,7 @@ CONTAINS
     INTEGER :: nmissing
     INTEGER :: nmissing_total
     TYPE(AVHRR_Data), POINTER :: pAVHRRout
+    LOGICAL :: too_many
 
     ! Find how many lines needed for output
     start_line = -1
@@ -3131,12 +3180,18 @@ CONTAINS
     ENDIF
 
     ! How many lines needed in output
+    too_many = .FALSE.
     ntotal = NINT(((AVHRR%time(stop_line)-AVHRR%time(start_line))/&
              AVHRR%scan_line_delta_time))+1
-
-    ! Allocate output structure
-    pAVHRRout => AVHRRout
-    CALL Allocate_OldCal( AVHRR, pAVHRRout,start_line,start_line+ntotal-1)
+    IF( ntotal .lt. stop_line-start_line+1 )THEN
+       too_many = .TRUE.
+       pAVHRRout => AVHRRout
+       CALL Allocate_OldCal( AVHRR, pAVHRRout,start_line,stop_line)
+    ELSE
+       ! Allocate output structure
+       pAVHRRout => AVHRRout
+       CALL Allocate_OldCal( AVHRR, pAVHRRout,start_line,start_line+ntotal-1)
+    ENDIF
     !
     ! Set all data to bad
     !
@@ -3153,44 +3208,67 @@ CONTAINS
 
     CALL Copy_Top_Data(AVHRR,AVHRRout,1,ntotal)
 
+    !
+    ! If ntotal < stop_line-start_line+1 then there is a problem with the 
+    ! times and we have too much data. So we copy it all
+    !
     nmissing_total = 0
-    K=0
-    I=start_line
-    DO WHILE(I .le. stop_line)
-       !
-       ! If pyGAC copied data there, copy line and see if there is a 
-       ! data gap
-       !
-       IF( AVHRR%year(I) .gt. 0 )THEN
-          K=K+1
-          IF( K .gt. AVHRRout%arraySize )THEN
-             CALL Gbcs_Critical(.TRUE.,'K > arraySize',&
-                  'fill_missing_lines','combine_orbits.f90')
-          ENDIF
+    IF( too_many )THEN
+       CALL Gbcs_Warning(.TRUE.,&
+            'Problems with timing data ntotal < stop_line-start_line+1 - copying all data',&
+            'fill_missing_lines',&
+            'combine_orbits.f90')
+       I=start_line
+       K=1
+       DO WHILE(I .le. stop_line)
           CALL Copy_All_Scan(AVHRR,AVHRRout,I,K,.TRUE.)
           AVHRRout%missingLines(K) = .FALSE.
-          !
-          ! Check time to next scan line
-          !
-          II=I
-          SearchLoop: DO WHILE(I .lt. stop_line )
-             IF( AVHRR%year(I+1) .gt. 0 )THEN
-                nmissing = NINT((AVHRR%time(I+1)-AVHRR%time(II))/&
-                     AVHRR%scan_line_delta_time)-1
-                IF( 0 .lt. nmissing )THEN
-                   K=K+nmissing
-                   nmissing_total = nmissing_total + nmissing
-                ENDIF
-                EXIT SearchLoop
-             ELSE
-                I=I+1
-             ENDIF
-          END DO SearchLoop
-       ElSE
+          I=I+1
           K=K+1
-       ENDIF
-       I=I+1
-    END DO
+       END DO
+    ELSE
+       !
+       ! We have to make up missing lines
+       !
+       
+       K=0
+       I=start_line
+       DO WHILE(I .le. stop_line)
+          !
+          ! If pyGAC copied data there, copy line and see if there is a 
+          ! data gap
+          !
+          IF( AVHRR%year(I) .gt. 0 )THEN
+             K=K+1
+             IF( K .gt. AVHRRout%arraySize )THEN
+                CALL Gbcs_Critical(.TRUE.,'K > arraySize',&
+                     'fill_missing_lines','combine_orbits.f90')
+             ENDIF
+             CALL Copy_All_Scan(AVHRR,AVHRRout,I,K,.TRUE.)
+             AVHRRout%missingLines(K) = .FALSE.
+             !
+             ! Check time to next scan line
+             !
+             II=I
+             SearchLoop: DO WHILE(I .lt. stop_line )
+                IF( AVHRR%year(I+1) .gt. 0 )THEN
+                   nmissing = NINT((AVHRR%time(I+1)-AVHRR%time(II))/&
+                        AVHRR%scan_line_delta_time)-1
+                   IF( 0 .lt. nmissing )THEN
+                      K=K+nmissing
+                      nmissing_total = nmissing_total + nmissing
+                   ENDIF
+                   EXIT SearchLoop
+                ELSE
+                   I=I+1
+                ENDIF
+             END DO SearchLoop
+          ElSE
+             K=K+1
+          ENDIF
+          I=I+1
+       END DO
+    ENDIF
 
     WRITE(*,'(''  Number of missing scanlines added = '',i5)')nmissing_total
 
