@@ -20,8 +20,9 @@
 FC = ifort
 FL = ifort
 #NCDFPATH = /group_workspaces/cems2/esacci_sst/software/common.gfortran
-NCDFPATH = /group_workspaces/cems2/esacci_sst/software/common
-FC_FLAGS = -I/group_workspaces/cems2/esacci_sst/software/common/include -I. -fpp -free -fPIC -assume byterecl -fpconstant -std03 -check all -debug all -traceback -g -O2
+NCDFPATH = /gws/nopw/j04/esacci_sst/software/common
+FC_FLAGS = -I/gws/nopw/j04/esacci_sst/software/common/include -I. -fpp -free -fPIC -assume byterecl -fpconstant -std03 -O2
+#FC_FLAGS = -I/gws/nopw/j04/esacci_sst/software/common/include -I. -fpp -free -fPIC -assume byterecl -fpconstant -std03 -check all -debug all -traceback -g
 #F_FLAGS = -fpp -fPIC -assume byterecl -fpconstant -check all -debug all -traceback -g -O2
 #FC_FLAGS = -Wall -g -fbounds-check -I. -I$(NCDFPATH)/include -cpp 
 #FC_FLAGS = -g -fbounds-check -I. -I$(NCDFPATH)/include -cpp 
@@ -33,7 +34,8 @@ LIBRARIES += -L/usr/lib/gcc/x86_64-redhat-linux/4.1.1 -lpng
 
 GBCSOBJECTS = GbcsKinds.o GbcsBaseTypes.o GbcsConstants.o simpledict.o GbcsStringUtil.o \
 	GbcsDateTime.o GbcsPath.o GbcsPixel.o GbcsErrorHandler.o GbcsPDFLookup.o \
-	GbcsConfFile.o GbcsLUTShift.o GbcsTypes.o GbcsAtmPhysics.o GbcsGeopotential.o GbcsProfileGenerator.o \
+	GbcsConfFile.o GbcsLUTShift.o GbcsSensorID.o GbcsTypes.o \
+	GbcsAtmPhysics.o GbcsGeopotential.o GbcsProfileGenerator.o \
 	GbcsTimeSpace.o GbcsSystemTools.o GbcsInterpolators.o GbcsForecastModel.o \
 	GbcsMatrixOps.o GbcsPDFLoaders.o \
 	GbcsScattPhysics.o GbcsCleanUp.o \
