@@ -162,6 +162,9 @@ MODULE fiduceo_uncertainties
      REAL, ALLOCATABLE :: dBT_over_dcict3(:,:)
      REAL, ALLOCATABLE :: dBT_over_dcict4(:,:)
      REAL, ALLOCATABLE :: dBT_over_dcict5(:,:)
+     REAL, ALLOCATABLE :: hu3(:,:)
+     REAL, ALLOCATABLE :: hu4(:,:)
+     REAL, ALLOCATABLE :: hu5(:,:)
      !
      ! Harmonisation covar
      !
@@ -183,13 +186,13 @@ MODULE fiduceo_uncertainties
   REAL, PARAMETER :: c1 = 1.1910427E-5
   REAL, PARAMETER :: c2 = 1.4387752
   REAL, PARAMETER :: eta_ict = 0.985140
-
+  REAL, PARAMETER :: prt_accuracy=0.1, prt_noise=0.
   !
   ! This is where the FIDUCEO software version number is defined
   !
   ! MT: 19-12-2017: v0.3pre
   ! MT: 09-03-2018: v0.5beta
-  CHARACTER(LEN=6) :: software_version = 'Beta'
+  CHARACTER(LEN=6) :: software_version = 'vBeta0.1'
 
 ! MT: 11-11-2017: Define temp variables to store structured uncertainties on the reflectance channels
   REAL, ALLOCATABLE :: us1(:,:)
@@ -315,7 +318,7 @@ CONTAINS
        coefs1(6,1) = -coefs1(6,1)/coefs1(7,1)
        coefs1(7,1) = 1./coefs1(7,1)
        coefs2(6,1) = -coefs2(6,1)/coefs2(7,1)
-       coefs2(7,1) = 1./coefs2(7,2)
+       coefs2(7,1) = 1./coefs2(7,1)
        coefs3(6,1) = -coefs3(6,1)/coefs3(7,1)
        coefs3(7,1) = 1./coefs3(7,1)
     ENDIF
@@ -665,6 +668,10 @@ CONTAINS
     INTEGER :: solar3_varid
     INTEGER :: solar4_varid
     INTEGER :: solar5_varid
+    INTEGER :: ch3a_there_varid
+    INTEGER :: ch3b_harm_varid
+    INTEGER :: ch4_harm_varid
+    INTEGER :: ch5_harm_varid
     INTEGER :: stat
 
     INTEGER :: dimid_nx
@@ -1196,6 +1203,13 @@ CONTAINS
     call check(stat)    
     
     dims1(1) = dimid_ny
+    stat = NF90_DEF_VAR(ncid,'ch3a_there',NF90_INT,dims1,ch3a_there_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, ch3a_there_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, ch3a_there_varid, 0, NAN_I)
+    call check(stat)    
+    
     stat = NF90_DEF_VAR(ncid,'scanline',NF90_INT,dims1,scanline_varid)
     call check(stat)
     stat = NF90_DEF_VAR_DEFLATE(ncid, scanline_varid, 1, 1, compress_level)
@@ -1210,6 +1224,35 @@ CONTAINS
     call check(stat)
     stat = NF90_DEF_VAR_FILL(ncid, oscanline_varid, 0, NAN_I)
     call check(stat)    
+
+    !
+    ! For Harmonisation common uncertainty (needed for channel to channel
+    ! correlation matrix) write out total Harmonisation uncertainty
+    ! Will assume sensitivity of 1 for this term in CURUC calculation
+    !
+    stat = NF90_DEF_VAR(ncid,'ch3b_harm_uncertainty',NF90_FLOAT,&
+         dims2,ch3b_harm_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, ch3b_harm_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, ch3b_harm_varid, 0, NAN_R)
+    call check(stat)        
+    
+    stat = NF90_DEF_VAR(ncid,'ch4_harm_uncertainty',NF90_FLOAT,&
+         dims2,ch4_harm_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, ch4_harm_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, ch4_harm_varid, 0, NAN_R)
+    call check(stat)        
+    
+    stat = NF90_DEF_VAR(ncid,'ch5_harm_uncertainty',NF90_FLOAT,&
+         dims2,ch5_harm_varid)
+    call check(stat)
+    stat = NF90_DEF_VAR_DEFLATE(ncid, ch5_harm_varid, 1, 1, compress_level)
+    call check(stat)
+    stat = NF90_DEF_VAR_FILL(ncid, ch5_harm_varid, 0, NAN_R)
+    call check(stat)        
     
     !
     ! Define global attributes
@@ -1227,6 +1270,10 @@ CONTAINS
 
     stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'ICT_Temperature_Uncertainty',&
          AVHRR%ict_plane_uncert)
+    call check(stat) 
+
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'PRT_Uncertainty',&
+         prt_accuracy)
     call check(stat) 
 
     stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'orbital_temperature',&
@@ -1564,11 +1611,25 @@ CONTAINS
          FCDR%quality_channel_bitmask)
     call check(stat)
 
+    stat = NF90_PUT_VAR(ncid, ch3a_there_varid, AVHRR%ch3a_there)
+    call check(stat)
+
     stat = NF90_PUT_VAR(ncid, scanline_varid, AVHRR%scanlinenumber)
     call check(stat)
 
     stat = NF90_PUT_VAR(ncid, oscanline_varid, AVHRR%scnline_l1b)
     call check(stat)
+
+    stat = NF90_PUT_VAR(ncid, ch3b_harm_varid, FCDR%hu3)
+    call check(stat)
+
+    stat = NF90_PUT_VAR(ncid, ch4_harm_varid, FCDR%hu4)
+    call check(stat)
+
+    IF( twelve_micron_there )THEN
+       stat = NF90_PUT_VAR(ncid, ch5_harm_varid, FCDR%hu5)
+       call check(stat)
+    ENDIF
 
     stat = NF90_CLOSE(ncid)
     call check(stat)
@@ -1593,14 +1654,14 @@ CONTAINS
 
     ! Local variables
     ! prt_accuracy systematic, prt_noise random
-    REAL                                 :: prt_accuracy=0.1, prt_noise=0., &
-         urict, tstar, &
+    REAL:: urict, tstar, &
          aval,bval,nuc, &
          uc1=0,uc2=0,unuc=0,uaval=0,ubval=0
     INTEGER :: STAT
     REAL :: prtmean
     REAL :: utict_r
     REAL :: utict_s
+    REAL :: utict_2s
     REAL :: prtsigma
     REAL :: utstar3_r
     REAL :: utstar4_r
@@ -1608,6 +1669,9 @@ CONTAINS
     REAL :: utstar3_s
     REAL :: utstar4_s
     REAL :: utstar5_s
+    REAL :: utstar3_2s
+    REAL :: utstar4_2s
+    REAL :: utstar5_2s
     
     IF( .not. ALLOCATED(FCDR%urict4_r) )THEN
        ALLOCATE(FCDR%urict3_r(outdata%arraySize),&
@@ -1644,12 +1708,14 @@ CONTAINS
     !Following the GUM: (u(tict))**2= u(a)**2+Tict**2 * u(b)**2 + u(b)**2 +sigmaTict**2 / 4
 
     prtmean = -1e30
-    if ((outData%prt1(i) .ne. NAN_R ) &
-         .and. (outData%prt2(i) .ne. NAN_R )&
-         .and. (outData%prt3(i) .ne. NAN_R )&
-         .and. (outData%prt4(i) .ne. NAN_R )) then
-       prtmean = (outData%prt1(i)+outData%prt2(i)+&
-            outData%prt3(i)+outData%prt4(i))/4.
+    if ((outData%smoothprt1(i) .ne. NAN_R ) &
+         .and. (outData%smoothprt2(i) .ne. NAN_R )&
+         .and. (outData%smoothprt3(i) .ne. NAN_R )&
+         .and. (outData%smoothprt4(i) .ne. NAN_R )) then
+       prtmean = outData%smoothprt(i)
+       IF( outData%prt_correction(i) .gt. -1e20 )THEN
+          prtmean = prtmean + outData%prt_correction(i)
+       ENDIF
        !
        ! Use dispersion of 4 PRTs as estimate of representivity error
        !
@@ -1673,6 +1739,7 @@ CONTAINS
        ! u(Tict) **2= (1/16)*(4*u(T)**2) = (1/4)*u(T)**2
        utict_r = 0.5*prt_noise
        utict_s = sqrt(prt_accuracy**2 + prtsigma**2)
+       utict_2s = sqrt(prt_accuracy**2 + (2.*prtsigma)**2)
 
     end if
 
@@ -1687,7 +1754,7 @@ CONTAINS
     ! T*=(Tict-A)/B
     ! Following the GUM: u(T*)**2= u(A)**2*(1/B)**2 +u(b)**2*(-(Tict-A)/B**2)**2 +(1/B)**2* u(Tict)**2
     ! u(T*)**2=(1/B)**2* u(Tict)**2
-    if (prtmean .ne.  -1.00000002E+30 ) then 
+    if (prtmean .gt.  -1.E+20 ) then 
        tstar=(prtmean-aval)/bval
 
        FCDR%Rict_c3(i)=c1*nuc**3/(exp(c2*nuc/tstar)-1.)
@@ -1695,11 +1762,22 @@ CONTAINS
        utstar3_s=sqrt(uaval**2*FCDR%dtstar_over_daval3(i)**2 &
             +ubval**2*FCDR%dtstar_over_dbval3(i)**2 &
             +utict_s**2*FCDR%dtstar_over_dT3(i)**2)
+       utstar3_2s=sqrt(uaval**2*FCDR%dtstar_over_daval3(i)**2 &
+            +ubval**2*FCDR%dtstar_over_dbval3(i)**2 &
+            +utict_2s**2*FCDR%dtstar_over_dT3(i)**2)
        utstar3_r=sqrt(utict_r**2*FCDR%dtstar_over_dT3(i)**2)
        !print*, outdata%utstar3(i)  
        FCDR%urict3_r(i)=sqrt(utstar3_r**2*FCDR%drict_over_dtstar3(i)**2)
-       FCDR%urict3_s(i)=sqrt(utstar3_s**2*FCDR%drict_over_dtstar3(i)**2 + &
-            unuc**2*FCDR%drict_over_dnuc3(i)**2)
+       !
+       ! If solar contamination double ICT temperature correction uncertainty
+       !
+       IF( outData%solar_contamination_3b(i) )THEN
+          FCDR%urict3_s(i)=sqrt(utstar3_2s**2*FCDR%drict_over_dtstar3(i)**2 + &
+               unuc**2*FCDR%drict_over_dnuc3(i)**2)
+       ELSE
+          FCDR%urict3_s(i)=sqrt(utstar3_s**2*FCDR%drict_over_dtstar3(i)**2 + &
+               unuc**2*FCDR%drict_over_dnuc3(i)**2)
+       ENDIF
        !print*, outdata%rict_c3(i), utict,outdata%urict3(i)
        !print*, "urict", outdata%urict3(i)
     end if
@@ -1711,7 +1789,7 @@ CONTAINS
     uaval=0
     ubval=0
     !--On calcule u(Rict)
-    if (prtmean .ne. -1e30 )then
+    if (prtmean .gt. -1e20 )then
        tstar=(prtmean-aval)/bval
 
        FCDR%Rict_c4(i)=c1*nuc**3/(exp(c2*nuc/tstar)-1.)
@@ -1719,11 +1797,19 @@ CONTAINS
        utstar4_s=sqrt(uaval**2*FCDR%dtstar_over_daval4(i)**2 &
             +ubval**2*FCDR%dtstar_over_dbval4(i)**2 &
             +utict_s**2*FCDR%dtstar_over_dT4(i)**2)
+       utstar4_2s=sqrt(uaval**2*FCDR%dtstar_over_daval4(i)**2 &
+            +ubval**2*FCDR%dtstar_over_dbval4(i)**2 &
+            +utict_2s**2*FCDR%dtstar_over_dT4(i)**2)
        utstar4_r=sqrt(utict_r**2*FCDR%dtstar_over_dT4(i)**2)
        !print*, outdata%utstar3(i)  
        FCDR%urict4_r(i)=sqrt(utstar4_r**2*FCDR%drict_over_dtstar4(i)**2)
-       FCDR%urict4_s(i)=sqrt(utstar4_s**2*FCDR%drict_over_dtstar4(i)**2 + &
-            unuc**2*FCDR%drict_over_dnuc4(i)**2)
+       IF( outData%solar_contamination_3b(i) )THEN
+          FCDR%urict4_s(i)=sqrt(utstar4_2s**2*FCDR%drict_over_dtstar4(i)**2 + &
+               unuc**2*FCDR%drict_over_dnuc4(i)**2)
+       ELSE
+          FCDR%urict4_s(i)=sqrt(utstar4_s**2*FCDR%drict_over_dtstar4(i)**2 + &
+               unuc**2*FCDR%drict_over_dnuc4(i)**2)
+       ENDIF
        !print*, outdata%rict_c4(i), utict,outdata%urict4(i)
     end if
     IF( twelve_micron_there )THEN
@@ -1732,7 +1818,7 @@ CONTAINS
        aval=coefs3(6,1)
        bval=coefs3(7,1)
        unuc=0
-       if (prtmean .ne. -1e30 )then
+       if (prtmean .gt. -1e30 )then
           tstar=(prtmean-aval)/bval
           FCDR%Rict_c5(i)=c1*nuc**3/(exp(c2*nuc/tstar)-1.)
           !print*, tstar, outdata%rict_c5(i)
@@ -1740,11 +1826,19 @@ CONTAINS
           utstar5_s=sqrt(uaval**2*FCDR%dtstar_over_daval5(i)**2 &
                +ubval**2*FCDR%dtstar_over_dbval5(i)**2 &
                +utict_s**2*FCDR%dtstar_over_dT5(i)**2)
+          utstar5_2s=sqrt(uaval**2*FCDR%dtstar_over_daval5(i)**2 &
+               +ubval**2*FCDR%dtstar_over_dbval5(i)**2 &
+               +utict_2s**2*FCDR%dtstar_over_dT5(i)**2)
           utstar5_r=sqrt(utict_r**2*FCDR%dtstar_over_dT5(i)**2)
           !print*, outdata%utstar3(i)  
           FCDR%urict5_r(i)=sqrt(utstar5_r**2*FCDR%drict_over_dtstar5(i)**2)
-          FCDR%urict5_s(i)=sqrt(utstar5_s**2*FCDR%drict_over_dtstar5(i)**2 + &
-               unuc**2*FCDR%drict_over_dnuc5(i)**2)
+          IF( outData%solar_contamination_3b(i) )THEN
+             FCDR%urict5_s(i)=sqrt(utstar5_2s**2*FCDR%drict_over_dtstar5(i)**2 + &
+                  unuc**2*FCDR%drict_over_dnuc5(i)**2)
+          ELSE
+             FCDR%urict5_s(i)=sqrt(utstar5_s**2*FCDR%drict_over_dtstar5(i)**2 + &
+                  unuc**2*FCDR%drict_over_dnuc5(i)**2)
+          ENDIF
        end if
     ENDIF
 
@@ -1778,6 +1872,7 @@ CONTAINS
     REAL :: dBT_over_dre3
     REAL :: dBT_over_dre4
     REAL :: dBT_over_dre5
+    REAL :: smoothprt
 
     IF( .not. ALLOCATED(FCDR%dtstar_over_daval3) )THEN
        ALLOCATE(FCDR%Rict_c3(outdata%arraySize),&
@@ -1911,16 +2006,27 @@ CONTAINS
     ENDIF
 
     !
+    ! Get smooth PRT corrected if necessary
+    !
+    smoothprt = NAN_R
+    IF( outData%smoothPRT(i) .gt. 0. )THEN
+       IF( outData%prt_correction(i) .gt. -1e20 )THEN
+          smoothprt = outData%smoothPRT(I) + outData%prt_correction(i)
+       ELSE
+          smoothprt = outData%smoothPRT(I)
+       ENDIF
+    ENDIF
+    !
     ! Calculate Rict radiances which was originally in Marines 
     ! average_per_orbite code
     !
-    IF( outData%smoothPRT(i) .ne. NAN_R .and. outData%smoothPRT(i) .gt. 0. )THEN
-       FCDR%Rict_c3(i) = convertRadiance(outData%smoothPRT(i), DBLE(coefs1(5,1)), &
+    IF( smoothprt .gt. -1e20 )THEN
+       FCDR%Rict_c3(i) = convertRadiance(smoothPRT, DBLE(coefs1(5,1)), &
             DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
-       FCDR%Rict_c4(i) = convertRadiance(outData%smoothPRT(i), DBLE(coefs2(5,1)), &
+       FCDR%Rict_c4(i) = convertRadiance(smoothPRT, DBLE(coefs2(5,1)), &
             DBLE(coefs2(6,1)), DBLE(coefs2(7,1)))
        IF( twelve_micron_there )THEN
-          FCDR%Rict_c5(i) = convertRadiance(outData%smoothPRT(i), DBLE(coefs3(5,1)), &
+          FCDR%Rict_c5(i) = convertRadiance(smoothPRT, DBLE(coefs3(5,1)), &
                DBLE(coefs3(6,1)), DBLE(coefs3(7,1)))
        ENDIF
     ENDIF
@@ -1962,11 +2068,11 @@ CONTAINS
        FCDR%dtstar_over_daval5(i)=-1./coefs3(7,1)
     ENDIF
 
-    if ((outdata%smoothprt(i) .ne. NAN_R) .and. (outdata%smoothprt(i) .gt. 0))then  
-       FCDR%dtstar_over_dbval3(i)=-(outdata%smoothprt(i)-coefs1(6,1))/coefs1(7,1**2)
-       FCDR%dtstar_over_dbval4(i)=-(outdata%smoothprt(i)-coefs2(6,1))/coefs2(7,1**2)
+    if (smoothprt .gt. 0)then  
+       FCDR%dtstar_over_dbval3(i)=-(smoothprt-coefs1(6,1))/coefs1(7,1**2)
+       FCDR%dtstar_over_dbval4(i)=-(smoothprt-coefs2(6,1))/coefs2(7,1**2)
        IF( twelve_micron_there )THEN
-          FCDR%dtstar_over_dbval5(i)=-(outdata%smoothprt(i)-coefs3(6,1))/coefs3(7,1**2)
+          FCDR%dtstar_over_dbval5(i)=-(smoothprt-coefs3(6,1))/coefs3(7,1**2)
 
        ENDIF
     end if
@@ -1982,8 +2088,8 @@ CONTAINS
     ENDIF
 
     !###  sensitivities of Rict ############
-    if ((outdata%smoothprt(i) .ne. NAN_R) .and. (outdata%smoothprt(i) .gt. 0)) then 
-       tstar=(outdata%smoothprt(i)-coefs1(6,1))/coefs1(7,1)
+    if (smoothprt .gt. 0) then 
+       tstar=(smoothprt-coefs1(6,1))/coefs1(7,1)
        u=c2*coefs1(5,1)/tstar
        FCDR%drict_over_dnuc3(i)=(c1*coefs1(5,1)**2/(exp(u)-1)) &
             *(3-coefs1(5,1)*(c2/tstar)*exp(u)/(exp(u)-1))
@@ -1991,7 +2097,7 @@ CONTAINS
             (c2*coefs1(5,1)/tstar**2)&
             *exp(u)/(exp(u)-1)**2
 
-       tstar=(outdata%smoothprt(i)-coefs2(6,1))/coefs2(7,1)
+       tstar=(smoothprt-coefs2(6,1))/coefs2(7,1)
        u=c2*coefs2(5,1)/tstar
        FCDR%drict_over_dnuc4(i)=(c1*coefs2(5,1)**2/(exp(u)-1)) &
             *(3-coefs2(5,1)*(c2/tstar)*exp(u)/(exp(u)-1))
@@ -2000,7 +2106,7 @@ CONTAINS
             *exp(u)/(exp(u)-1)**2
 
        IF( twelve_micron_there )THEN
-          tstar=(outdata%smoothprt(i)-coefs3(6,1))/coefs3(7,1)
+          tstar=(smoothprt-coefs3(6,1))/coefs3(7,1)
           u=c2*coefs3(5,1)/tstar
           FCDR%drict_over_dnuc5(i)=(c1*coefs3(5,1)**2/(exp(u)-1)) &
                *(3-coefs3(5,1)*(c2/tstar)*exp(u)/(exp(u)-1))
@@ -2033,7 +2139,7 @@ CONTAINS
           FCDR%dre_over_da23(j,i)=-cs_cict_3*(outdata%smoothsp3(i)-outData%Counts3(j,i))&
                +(outdata%smoothsp3(i)-outData%Counts3(j,i))**2
 
-          FCDR%dre_over_da33(j,i)=FIDUCEO_Tinstr_Model(outdata%orbital_temperature)
+          FCDR%dre_over_da33(j,i)=FIDUCEO_Tinstr_Model(1,outdata%orbital_temperature)
           FCDR%dre_over_dtinstr3(j,i)=coefs1(8,1)
 
           FCDR%dre_over_dce3(j,i)=-((eta_ict+coefs1(2,1))*FCDR%Rict_c3(i)-coefs1(4,1)*cs_cict_3**2)&
@@ -2095,7 +2201,7 @@ CONTAINS
           FCDR%dre_over_da24(j,i)=-cs_cict_4*(outdata%smoothsp4(i)-outData%Counts4(j,i))&
                +(outdata%smoothsp4(i)-outData%Counts4(j,i))**2
 
-          FCDR%dre_over_da34(j,i)=FIDUCEO_Tinstr_Model(outdata%orbital_temperature)
+          FCDR%dre_over_da34(j,i)=FIDUCEO_Tinstr_Model(2,outdata%orbital_temperature)
           FCDR%dre_over_dtinstr4(j,i)=coefs2(8,1)
 
           FCDR%dre_over_dce4(j,i)=-((eta_ict+coefs2(2,1))*FCDR%Rict_c4(i)-coefs2(4,1)*cs_cict_4**2)&
@@ -2155,28 +2261,28 @@ CONTAINS
              FCDR%dre_over_da25(j,i)=-cs_cict_5*(outdata%smoothsp5(i)-outData%Counts5(j,i))&
                   +(outdata%smoothsp5(i)-outData%Counts5(j,i))**2
 
-             FCDR%dre_over_da35(j,i)=FIDUCEO_Tinstr_Model(outdata%orbital_temperature)
+             FCDR%dre_over_da35(j,i)=FIDUCEO_Tinstr_Model(3,outdata%orbital_temperature)
              FCDR%dre_over_dtinstr5(j,i)=coefs3(8,1)
 
-             FCDR%dre_over_dce5(j,i)=-((eta_ict+coefs3(2,1))*FCDR%Rict_c5(i)-coefs2(4,1)*cs_cict_5**2)&
+             FCDR%dre_over_dce5(j,i)=-((eta_ict+coefs3(2,1))*FCDR%Rict_c5(i)-coefs3(4,1)*cs_cict_5**2)&
                   /cs_cict_5 &
-                  -2*coefs2(4,1)*(outdata%smoothsp5(i)-outData%Counts5(j,i))
+                  -2*coefs3(4,1)*(outdata%smoothsp5(i)-outData%Counts5(j,i))
 
-             FCDR%dre_over_dcict5(j,i)=-((eta_ict+coefs3(2,1))*FCDR%Rict_c5(i)-coefs2(4,1)*cs_cict_5**2) &
+             FCDR%dre_over_dcict5(j,i)=-((eta_ict+coefs3(2,1))*FCDR%Rict_c5(i)-coefs3(4,1)*cs_cict_5**2) &
                   *(outdata%smoothsp5(i)-outData%Counts5(j,i))&
                   /cs_cict_5**2&
-                  +2*coefs2(4,1)*(outdata%smoothsp5(i)-outData%Counts5(j,i))
+                  +2*coefs3(4,1)*(outdata%smoothsp5(i)-outData%Counts5(j,i))
              
-             FCDR%dre_over_dcs5(j,i)=-((eta_ict+coefs3(2,1))*FCDR%Rict_c5(i)-coefs2(4,1)*cs_cict_5**2)&
+             FCDR%dre_over_dcs5(j,i)=-((eta_ict+coefs3(2,1))*FCDR%Rict_c5(i)-coefs3(4,1)*cs_cict_5**2)&
                   *(outdata%smoothsp5(i)-outData%Counts5(j,i))&
                   /cs_cict_5**2&
-                  +((eta_ict+coefs3(2,1))*FCDR%Rict_c5(i)-coefs2(4,1)*cs_cict_5**2)&
+                  +((eta_ict+coefs3(2,1))*FCDR%Rict_c5(i)-coefs3(4,1)*cs_cict_5**2)&
                   /cs_cict_5
              
              FCDR%dre_over_drict5(j,i)=(eta_ict+coefs3(2,1))*(outdata%smoothsp5(i)-outData%Counts5(j,i))&
                   /cs_cict_5
 
-             IF( 0 .le. outData%new_array4(j,i) )THEN
+             IF( 0 .le. outData%new_array5(j,i) )THEN
                 factor = C1*(FCDR%nuc(3)**3)/outData%new_array5(j,i)+1.
                 dBT_over_dre5 = C1*C2*FCDR%nuc(3)**4/log(factor)**2/factor/&
                      FCDR%bval(3)/(outData%new_array5(j,i)**2)
@@ -2225,6 +2331,7 @@ CONTAINS
     REAL :: cs_cict_3
     REAL :: cs_cict_4
     REAL :: cs_cict_5
+    REAL :: noise
 
     REAL :: nrmax5,ur5, nrmin5, trmin5, trmax5, &
          nsmax5,us5, nsmin5, tsmin5, tsmax5, &
@@ -2268,6 +2375,9 @@ CONTAINS
             FCDR%Omatrix3(nparams3),&
             FCDR%Cmatrix(nparams),&
             FCDR%Omatrix(nparams),&
+            FCDR%hu3(outData%nelem,outData%arraySize),&
+            FCDR%hu4(outData%nelem,outData%arraySize),&
+            FCDR%hu5(outData%nelem,outData%arraySize),&
        STAT=STAT)
        IF( 0 .ne. STAT )THEN
           CALL Gbcs_Critical(.TRUE.,'Cannot allocate arrays',&
@@ -2298,17 +2408,24 @@ CONTAINS
        FCDR%ucs4 = NAN_R
        FCDR%ucs5 = NAN_R
        FCDR%flag_no_detection = 0
+       FCDR%hu3 = NAN_R
+       FCDR%hu4 = NAN_R
+       FCDR%hu5 = NAN_R
     ENDIF
 
     !
-    ! Vis channel averaging noise
+    ! Vis channel averaging noise. Inlcudes digitisation noise
+    ! Note digitisation noise does not average down
     !
-    FCDR%us1(:,i)=ABS(outData%new_array1_dsp(i)*outData%new_array1_spnoise(i))
-    FCDR%us2(:,i)=ABS(outData%new_array2_dsp(i)*outData%new_array2_spnoise(i))
+    IF( outData%new_array1_dsp(i) .ne. NAN_R )THEN
+       FCDR%us1(:,i)=ABS(outData%new_array1_dsp(i)*outData%new_array1_spnoise(i))
+    ENDIF
+    IF( outData%new_array2_dsp(i) .ne. NAN_R )THEN
+       FCDR%us2(:,i)=ABS(outData%new_array2_dsp(i)*outData%new_array2_spnoise(i))
+    ENDIF
     IF( outData%new_array3a_dsp(i) .gt. -1e20 .and. &
          outData%new_array3a_spnoise(i) .gt. -1e20 )THEN
-       FCDR%us3a(:,i)=ABS(outData%new_array3a_dsp(i)*&
-            outData%new_array3a_spnoise(i))
+       FCDR%us3a(:,i)=ABS(outData%new_array3a_dsp(i)*outData%new_array3a_spnoise(i))
     ENDIF
     !
     ! Taken directly from Marines code radiance_uncertainties
@@ -2431,6 +2548,14 @@ CONTAINS
              uc3 = SQRT(FCDR%Omatrix3(1)*FCDR%Cmatrix3(1)+&
                   FCDR%Omatrix3(2)*FCDR%Cmatrix3(2))
           endif
+          !
+          ! Store for CURUC
+          !
+          FCDR%hu3(j,i) = uc3
+          !
+          ! Add in ICT T error term
+          !
+          uc3 = SQRT(uc3*uc3+(FCDR%dre_over_drict3(j,i)**2*FCDR%urict3_s(i)**2))
        ENDIF
 
        if ((FCDR%uce3(j,i) .ne. NAN_R) &
@@ -2456,9 +2581,12 @@ CONTAINS
                   +(FCDR%dre_over_dcict3(j,i)**2*FCDR%ucict3(i)**2) &
                   +(outData%walton_bias_corr_uncert(1)**2)) 
           ELSE
-             us3=sqrt((FCDR%dre_over_drict3(j,i)**2*FCDR%urict3_s(i)**2) &
-                  +(FCDR%dre_over_dcs3(j,i)**2*FCDR%ucs3(i)**2) &
+             ! Don't add in ICT T terms here - make it common
+             us3=sqrt((FCDR%dre_over_dcs3(j,i)**2*FCDR%ucs3(i)**2) &
                   +(FCDR%dre_over_dcict3(j,i)**2*FCDR%ucict3(i)**2)) 
+!             us3=sqrt((FCDR%dre_over_drict3(j,i)**2*FCDR%urict3_s(i)**2) &
+!                  +(FCDR%dre_over_dcs3(j,i)**2*FCDR%ucs3(i)**2) &
+!                  +(FCDR%dre_over_dcict3(j,i)**2*FCDR%ucict3(i)**2)) 
           ENDIF
        end if
 
@@ -2492,6 +2620,14 @@ CONTAINS
                   FCDR%Omatrix(2)*FCDR%Cmatrix(2)+&
                   FCDR%Omatrix(3)*FCDR%Cmatrix(3))
           endif
+          !
+          ! Store for CURUC
+          !
+          FCDR%hu4(j,i) = uc4
+          !
+          ! Add in ICT T error term
+          !
+          uc4 = SQRT(uc4*uc4+(FCDR%dre_over_drict4(j,i)**2*FCDR%urict4_s(i)**2))
        ENDIF
 
        if ((FCDR%uce4(j,i) .ne. NAN_R) &
@@ -2516,9 +2652,11 @@ CONTAINS
                   +(FCDR%dre_over_dcict4(j,i)**2*FCDR%ucict4(i)**2) & 
                   +(outData%walton_bias_corr_uncert(2)**2)) 
           ELSE
-             us4=sqrt((FCDR%dre_over_drict4(j,i)**2*FCDR%urict4_s(i)**2) &
-                  +(FCDR%dre_over_dcs4(j,i)**2*FCDR%ucs4(i)**2) &
+             us4=sqrt((FCDR%dre_over_dcs4(j,i)**2*FCDR%ucs4(i)**2) &
                   +(FCDR%dre_over_dcict4(j,i)**2*FCDR%ucict4(i)**2)) 
+!             us4=sqrt((FCDR%dre_over_drict4(j,i)**2*FCDR%urict4_s(i)**2) &
+!                  +(FCDR%dre_over_dcs4(j,i)**2*FCDR%ucs4(i)**2) &
+!                  +(FCDR%dre_over_dcict4(j,i)**2*FCDR%ucict4(i)**2)) 
           ENDIF
        end if
 
@@ -2556,6 +2694,15 @@ CONTAINS
                      FCDR%Omatrix(2)*FCDR%Cmatrix(2)+&
                      FCDR%Omatrix(3)*FCDR%Cmatrix(3))
              endif
+             !
+             ! Store for CURUC
+             !
+             FCDR%hu5(j,i) = uc5
+             !
+             ! Add in ICT T error term
+             !
+             uc5 = SQRT(uc5*uc5+(FCDR%dre_over_drict5(j,i)**2*&
+                  FCDR%urict5_s(i)**2))
           ENDIF
           !---Ch 5
           if ((FCDR%uce5(j,i) .ne. NAN_R) &
@@ -2580,178 +2727,266 @@ CONTAINS
                      +(FCDR%dre_over_dcict5(j,i)**2*FCDR%ucict5(i)**2) & 
                      +(outData%walton_bias_corr_uncert(3)**2)) 
              ELSE
-                us5=sqrt((FCDR%dre_over_drict5(j,i)**2*FCDR%urict5_s(i)**2) &
-                     +(FCDR%dre_over_dcs5(j,i)**2*FCDR%ucs5(i)**2) &
+                us5=sqrt((FCDR%dre_over_dcs5(j,i)**2*FCDR%ucs5(i)**2) &
                      +(FCDR%dre_over_dcict5(j,i)**2*FCDR%ucict5(i)**2)) 
+!                us5=sqrt((FCDR%dre_over_drict5(j,i)**2*FCDR%urict5_s(i)**2) &
+!                     +(FCDR%dre_over_dcs5(j,i)**2*FCDR%ucs5(i)**2) &
+!                     +(FCDR%dre_over_dcict5(j,i)**2*FCDR%ucict5(i)**2)) 
              ENDIF
           end if
        ENDIF
 
        !---FIDUCEO : on convertit les radiances en BT
-       if  ((outData%new_array3B(j,i) .gt. 0).and. (outData%new_array3B(j,i) .ne. NAN_R) &
-            .and. ur3 .ne. NAN_R .and. us3 .ne. NAN_R .and. uc3 .ne. NAN_R ) then
-          FCDR%btf3(j,i)=convertBT(outData%new_array3B(j,i),DBLE(coefs1(5,1)), &
-               DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
-          nrmax3=outData%new_array3B(j,i)+ur3
-          trmax3=convertBT(nrmax3,DBLE(coefs1(5,1)), DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
-          nrmin3=outData%new_array3B(j,i)-ur3
-          two_sigma = outData%new_array3B(j,i)-2*ur3
-          if( two_sigma .gt. 0. )then
-             trmin3=convertBT(nrmin3,DBLE(coefs1(5,1)), DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
-             FCDR%ur3(j,i)=(trmax3-trmin3)/2.
-          else
-!             FCDR%ur3(j,i) = trmax3-FCDR%btf3(j,i)
-             ! Set data to bad as no 1 sigma detection available
+       if  ((outData%new_array3B(j,i) .gt. 0).and. &
+            (outData%new_array3B(j,i) .ne. NAN_R) &
+            .and. ur3 .ne. NAN_R .and. us3 .ne. NAN_R .and. &
+            uc3 .ne. NAN_R ) then
+          IF( outData%new_array3B(j,i) .eq. TINY )THEN
              FCDR%flag_no_detection(1,i) = 1
-             FCDR%uc3(j,i) = NAN_R
-             FCDR%ur3(j,i) = NAN_R
-             FCDR%us3(j,i) = NAN_R
-             FCDR%btf3(j,i) = NAN_R
-          endif
+             FCDR%uc3(j,i) = 400.
+             FCDR%ur3(j,i) = 400.
+             FCDR%us3(j,i) = 400.
+             FCDR%btf3(j,i) = TINY
+             FCDR%dBT_over_dT3(j,i) = TINY
+             FCDR%dBT_over_dcs3(j,i) = TINY
+             FCDR%dBT_over_dcict3(j,i) = TINY
+          ELSE
+             FCDR%btf3(j,i)=convertBT(outData%new_array3B(j,i),&
+                  DBLE(coefs1(5,1)), &
+                  DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
+             nrmax3=outData%new_array3B(j,i)+ur3
+             trmax3=convertBT(nrmax3,DBLE(coefs1(5,1)), &
+                  DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
+             nrmin3=outData%new_array3B(j,i)-ur3
+             two_sigma = outData%new_array3B(j,i)-2*ur3
+             if( two_sigma .gt. 0. )then
+                trmin3=convertBT(nrmin3,DBLE(coefs1(5,1)), &
+                     DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
+                FCDR%ur3(j,i)=(trmax3-trmin3)/2.
+             else
+                !             FCDR%ur3(j,i) = trmax3-FCDR%btf3(j,i)
+                ! Set data to bad as no 1 sigma detection available
+                FCDR%flag_no_detection(1,i) = 1
+                FCDR%uc3(j,i) = 400.
+                FCDR%ur3(j,i) = 400.
+                FCDR%us3(j,i) = 400.
+                FCDR%btf3(j,i) = TINY
+                FCDR%dBT_over_dT3(j,i) = TINY
+                FCDR%dBT_over_dcs3(j,i) = TINY
+                FCDR%dBT_over_dcict3(j,i) = TINY
+             ENDIF
 
-          nsmax3=outData%new_array3B(j,i)+us3
-          nsmin3=outData%new_array3B(j,i)-us3
-          two_sigma = outData%new_array3B(j,i)-2*us3
-          tsmax3=convertBT(nsmax3,DBLE(coefs1(5,1)), DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
-          if( two_sigma .gt. 0. .and. NAN_R .ne. FCDR%ur3(j,i) )then
-             tsmin3=convertBT(nsmin3,DBLE(coefs1(5,1)), DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
-             FCDR%us3(j,i)=(tsmax3-tsmin3)/2.
-          else
-!             FCDR%us3(j,i) = tsmax3-FCDR%btf3(j,i)
-             ! Set data to bad as no 1 sigma detection available
-             FCDR%flag_no_detection(1,i) = 1
-             FCDR%uc3(j,i) = NAN_R
-             FCDR%ur3(j,i) = NAN_R
-             FCDR%us3(j,i) = NAN_R
-             FCDR%btf3(j,i) = NAN_R
-          endif
+             nsmax3=outData%new_array3B(j,i)+us3
+             nsmin3=outData%new_array3B(j,i)-us3
+             two_sigma = outData%new_array3B(j,i)-2*us3
+             tsmax3=convertBT(nsmax3,DBLE(coefs1(5,1)), DBLE(coefs1(6,1)), &
+                  DBLE(coefs1(7,1)))
+             if( two_sigma .gt. 0. .and. NAN_R .ne. FCDR%ur3(j,i) )then
+                tsmin3=convertBT(nsmin3,DBLE(coefs1(5,1)), DBLE(coefs1(6,1)), &
+                     DBLE(coefs1(7,1)))
+                FCDR%us3(j,i)=(tsmax3-tsmin3)/2.
+             else
+                !             FCDR%us3(j,i) = tsmax3-FCDR%btf3(j,i)
+                ! Set data to bad as no 1 sigma detection available
+                FCDR%flag_no_detection(1,i) = 1
+                FCDR%uc3(j,i) = 400.
+                FCDR%ur3(j,i) = 400.
+                FCDR%us3(j,i) = 400.
+                FCDR%btf3(j,i) = TINY
+                FCDR%dBT_over_dT3(j,i) = TINY
+                FCDR%dBT_over_dcs3(j,i) = TINY
+                FCDR%dBT_over_dcict3(j,i) = TINY
+             endif
 
-          nsmax3=outData%new_array3B(j,i)+uc3
-          nsmin3=outData%new_array3B(j,i)-uc3
-          two_sigma = outData%new_array3B(j,i)-2*uc3
-          tsmax3=convertBT(nsmax3,DBLE(coefs1(5,1)), DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
-          if( two_sigma .gt. 0. .and. NAN_R .ne. FCDR%ur3(j,i) )then
-             tsmin3=convertBT(nsmin3,DBLE(coefs1(5,1)), DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
-             FCDR%uc3(j,i)=(tsmax3-tsmin3)/2.
-          else
-!             FCDR%us3(j,i) = tsmax3-FCDR%btf3(j,i)
-             ! Set data to bad as no 1 sigma detection available
-             FCDR%flag_no_detection(1,i) = 1
-             FCDR%uc3(j,i) = NAN_R
-             FCDR%ur3(j,i) = NAN_R
-             FCDR%us3(j,i) = NAN_R
-             FCDR%btf3(j,i) = NAN_R
-          endif
+             nsmax3=outData%new_array3B(j,i)+uc3
+             nsmin3=outData%new_array3B(j,i)-uc3
+             two_sigma = outData%new_array3B(j,i)-2*uc3
+             tsmax3=convertBT(nsmax3,DBLE(coefs1(5,1)), DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
+             if( two_sigma .gt. 0. .and. NAN_R .ne. FCDR%ur3(j,i) )then
+                tsmin3=convertBT(nsmin3,DBLE(coefs1(5,1)), DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
+                FCDR%uc3(j,i)=(tsmax3-tsmin3)/2.
+             else
+                !             FCDR%us3(j,i) = tsmax3-FCDR%btf3(j,i)
+                ! Set data to bad as no 1 sigma detection available
+                FCDR%flag_no_detection(1,i) = 1
+                FCDR%uc3(j,i) = 400.
+                FCDR%ur3(j,i) = 400.
+                FCDR%us3(j,i) = 400.
+                FCDR%btf3(j,i) = TINY
+                FCDR%dBT_over_dT3(j,i) = TINY
+                FCDR%dBT_over_dcs3(j,i) = TINY
+                FCDR%dBT_over_dcict3(j,i) = TINY
+             endif
+          ENDIF
        end if
 
-       if  ((outData%new_array4(j,i) .gt. 0).and.(outData%new_array4(j,i) .ne. NAN_R) &
-            .and. ur4 .ne. NAN_R .and. us4 .ne. NAN_R .and. uc4 .ne. NAN_R ) then
-          FCDR%btf4(j,i)=convertBT(outdata%new_array4(j,i),DBLE(coefs2(5,1)), &
-               DBLE(coefs2(6,1)), DBLE(coefs2(7,1)))
-          nrmax4=outdata%new_array4(j,i)+ur4 
-          trmax4=convertBT(nrmax4,DBLE(coefs2(5,1)), DBLE(coefs2(6,1)), DBLE(coefs2(7,1)))
-          nrmin4=outdata%new_array4(j,i)-ur4
-          two_sigma = outdata%new_array4(j,i)-2*ur4
-          if( two_sigma .gt. 0 )then
-             trmin4=convertBT(nrmin4,DBLE(coefs2(5,1)), DBLE(coefs2(6,1)), DBLE(coefs2(7,1)))
-             FCDR%ur4(j,i)=(trmax4-trmin4)/2.
-          else
-!             FCDR%ur4(j,i)=trmax4-FCDR%btf4(j,i)
-             ! Set data to bad as no 1 sigma detection available
+       if  ((outData%new_array4(j,i) .gt. 0).and.&
+            (outData%new_array4(j,i) .ne. NAN_R) &
+            .and. ur4 .ne. NAN_R .and. us4 .ne. NAN_R .and. &
+            uc4 .ne. NAN_R ) then
+          IF( outData%new_array4(j,i) .eq. TINY )THEN
              FCDR%flag_no_detection(2,i) = 1
-             FCDR%uc4(j,i) = NAN_R
-             FCDR%ur4(j,i) = NAN_R
-             FCDR%us4(j,i) = NAN_R
-             FCDR%btf4(j,i) = NAN_R
-          endif
-          nsmax4=outdata%new_array4(j,i)+us4
-          tsmax4=convertBT(nsmax4,DBLE(coefs2(5,1)), DBLE(coefs2(6,1)), DBLE(coefs2(7,1)))
-          nsmin4=outdata%new_array4(j,i)-us4
-          two_sigma = outdata%new_array4(j,i)-2*us4
-          if( two_sigma .gt. 0  .and. NAN_R .ne. FCDR%ur4(j,i) )then
-             tsmin4=convertBT(nsmin4,DBLE(coefs2(5,1)), DBLE(coefs2(6,1)), DBLE(coefs2(7,1)))
-             FCDR%us4(j,i)=(tsmax4-tsmin4)/2.
-          else
-!             FCDR%us4(j,i)=tsmax4-FCDR%btf4(j,i)
-             ! Set data to bad as no 1 sigma detection available
-             FCDR%flag_no_detection(2,i) = 1
-             FCDR%uc4(j,i) = NAN_R
-             FCDR%ur4(j,i) = NAN_R
-             FCDR%us4(j,i) = NAN_R
-             FCDR%btf4(j,i) = NAN_R
-          endif
+             FCDR%uc4(j,i) = 400.
+             FCDR%ur4(j,i) = 400.
+             FCDR%us4(j,i) = 400.
+             FCDR%btf4(j,i) = TINY
+             FCDR%dBT_over_dT4(j,i) = TINY
+             FCDR%dBT_over_dcs4(j,i) = TINY
+             FCDR%dBT_over_dcict4(j,i) = TINY
+          ELSE
+             FCDR%btf4(j,i)=convertBT(outdata%new_array4(j,i),&
+                  DBLE(coefs2(5,1)), &
+                  DBLE(coefs2(6,1)), DBLE(coefs2(7,1)))
+             nrmax4=outdata%new_array4(j,i)+ur4 
+             trmax4=convertBT(nrmax4,DBLE(coefs2(5,1)), DBLE(coefs2(6,1)), &
+                  DBLE(coefs2(7,1)))
+             nrmin4=outdata%new_array4(j,i)-ur4
+             two_sigma = outdata%new_array4(j,i)-2*ur4
+             if( two_sigma .gt. 0 )then
+                trmin4=convertBT(nrmin4,DBLE(coefs2(5,1)), DBLE(coefs2(6,1)), &
+                     DBLE(coefs2(7,1)))
+                FCDR%ur4(j,i)=(trmax4-trmin4)/2.
+             else
+                !             FCDR%ur4(j,i)=trmax4-FCDR%btf4(j,i)
+                ! Set data to bad as no 1 sigma detection available
+                FCDR%flag_no_detection(2,i) = 1
+                FCDR%uc4(j,i) = 400.
+                FCDR%ur4(j,i) = 400.
+                FCDR%us4(j,i) = 400.
+                FCDR%btf4(j,i) = TINY
+                FCDR%dBT_over_dT4(j,i) = TINY
+                FCDR%dBT_over_dcs4(j,i) = TINY
+                FCDR%dBT_over_dcict4(j,i) = TINY
+             endif
 
-          nsmax4=outdata%new_array4(j,i)+uc4
-          tsmax4=convertBT(nsmax4,DBLE(coefs2(5,1)), DBLE(coefs2(6,1)), DBLE(coefs2(7,1)))
-          nsmin4=outdata%new_array4(j,i)-uc4
-          two_sigma = outdata%new_array4(j,i)-2*uc4
-          if( two_sigma .gt. 0  .and. NAN_R .ne. FCDR%ur4(j,i) )then
-             tsmin4=convertBT(nsmin4,DBLE(coefs2(5,1)), DBLE(coefs2(6,1)), DBLE(coefs2(7,1)))
-             FCDR%uc4(j,i)=(tsmax4-tsmin4)/2.
-          else
-!             FCDR%us4(j,i)=tsmax4-FCDR%btf4(j,i)
-             ! Set data to bad as no 1 sigma detection available
-             FCDR%flag_no_detection(2,i) = 1
-             FCDR%uc4(j,i) = NAN_R
-             FCDR%ur4(j,i) = NAN_R
-             FCDR%us4(j,i) = NAN_R
-             FCDR%btf4(j,i) = NAN_R
-          endif
+             nsmax4=outdata%new_array4(j,i)+us4
+             tsmax4=convertBT(nsmax4,DBLE(coefs2(5,1)), DBLE(coefs2(6,1)), &
+                  DBLE(coefs2(7,1)))
+             nsmin4=outdata%new_array4(j,i)-us4
+             two_sigma = outdata%new_array4(j,i)-2*us4
+             if( two_sigma .gt. 0  .and. NAN_R .ne. FCDR%ur4(j,i) )then
+                tsmin4=convertBT(nsmin4,DBLE(coefs2(5,1)), DBLE(coefs2(6,1)), &
+                     DBLE(coefs2(7,1)))
+                FCDR%us4(j,i)=(tsmax4-tsmin4)/2.
+             else
+                !             FCDR%us4(j,i)=tsmax4-FCDR%btf4(j,i)
+                ! Set data to bad as no 1 sigma detection available
+                FCDR%flag_no_detection(2,i) = 1
+                FCDR%uc4(j,i) = 400.
+                FCDR%ur4(j,i) = 400.
+                FCDR%us4(j,i) = 400.
+                FCDR%btf4(j,i) = TINY
+                FCDR%dBT_over_dT4(j,i) = TINY
+                FCDR%dBT_over_dcs4(j,i) = TINY
+                FCDR%dBT_over_dcict4(j,i) = TINY
+             endif
+             
+             nsmax4=outdata%new_array4(j,i)+uc4
+             tsmax4=convertBT(nsmax4,DBLE(coefs2(5,1)), DBLE(coefs2(6,1)), &
+                  DBLE(coefs2(7,1)))
+             nsmin4=outdata%new_array4(j,i)-uc4
+             two_sigma = outdata%new_array4(j,i)-2*uc4
+             if( two_sigma .gt. 0  .and. NAN_R .ne. FCDR%ur4(j,i) )then
+                tsmin4=convertBT(nsmin4,DBLE(coefs2(5,1)), DBLE(coefs2(6,1)), &
+                     DBLE(coefs2(7,1)))
+                FCDR%uc4(j,i)=(tsmax4-tsmin4)/2.
+             else
+                !             FCDR%us4(j,i)=tsmax4-FCDR%btf4(j,i)
+                ! Set data to bad as no 1 sigma detection available
+                FCDR%flag_no_detection(2,i) = 1
+                FCDR%uc4(j,i) = 400.
+                FCDR%ur4(j,i) = 400.
+                FCDR%us4(j,i) = 400.
+                FCDR%btf4(j,i) = TINY
+                FCDR%dBT_over_dT4(j,i) = TINY
+                FCDR%dBT_over_dcs4(j,i) = TINY
+                FCDR%dBT_over_dcict4(j,i) = TINY
+             endif
+          ENDIF
        end if
 
        IF( twelve_micron_there )THEN
-          if  ((outData%new_array5(j,i) .gt. 0).and. (outData%new_array5(j,i) .ne. NAN_R) &
+          if  ((outData%new_array5(j,i) .gt. 0).and. &
+               (outData%new_array5(j,i) .ne. NAN_R) &
                .and. ur5 .ne. NAN_R .and. us5 .ne. NAN_R ) then
-             FCDR%btf5(j,i)=convertBT(outdata%new_array5(j,i),DBLE(coefs3(5,1)), DBLE(coefs3(6,1)), DBLE(coefs3(7,1)))
-             nrmax5=outdata%new_array5(j,i)+ur5
-             trmax5=convertBT(nrmax5,DBLE(coefs3(5,1)), DBLE(coefs3(6,1)), DBLE(coefs3(7,1)))
-             nrmin5=outdata%new_array5(j,i)-ur5
-             trmin5=convertBT(nrmin5,DBLE(coefs3(5,1)), DBLE(coefs3(6,1)), DBLE(coefs3(7,1)))
-             two_sigma = outdata%new_array5(j,i)-2*ur5
-             if( two_sigma .gt. 0 )then
-                trmin5=convertBT(nrmin5,DBLE(coefs3(5,1)), DBLE(coefs3(6,1)), DBLE(coefs3(7,1)))
-                FCDR%ur5(j,i)=(trmax5-trmin5)/2.
-             else
-!                FCDR%ur5(j,i)=trmax5-FCDR%btf5(j,i)
-                ! Set data to bad as no 1 sigma detection available
+             IF( outData%new_array5(j,i) .eq. TINY )THEN
                 FCDR%flag_no_detection(3,i) = 1
-                FCDR%uc5(j,i) = NAN_R
-                FCDR%ur5(j,i) = NAN_R
-                FCDR%us5(j,i) = NAN_R
-                FCDR%btf5(j,i) = NAN_R
-             endif
-             nsmax5=outdata%new_array5(j,i)+us5
-             tsmax5=convertBT(nsmax5,DBLE(coefs3(5,1)), DBLE(coefs3(6,1)), DBLE(coefs3(7,1)))
-             nsmin5=outdata%new_array5(j,i)-us5
-             two_sigma = outdata%new_array5(j,i)-2*us5
-             if( two_sigma .gt. 0  .and. NAN_R .ne. FCDR%ur5(j,i) )then
-                tsmin5=convertBT(nsmin5,DBLE(coefs3(5,1)), DBLE(coefs3(6,1)), DBLE(coefs3(7,1)))
-                FCDR%us5(j,i)=(tsmax5-tsmin5)/2.
-             else
-!                FCDR%us5(j,i)=tsmax5-FCDR%btf5(j,i)
-                ! Set data to bad as no 1 sigma detection available
-                FCDR%flag_no_detection(3,i) = 1
-                FCDR%uc5(j,i) = NAN_R
-                FCDR%ur5(j,i) = NAN_R
-                FCDR%us5(j,i) = NAN_R
-                FCDR%btf5(j,i) = NAN_R
-             endif
-             nsmax5=outdata%new_array5(j,i)+uc5
-             tsmax5=convertBT(nsmax5,DBLE(coefs3(5,1)), DBLE(coefs3(6,1)), DBLE(coefs3(7,1)))
-             nsmin5=outdata%new_array5(j,i)-uc5
-             two_sigma = outdata%new_array5(j,i)-2*us5
-             if( two_sigma .gt. 0  .and. NAN_R .ne. FCDR%ur5(j,i) )then
-                tsmin5=convertBT(nsmin5,DBLE(coefs3(5,1)), DBLE(coefs3(6,1)), DBLE(coefs3(7,1)))
-                FCDR%uc5(j,i)=(tsmax5-tsmin5)/2.
-             else
-!                FCDR%us5(j,i)=tsmax5-FCDR%btf5(j,i)
-                ! Set data to bad as no 1 sigma detection available
-                FCDR%flag_no_detection(3,i) = 1
-                FCDR%uc5(j,i) = NAN_R
-                FCDR%ur5(j,i) = NAN_R
-                FCDR%us5(j,i) = NAN_R
-                FCDR%btf5(j,i) = NAN_R
-             endif
+                FCDR%uc5(j,i) = 400.
+                FCDR%ur5(j,i) = 400.
+                FCDR%us5(j,i) = 400.
+                FCDR%btf5(j,i) = TINY
+                FCDR%dBT_over_dT5(j,i) = TINY
+                FCDR%dBT_over_dcs5(j,i) = TINY
+                FCDR%dBT_over_dcict5(j,i) = TINY
+             ELSE
+                FCDR%btf5(j,i)=convertBT(outdata%new_array5(j,i),&
+                     DBLE(coefs3(5,1)), DBLE(coefs3(6,1)), DBLE(coefs3(7,1)))
+                nrmax5=outdata%new_array5(j,i)+ur5
+                trmax5=convertBT(nrmax5,DBLE(coefs3(5,1)), DBLE(coefs3(6,1)), &
+                     DBLE(coefs3(7,1)))
+                nrmin5=outdata%new_array5(j,i)-ur5
+                trmin5=convertBT(nrmin5,DBLE(coefs3(5,1)), DBLE(coefs3(6,1)), &
+                     DBLE(coefs3(7,1)))
+                two_sigma = outdata%new_array5(j,i)-2*ur5
+                if( two_sigma .gt. 0 )then
+                   trmin5=convertBT(nrmin5,DBLE(coefs3(5,1)), DBLE(coefs3(6,1)),&
+                        DBLE(coefs3(7,1)))
+                   FCDR%ur5(j,i)=(trmax5-trmin5)/2.
+                else
+                   !                FCDR%ur5(j,i)=trmax5-FCDR%btf5(j,i)
+                   ! Set data to bad as no 1 sigma detection available
+                   FCDR%flag_no_detection(3,i) = 1
+                   FCDR%uc5(j,i) = 400.
+                   FCDR%ur5(j,i) = 400.
+                   FCDR%us5(j,i) = 400.
+                   FCDR%btf5(j,i) = TINY
+                   FCDR%dBT_over_dT5(j,i) = TINY
+                   FCDR%dBT_over_dcs5(j,i) = TINY
+                   FCDR%dBT_over_dcict5(j,i) = TINY
+                endif
+                nsmax5=outdata%new_array5(j,i)+us5
+                tsmax5=convertBT(nsmax5,DBLE(coefs3(5,1)), DBLE(coefs3(6,1)),&
+                     DBLE(coefs3(7,1)))
+                nsmin5=outdata%new_array5(j,i)-us5
+                two_sigma = outdata%new_array5(j,i)-2*us5
+                if( two_sigma .gt. 0  .and. NAN_R .ne. FCDR%ur5(j,i) )then
+                   tsmin5=convertBT(nsmin5,DBLE(coefs3(5,1)), &
+                        DBLE(coefs3(6,1)), DBLE(coefs3(7,1)))
+                   FCDR%us5(j,i)=(tsmax5-tsmin5)/2.
+                else
+                   !                FCDR%us5(j,i)=tsmax5-FCDR%btf5(j,i)
+                   ! Set data to bad as no 1 sigma detection available
+                   FCDR%flag_no_detection(3,i) = 1
+                   FCDR%uc5(j,i) = 400.
+                   FCDR%ur5(j,i) = 400.
+                   FCDR%us5(j,i) = 400.
+                   FCDR%btf5(j,i) = TINY
+                   FCDR%dBT_over_dT5(j,i) = TINY
+                   FCDR%dBT_over_dcs5(j,i) = TINY
+                   FCDR%dBT_over_dcict5(j,i) = TINY
+                endif
+                nsmax5=outdata%new_array5(j,i)+uc5
+                tsmax5=convertBT(nsmax5,DBLE(coefs3(5,1)), DBLE(coefs3(6,1)),&
+                     DBLE(coefs3(7,1)))
+                nsmin5=outdata%new_array5(j,i)-uc5
+                two_sigma = outdata%new_array5(j,i)-2*us5
+                if( two_sigma .gt. 0  .and. NAN_R .ne. FCDR%ur5(j,i) )then
+                   tsmin5=convertBT(nsmin5,DBLE(coefs3(5,1)), DBLE(coefs3(6,1)),&
+                        DBLE(coefs3(7,1)))
+                   FCDR%uc5(j,i)=(tsmax5-tsmin5)/2.
+                else
+                   !                FCDR%us5(j,i)=tsmax5-FCDR%btf5(j,i)
+                   ! Set data to bad as no 1 sigma detection available
+                   FCDR%flag_no_detection(3,i) = 1
+                   FCDR%uc5(j,i) = 400.
+                   FCDR%ur5(j,i) = 400.
+                   FCDR%us5(j,i) = 400.
+                   FCDR%btf5(j,i) = TINY
+                   FCDR%dBT_over_dT5(j,i) = TINY
+                   FCDR%dBT_over_dcs5(j,i) = TINY
+                   FCDR%dBT_over_dcict5(j,i) = TINY
+                endif
+             ENDIF
           end if
        ENDIF
 
