@@ -46,6 +46,8 @@ MODULE Combine_Orbits
   USE GbcsDateTime
   USE NOAA_LoadAVHRRLevel1B
   USE fiduceo_uncertainties
+  USE fiduceo_calibration
+  USE monte_carlo
 
 ! MT: routines for handling PyGAC .h5 output files containing updated geolocation
   USE NETCDF
@@ -1072,12 +1074,17 @@ CONTAINS
 
   END FUNCTION get_instr
 
-  SUBROUTINE read_all_data(nFile,file1,file2,file3,file4,file5,uuid_in,&
+  SUBROUTINE read_all_data(mc_harm,&
+       nFile,file1,file2,file3,file4,file5,uuid_in,&
        AVHRRout,year1,month1,day1,hour1,minute1,year2,month2,day2,&
        hour2,minute2,output_filename,walton_cal,split_single_file,&
        pygac1,pygac2,pygac3,pygac4,pygac5,gbcs_l1c_output,gbcs_l1c_cal,&
-       walton_only,keep_temp,write_fcdr,output_solar_temp)
+       walton_only,keep_temp,write_fcdr,output_solar_temp,montecarlo,&
+       ocean_only)
 
+    USE normal_generator
+
+    TYPE(mc_harm_str), INTENT(IN) :: mc_harm
     INTEGER, INTENT(IN) :: nFile
     CHARACTER(LEN=*), INTENT(IN) :: file1
     CHARACTER(LEN=*), INTENT(IN) :: file2
@@ -1085,7 +1092,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: file4
     CHARACTER(LEN=*), INTENT(IN) :: file5
     CHARACTER(LEN=*), INTENT(IN) :: uuid_in
-    TYPE(AVHRR_Data), INTENT(OUT) :: AVHRRout
+    TYPE(AVHRR_Data), INTENT(OUT), TARGET :: AVHRRout
     INTEGER, INTENT(IN) :: year1
     INTEGER, INTENT(IN) :: month1
     INTEGER, INTENT(IN) :: day1
@@ -1110,15 +1117,19 @@ CONTAINS
     LOGICAL, INTENT(IN), OPTIONAL :: keep_temp
     LOGICAL, INTENT(IN), OPTIONAL :: write_fcdr
     INTEGER, INTENT(IN), OPTIONAL :: output_solar_temp
+    LOGICAL, INTENT(IN), OPTIONAL :: montecarlo
+    LOGICAL, INTENT(IN), OPTIONAL :: ocean_only
 
     ! Local variables
     TYPE(Imagery) :: IMG
     TYPE(AVHRR_Data), TARGET :: AVHRR
     TYPE(AVHRR_Data), TARGET :: AVHRRtmp
+    TYPE(AVHRR_Data), TARGET :: AVHRR_MC
     TYPE(AVHRR_Data), TARGET :: AVHRR_Total
     TYPE(AVHRR_Instrument_Coefs) :: instr_coefs
     INTEGER :: start_pos, stop_pos
     TYPE(AVHRR_Data), POINTER :: pAVHRR=>NULL()
+    TYPE(AVHRR_Data), POINTER :: pAVHRR_MC=>NULL()
     LOGICAL :: out_radiances = .FALSE.
     LOGICAL :: trim_data
     LOGICAL :: correctict
@@ -1131,6 +1142,12 @@ CONTAINS
     TYPE(Walton_Struct) :: walton_str
     LOGICAL :: walt_only
     INTEGER :: output_solartemp
+    LOGICAL :: use_montecarlo
+    TYPE(mc_delta_str) :: delta_rad
+    INTEGER :: seedval
+    LOGICAL :: oceanonly
+    INTEGER :: start_valid
+    INTEGER :: stop_valid
 
     IF( PRESENT(walton_only) )THEN
        walt_only = walton_only
@@ -1142,7 +1159,24 @@ CONTAINS
     ELSE
        output_solartemp = -1
     ENDIF
-       
+    IF( PRESENT(montecarlo) )THEN
+       use_montecarlo = montecarlo
+    ELSE
+       use_montecarlo = .FALSE.
+    ENDIF
+
+    IF( use_montecarlo )THEN
+       CALL Set_Random_Seed(seedval)
+    ELSE
+       seedval = -1
+    ENDIF
+
+    IF( PRESENT(ocean_only) )THEN
+       oceanonly = ocean_only
+    ELSE
+       oceanonly = .FALSE.
+    ENDIF
+
     !
     ! Setup GbcsDataPath
     !
@@ -1326,6 +1360,18 @@ CONTAINS
        ENDIF
 
        !
+       ! Copy top part of AVHRR arrays
+       !
+       IF( use_montecarlo )THEN
+          pAVHRR_MC => AVHRR_MC
+          CALL Allocate_OldCal(AVHRR,pAVHRR_MC,1,AVHRR%arraySize)
+          CALL Copy_Top_Data(AVHRR,AVHRR_MC,1,AVHRR%arraySize)
+          DO I=1,AVHRR%arraySize
+             CALL Copy_All_Scan(AVHRR,AVHRR_MC,I,I,.FALSE.)
+          END DO
+       ENDIF
+
+       !
        ! Make sure radiances are output as Marines code expects this
        !
        IMG%GbcsDataPath = '/group_workspaces/jasmin2/nceo_uor/users/jmittaz/&
@@ -1362,7 +1408,7 @@ CONTAINS
                dig_noise=.TRUE.,all_noise=.TRUE.,&
                correctict=.TRUE.,applyict=.FALSE.,walton=walton_cal,&
                tinstrapply=.FALSE.,output_solar_temp=output_solartemp,&
-               bad_tiny=.TRUE.)
+               bad_tiny=.TRUE.,noise_ict=.TRUE.)
        ELSE IF( 101 .eq. output_solartemp )THEN
           CALL Recalibrate_AVHRR(IMG,instr_coefs,pAVHRR,.TRUE.,walton_str,&
                moon_events=.TRUE.,use_old_solar=.FALSE.,&
@@ -1371,7 +1417,7 @@ CONTAINS
                dig_noise=.TRUE.,all_noise=.TRUE.,&
                correctict=.FALSE.,applyict=.FALSE.,walton=walton_cal,&
                tinstrapply=.FALSE.,output_solar_temp=output_solartemp,&
-               bad_tiny=.TRUE.)
+               bad_tiny=.TRUE.,noise_ict=.TRUE.)
        ELSE IF( 100 .eq. output_solartemp )THEN 
           CALL Recalibrate_AVHRR(IMG,instr_coefs,pAVHRR,.TRUE.,walton_str,&
                moon_events=.TRUE.,use_old_solar=.FALSE.,&
@@ -1380,7 +1426,7 @@ CONTAINS
                dig_noise=.TRUE.,all_noise=.TRUE.,&
                correctict=correctict,applyict=applyict,walton=walton_cal,&
                tinstrapply=.FALSE.,output_solar_temp=output_solartemp,&
-               bad_tiny=.TRUE.)
+               bad_tiny=.TRUE.,noise_ict=.TRUE.)
        ELSE
           CALL Recalibrate_AVHRR(IMG,instr_coefs,pAVHRR,.TRUE.,walton_str,&
                moon_events=.TRUE.,use_old_solar=.FALSE.,&
@@ -1389,7 +1435,7 @@ CONTAINS
                dig_noise=.TRUE.,all_noise=.TRUE.,&
                correctict=correctict,applyict=applyict,walton=walton_cal,&
                tinstrapply=.FALSE.,output_solar_temp=output_solartemp,&
-               bad_tiny=.TRUE.)
+               bad_tiny=.TRUE.,noise_ict=.TRUE.)
        ENDIF
 
        IF( walton_cal )THEN
@@ -1401,29 +1447,67 @@ CONTAINS
                apply_scenet_bias=apply_scenet_bias)
        ENDIF
 
+       IF( use_montecarlo )THEN
+          IF( walton_cal )THEN
+             CALL Gbcs_Critical(.TRUE.,'Cannot do MonteCarlo with Walton',&
+                  'read_all_data','combine_orbits.f90')
+          ENDIF
+          IF( oceanonly )THEN
+             ! copy to IMG structure
+             CALL Copy_To_IMG( instr_coefs, pAVHRR, IMG, .TRUE., &
+                  .FALSE., start_valid, stop_valid, &
+                  .FALSE.)
+          ENDIF
+          CALL Run_MonteCarlo(mc_harm,IMG,instr_coefs,&
+               pAVHRR,AVHRR_MC,.TRUE.,walton_str,&
+               delta_rad,moon_events=.TRUE.,use_old_solar=.FALSE.,&
+               correct_solar_simple=.TRUE.,new_vis_cal=.TRUE.,&
+               noise_orbit=.TRUE.,filter_counts=.TRUE.,filter_prt=.TRUE.,&
+               dig_noise=.TRUE.,all_noise=.TRUE.,&
+               correctict=correctict,applyict=applyict,walton=walton_cal,&
+               tinstrapply=.FALSE.,output_solar_temp=output_solartemp,&
+               bad_tiny=.TRUE.,ocean_only=oceanonly)
+
+       ENDIF
+
        !
        ! Resize to output
        !
-       CALL Resize_Orbit(AVHRR,AVHRRtmp,start_pos,stop_pos,all=.TRUE.)
-       CALL fill_missing_lines(AVHRRtmp,AVHRRout)
+       CALL Resize_Orbit(AVHRR,AVHRRtmp,start_pos,stop_pos,all=.TRUE.,&
+            montecarlo=use_montecarlo,delta_rad=delta_rad)
+
+       CALL fill_missing_lines(AVHRRtmp,AVHRRout,&
+            montecarlo=use_montecarlo,delta_rad=delta_rad)
+
        CALL Deallocate_OutData(AVHRR)
        CALL Deallocate_OutData(AVHRRtmp)
 
 !       CALL check_latlon(AVHRRout,47.609,-29.85500,usenew=.TRUE.)
-
-
        !
        ! Add in FIDUCEO uncertainties
        !
        CALL Add_FIDUCEO_Uncert(IMG,AVHRRout,uuid_in,output_filename,&
             gbcs_l1c_output=gbcs_l1c_output,&
             gbcs_l1c_cal=gbcs_l1c_cal,use_walton=walton_cal,&
-            keep_temp=keep_temp,write_fcdr=write_fcdr)
+            keep_temp=keep_temp,write_fcdr=write_fcdr,&
+            monte_carlo=use_montecarlo,&
+            delta_radiance=delta_rad,seedval=seedval,ocean_only=oceanonly)
        CALL Deallocate_OutData(AVHRRout)    
     ELSE
        !
        ! Calibrate whole orbit - it gets trimmed later
        !
+       !
+       ! Copy top part of AVHRR arrays for monte-carlo
+       !
+       IF( use_montecarlo )THEN
+          pAVHRR_MC => AVHRR_MC
+          CALL Allocate_OldCal(AVHRR,pAVHRR_MC,1,AVHRR%arraySize)
+          CALL Copy_Top_Data(AVHRR,AVHRR_MC,1,AVHRR%arraySize)
+          DO I=1,AVHRR%arraySize
+             CALL Copy_All_Scan(AVHRR,AVHRR_MC,I,I,.FALSE.)
+          END DO
+       ENDIF
        !
        ! Make sure radiances are output as Marines code expects this
        !
@@ -1448,7 +1532,8 @@ CONTAINS
             noise_orbit=.TRUE.,filter_counts=.TRUE.,filter_prt=.TRUE.,&
             dig_noise=.TRUE.,all_noise=.TRUE.,&
             correctict=correctict,applyict=applyict,walton=walton_cal,&
-            tinstrapply=.FALSE.)
+            tinstrapply=.FALSE.,noise_ict=.TRUE.)
+
        IF( walton_cal )THEN
           CALL Setup_Walton( IMG, AVHRR, walton_str,&
                scenet_all_instr=.TRUE.,&
@@ -1458,40 +1543,89 @@ CONTAINS
                apply_scenet_bias=apply_scenet_bias)
        ENDIF
        IF( split_single_file )THEN
+          IF( use_montecarlo )THEN
+             IF( walton_cal )THEN
+                CALL Gbcs_Critical(.TRUE.,'Cannot do MonteCarlo with Walton',&
+                     'read_all_data','combine_orbits.f90')
+             ENDIF
+             CALL Run_MonteCarlo(mc_harm,IMG,instr_coefs,&
+                  pAVHRR,AVHRR_MC,.TRUE.,walton_str,&
+                  delta_rad,moon_events=.TRUE.,use_old_solar=.FALSE.,&
+                  correct_solar_simple=.TRUE.,new_vis_cal=.TRUE.,&
+                  noise_orbit=.TRUE.,filter_counts=.TRUE.,filter_prt=.TRUE.,&
+                  dig_noise=.TRUE.,all_noise=.TRUE.,&
+                  correctict=correctict,applyict=applyict,walton=walton_cal,&
+                  tinstrapply=.FALSE.,output_solar_temp=output_solartemp,&
+                  bad_tiny=.TRUE.,ocean_only=oceanonly)
+          ENDIF
+
           !
           ! Now split out sections of data
           !
           CALL Resize_Orbit_Equator(AVHRR_Total,AVHRRout,start_pos,stop_pos,&
                year1,month1,day1,hour1,minute1,&
                year1,month2,day2,hour2,minute2,&
-               trim_data,trim_low,trim_high)       
-          CALL Resize_Orbit(AVHRRout,AVHRRtmp,start_pos,stop_pos,all=.TRUE.)
-          CALL fill_missing_lines(AVHRRtmp,AVHRR)
+               trim_data,trim_low,trim_high,&       
+               montecarlo=use_montecarlo,delta_rad=delta_rad)
+          CALL Resize_Orbit(AVHRRout,AVHRRtmp,start_pos,stop_pos,all=.TRUE.,&
+               montecarlo=use_montecarlo,delta_rad=delta_rad)
+          CALL fill_missing_lines(AVHRRtmp,AVHRR,&
+               montecarlo=use_montecarlo,delta_rad=delta_rad)
           CALL Deallocate_OutData(AVHRRout)
           CALL Deallocate_OutData(AVHRRtmp)
+
           !
           ! Add in FIDUCEO uncertainties
           !
           CALL Add_FIDUCEO_Uncert(IMG,AVHRR,uuid_in,output_filename,&
                gbcs_l1c_output=gbcs_l1c_output,&
                gbcs_l1c_cal=gbcs_l1c_cal,use_walton=walton_cal,&
-               keep_temp=keep_temp,write_fcdr=write_fcdr)
+               keep_temp=keep_temp,write_fcdr=write_fcdr,&
+               monte_carlo=use_montecarlo,&
+               delta_radiance=delta_rad,seedval=seedval,ocean_only=oceanonly)
           CALL Deallocate_OutData(AVHRR)
        ELSE
           !
+          ! Monte Carlo
+          !
+          IF( use_montecarlo )THEN
+             IF( walton_cal )THEN
+                CALL Gbcs_Critical(.TRUE.,'Cannot do MonteCarlo with Walton',&
+                     'read_all_data','combine_orbits.f90')
+             ENDIF
+             pAVHRR => AVHRR_Total
+             CALL Run_MonteCarlo(mc_harm,IMG,instr_coefs,&
+                  pAVHRR,AVHRR_MC,.TRUE.,walton_str,&
+                  delta_rad,moon_events=.TRUE.,use_old_solar=.FALSE.,&
+                  correct_solar_simple=.TRUE.,new_vis_cal=.TRUE.,&
+                  noise_orbit=.TRUE.,filter_counts=.TRUE.,filter_prt=.TRUE.,&
+                  dig_noise=.TRUE.,all_noise=.TRUE.,&
+                  correctict=correctict,applyict=applyict,walton=walton_cal,&
+                  tinstrapply=.FALSE.,output_solar_temp=output_solartemp,&
+                  bad_tiny=.TRUE.,ocean_only=oceanonly)
+          ENDIF
+          !
           ! Output complete orbit with no equator splitting
           !
-          CALL fill_missing_lines(AVHRR_Total,AVHRRout)
+          CALL fill_missing_lines(AVHRR_Total,AVHRRout,&
+               montecarlo=use_montecarlo,delta_rad=delta_rad)
           CALL Deallocate_OutData(AVHRR_Total)
+
           !
           ! Add in FIDUCEO uncertainties
           !
           CALL Add_FIDUCEO_Uncert(IMG,AVHRRout,uuid_in,output_filename,&
                gbcs_l1c_output=gbcs_l1c_output,&
                gbcs_l1c_cal=gbcs_l1c_cal,use_walton=walton_cal,&
-               keep_temp=keep_temp,write_fcdr=write_fcdr)
+               keep_temp=keep_temp,write_fcdr=write_fcdr,&
+               monte_carlo=use_montecarlo,&
+               delta_radiance=delta_rad,seedval=seedval,ocean_only=oceanonly)
           CALL Deallocate_OutData(AVHRRout)
        ENDIF
+    ENDIF
+
+    IF( use_montecarlo )THEN
+       CALL Deallocate_OutData(AVHRR_MC)
     ENDIF
 
   END SUBROUTINE read_all_data
@@ -1568,7 +1702,8 @@ CONTAINS
        out_start_pos,out_stop_pos,&
        year1,month1,day1,hour1,minute1,&
        year2,month2,day2,hour2,minute2,&
-       trim_data,trim_low,trim_high,nosmooth)
+       trim_data,trim_low,trim_high,nosmooth,&
+       montecarlo,delta_rad)
 
     TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
     TYPE(AVHRR_Data), INTENT(OUT) :: AVHRRout
@@ -1588,6 +1723,8 @@ CONTAINS
     INTEGER, INTENT(OUT) :: trim_low
     INTEGER, INTENT(OUT) :: trim_high
     LOGICAL, INTENT(IN), OPTIONAL :: nosmooth
+    LOGICAL, INTENT(IN), OPTIONAL :: montecarlo
+    TYPE(mc_delta_str), INTENT(INOUT), OPTIONAL :: delta_rad
 
     ! Local variables
     INTEGER :: I,J
@@ -1609,11 +1746,23 @@ CONTAINS
     LOGICAL :: make_orbit1
     LOGICAL :: make_orbit2
     LOGICAL :: ascending_type
+    LOGICAL :: monte_carlo
+    TYPE(mc_delta_str) :: delta_rad_tmp
 
     IF( PRESENT(nosmooth) )THEN
        no_smooth = nosmooth
     ELSE
        no_smooth = .FALSE.
+    ENDIF
+
+    IF( PRESENT(montecarlo) )THEN
+       IF( .not. PRESENT(delta_rad) )THEN
+          CALL Gbcs_Critical(.TRUE.,'delta_rad required',&
+               'Resize_Orbit_Equator','combine_orbits.f90')
+       ENDIF
+       monte_carlo = montecarlo
+    ELSE
+       monte_carlo = .FALSE.
     ENDIF
 
     AVHRRout%arraySize=00
@@ -1839,200 +1988,106 @@ CONTAINS
     ! Now resize to do recalibration
     !
     CALL Resize_Orbit(AVHRR,AVHRRout,start_pos,stop_pos)
+    IF( monte_carlo )THEN
+       CALL Copy_Delta_Rad(delta_rad,delta_rad_tmp,startpos=start_pos,&
+            endpos=stop_pos)
+       CALL Deallocate_DeltaRad(delta_rad)
+       CALL Copy_Delta_Rad(delta_rad_tmp,delta_rad)
+       CALL Deallocate_DeltaRad(delta_rad_tmp)
+    ENDIF
 
   END SUBROUTINE Resize_Orbit_Equator
 
-  SUBROUTINE Allocate_NewCal( AVHRR, AVHRRout, alldata )
+  SUBROUTINE Copy_DeltaRad_Ind(delta_rad_tmp,delta_rad,I,startpos,K)
 
-    TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
-    TYPE(AVHRR_Data), INTENT(INOUT) :: AVHRRout
-    LOGICAL, INTENT(IN) :: alldata
+    TYPE(mc_delta_str), INTENT(INOUT) :: delta_rad_tmp
+    TYPE(mc_delta_str), INTENT(IN) :: delta_rad
+    INTEGER, INTENT(IN) :: I
+    INTEGER, INTENT(IN), OPTIONAL :: startpos
+    INTEGER, INTENT(IN), OPTIONAL :: K
 
     ! Local variables
-    INTEGER :: STAT
+    INTEGER :: J
 
-    IF( alldata .and. AVHRR%newCalibration_There )THEN
-       ALLOCATE(AVHRRout%new_calib3(3,AVHRRout%arraySize),&
-            AVHRRout%new_calib4(3,AVHRRout%arraySize),&
-            AVHRRout%new_calib5(3,AVHRRout%arraySize),&
-            AVHRRout%smoothPrt1(AVHRRout%arraySize),&
-            AVHRRout%smoothPrt2(AVHRRout%arraySize),&
-            AVHRRout%smoothPrt3(AVHRRout%arraySize),&
-            AVHRRout%smoothPrt4(AVHRRout%arraySize),&
-            AVHRRout%nsmoothPrt1(AVHRRout%arraySize),&
-            AVHRRout%nsmoothPrt2(AVHRRout%arraySize),&
-            AVHRRout%nsmoothPrt3(AVHRRout%arraySize),&
-            AVHRRout%nsmoothPrt4(AVHRRout%arraySize),&
-            AVHRRout%smoothPrt1Cnts(AVHRRout%arraySize),&
-            AVHRRout%smoothPrt2Cnts(AVHRRout%arraySize),&
-            AVHRRout%smoothPrt3Cnts(AVHRRout%arraySize),&
-            AVHRRout%smoothPrt4Cnts(AVHRRout%arraySize),&
-            AVHRRout%smoothPrt(AVHRRout%arraySize),&
-            AVHRRout%smoothBB3(AVHRRout%arraySize),&
-            AVHRRout%smoothBB4(AVHRRout%arraySize),&
-            AVHRRout%smoothBB5(AVHRRout%arraySize),&
-            AVHRRout%smoothSp3(AVHRRout%arraySize),&
-            AVHRRout%smoothSp4(AVHRRout%arraySize),&
-            AVHRRout%smoothSp5(AVHRRout%arraySize),&
-            AVHRRout%nsmoothBB3(AVHRRout%arraySize),&
-            AVHRRout%nsmoothBB4(AVHRRout%arraySize),&
-            AVHRRout%nsmoothBB5(AVHRRout%arraySize),&
-            AVHRRout%nsmoothSp3(AVHRRout%arraySize),&
-            AVHRRout%nsmoothSp4(AVHRRout%arraySize),&
-            AVHRRout%nsmoothSp5(AVHRRout%arraySize),&
-            AVHRRout%Interpolated(AVHRRout%arraySize),&
-            AVHRRout%solar_contamination_failure(AVHRRout%arraySize),&
-            AVHRRout%solar_contamination_3B(AVHRRout%arraySize),&
-            AVHRRout%solar_contamination_4(AVHRRout%arraySize),&
-            AVHRRout%solar_contamination_5(AVHRRout%arraySize),&
-            AVHRRout%moon_contamination(AVHRRout%arraySize),&
-            AVHRRout%new_array1(AVHRR%nelem,AVHRRout%arraySize),&
-            AVHRRout%new_array2(AVHRR%nelem,AVHRRout%arraySize),&
-            AVHRRout%new_array3A(AVHRR%nelem,AVHRRout%arraySize),&
-            AVHRRout%new_array3B(AVHRR%nelem,AVHRRout%arraySize),&
-            AVHRRout%new_array4(AVHRR%nelem,AVHRRout%arraySize),&
-            AVHRRout%new_array5(AVHRR%nelem,AVHRRout%arraySize),&
-            AVHRRout%new_array1_error(AVHRR%nelem,AVHRRout%arraySize),&
-            AVHRRout%new_array2_error(AVHRR%nelem,AVHRRout%arraySize),&
-            AVHRRout%new_array3A_error(AVHRR%nelem,AVHRRout%arraySize),&
-            AVHRRout%new_array3B_error(AVHRR%nelem,AVHRRout%arraySize),&
-            AVHRRout%new_array4_error(AVHRR%nelem,AVHRRout%arraySize),&
-            AVHRRout%new_array5_error(AVHRR%nelem,AVHRRout%arraySize),&
-            AVHRRout%new_array1_spnoise(AVHRRout%arraySize),&
-            AVHRRout%new_array2_spnoise(AVHRRout%arraySize),&
-            AVHRRout%new_array3A_spnoise(AVHRRout%arraySize),&
-            AVHRRout%new_array1_dsp(AVHRRout%arraySize),&
-            AVHRRout%new_array2_dsp(AVHRRout%arraySize),&
-            AVHRRout%new_array3A_dsp(AVHRRout%arraySize),&
-            AVHRRout%noise_cnts(6,AVHRRout%arraySize),&
-            AVHRRout%noise_cnts_cal(6,AVHRRout%arraySize),&
-            AVHRRout%noise_cnts_cal_bb(3,AVHRRout%arraySize),&
-            AVHRRout%ict_prt_gain_value(AVHRRout%arraySize),&
-            AVHRRout%prt_correction(AVHRRout%arraySize),&
-            AVHRRout%prt_ict_temp(AVHRRout%arraySize),&
-            AVHRRout%prt1_plane_error(AVHRRout%arraySize),&
-            AVHRRout%prt2_plane_error(AVHRRout%arraySize),&
-            AVHRRout%prt3_plane_error(AVHRRout%arraySize),&
-            AVHRRout%prt4_plane_error(AVHRRout%arraySize),&
-            STAT=STAT)
-       IF( 0 .ne. STAT )THEN
-          CALL Gbcs_Critical(.TRUE.,'Allocating outputData (recal)',&
-               'Allocate_NewCal','combine_orbits.f90')
-       ENDIF
-       IF( AVHRR%walton_there )THEN
-          ALLOCATE(AVHRRout%array3B_error(AVHRR%nelem,AVHRRout%arraySize),&
-               AVHRRout%array4_error(AVHRR%nelem,AVHRRout%arraySize),&
-               AVHRRout%array5_error(AVHRR%nelem,AVHRRout%arraySize),&
-               STAT=STAT)
-          IF( 0 .ne. STAT )THEN
-             CALL Gbcs_Critical(.TRUE.,'Allocating outputData (recal walton)',&
-                  'Allocate_NewCal','combine_orbits.f90')
-          ENDIF
-       ENDIF              
-       AVHRRout%new_calib3 = NAN_R
-       AVHRRout%new_calib4 = NAN_R
-       AVHRRout%new_calib5 = NAN_R
-       AVHRRout%smoothPrt1 = NAN_R
-       AVHRRout%smoothPrt2 = NAN_R
-       AVHRRout%smoothPrt3 = NAN_R
-       AVHRRout%smoothPrt4 = NAN_R
-       AVHRRout%nsmoothPrt1 = 0
-       AVHRRout%nsmoothPrt2 = 0
-       AVHRRout%nsmoothPrt3 = 0
-       AVHRRout%nsmoothPrt4 = 0
-       AVHRRout%smoothPrt1Cnts = NAN_R
-       AVHRRout%smoothPrt2Cnts = NAN_R
-       AVHRRout%smoothPrt3Cnts = NAN_R
-       AVHRRout%smoothPrt4Cnts = NAN_R
-       AVHRRout%smoothPrt = NAN_R
-       AVHRRout%smoothBB3 = NAN_R
-       AVHRRout%smoothBB4 = NAN_R
-       AVHRRout%smoothBB5 = NAN_R
-       AVHRRout%smoothSp3 = NAN_R
-       AVHRRout%smoothSp4 = NAN_R
-       AVHRRout%smoothSp5 = NAN_R
-       AVHRRout%nsmoothBB3 = 0
-       AVHRRout%nsmoothBB4 = 0
-       AVHRRout%nsmoothBB5 = 0
-       AVHRRout%nsmoothSp3 = 0
-       AVHRRout%nsmoothSp4 = 0
-       AVHRRout%nsmoothSp5 = 0
-       AVHRRout%Interpolated = .FALSE.
-       AVHRRout%solar_contamination_failure = .FALSE.
-       AVHRRout%solar_contamination_3B = .FALSE.
-       AVHRRout%solar_contamination_4 = .FALSE.
-       AVHRRout%solar_contamination_5 = .FALSE.
-       AVHRRout%moon_contamination = .FALSE.
-       AVHRRout%new_array1 = NAN_R
-       AVHRRout%new_array2 = NAN_R
-       AVHRRout%new_array3A = NAN_R
-       AVHRRout%new_array3B = NAN_R
-       AVHRRout%new_array4 = NAN_R
-       AVHRRout%new_array5 = NAN_R
-       AVHRRout%new_array1_error = NAN_R
-       AVHRRout%new_array2_error = NAN_R
-       AVHRRout%new_array3A_error = NAN_R
-       AVHRRout%new_array3B_error = NAN_R
-       AVHRRout%new_array4_error = NAN_R
-       AVHRRout%new_array5_error = NAN_R
-       AVHRRout%new_array1_spnoise = NAN_R
-       AVHRRout%new_array2_spnoise = NAN_R
-       AVHRRout%new_array3A_spnoise = NAN_R
-       AVHRRout%new_array1_dsp = NAN_R
-       AVHRRout%new_array2_dsp = NAN_R
-       AVHRRout%new_array3A_dsp = NAN_R
-       AVHRRout%noise_cnts = NAN_R
-       AVHRRout%noise_cnts_cal = NAN_R
-       AVHRRout%noise_cnts_cal_bb = NAN_R
-       IF( AVHRR%walton_there )THEN
-          AVHRRout%array3B_error = NAN_R
-          AVHRRout%array4_error = NAN_R
-          AVHRRout%array5_error = NAN_R
-       ENDIF
-       AVHRRout%ict_prt_gain_value = NAN_R
-       AVHRRout%prt_correction = NAN_R
-       AVHRRout%prt_ict_temp = NAN_R
-       AVHRRout%prt1_plane_error = NAN_R
-       AVHRRout%prt2_plane_error = NAN_R
-       AVHRRout%prt3_plane_error = NAN_R
-       AVHRRout%prt4_plane_error = NAN_R
+    IF( PRESENT(startpos) )THEN
+       DO J=1,delta_rad%nelem
+          delta_rad_tmp%ch1(J,I-startpos+1,:) = delta_rad%ch1(J,I,:)
+          delta_rad_tmp%ch2(J,I-startpos+1,:) = delta_rad%ch2(J,I,:)
+          delta_rad_tmp%ch3a(J,I-startpos+1,:) = delta_rad%ch3a(J,I,:)
+          delta_rad_tmp%ch3(J,I-startpos+1,:) = delta_rad%ch3(J,I,:)
+          delta_rad_tmp%ch4(J,I-startpos+1,:) = delta_rad%ch4(J,I,:)
+          delta_rad_tmp%ch5(J,I-startpos+1,:) = delta_rad%ch5(J,I,:)
+       END DO
+    ELSE IF( PRESENT(K) )THEN
+       DO J=1,delta_rad%nelem
+          delta_rad_tmp%ch1(J,K,:) = delta_rad%ch1(J,I,:)
+          delta_rad_tmp%ch2(J,K,:) = delta_rad%ch2(J,I,:)
+          delta_rad_tmp%ch3a(J,K,:) = delta_rad%ch3a(J,I,:)
+          delta_rad_tmp%ch3(J,K,:) = delta_rad%ch3(J,I,:)
+          delta_rad_tmp%ch4(J,K,:) = delta_rad%ch4(J,I,:)
+          delta_rad_tmp%ch5(J,K,:) = delta_rad%ch5(J,I,:)
+       END DO
+    ENDIF
 
-    END IF
+  END SUBROUTINE Copy_DeltaRad_Ind
 
-  END SUBROUTINE Allocate_NewCal
+  SUBROUTINE Copy_Delta_Rad(delta_rad,delta_rad_tmp,&
+       startpos,endpos)
 
-  SUBROUTINE Allocate_OldCal(AVHRR,pAVHRRout,startpos,endpos)
-
-    TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
-    TYPE(AVHRR_Data), INTENT(INOUT), POINTER :: pAVHRRout
-    INTEGER, INTENT(IN) :: startpos
-    INTEGER, INTENT(IN) :: endpos
+    TYPE(mc_delta_str), INTENT(IN) :: delta_rad
+    TYPE(mc_delta_str), INTENT(OUT) :: delta_rad_tmp
+    INTEGER, INTENT(IN), OPTIONAL :: startpos
+    INTEGER, INTENT(IN), OPTIONAL :: endpos
 
     ! Local variables
     INTEGER :: I
-    INTEGER :: nsize
-    INTEGER :: mem_scale
+    INTEGER :: J
+    INTEGER :: ndata
+    LOGICAL :: resize
 
-    CALL Allocate_OutData(AVHRR%nelem,pAVHRRout)
-    nsize = endpos-startpos+1
-    IF( nsize .gt. MEMORY_ALLOC_STEP )THEN
-       CALL Gbcs_Warning(.TRUE.,&
-            'Having to increase memory usage in output structure',&
-            'Resize_Orbit','combine_orbits.f90')
-       mem_scale = (nsize/MEMORY_ALLOC_STEP)*MEMORY_ALLOC_STEP
-       CALL Reallocate_OutData(pAVHRRout,mem_scale)
+    IF( PRESENT(startpos) )THEN
+       IF( .not. PRESENT(endpos) )THEN
+          CALL Gbcs_Critical(.TRUE.,'Require endpos','Copy_Delta_Rad',&
+               'combine_orbits.f90')
+       ENDIF
+       resize = .TRUE.
+    ELSE IF( PRESENT(endpos) )THEN
+       CALL Gbcs_Critical(.TRUE.,'Require endpos','Copy_Delta_Rad',&
+            'combine_orbits.f90')
+    ELSE
+       resize = .FALSE.
     ENDIF
-    CALL Reallocate_Final_outData(pAVHRRout,nsize)
 
-  END SUBROUTINE Allocate_OldCal
+    IF( resize )THEN
+       ndata = endpos-startpos+1
+       CALL Allocate_DeltaRad(delta_rad%nelem,ndata,delta_rad%nMC,&
+            delta_rad_tmp)
+       DO I=startpos,endpos
+          CALL Copy_DeltaRad_Ind(delta_rad_tmp,delta_rad,I,startpos=startpos)
+       END DO
+    ELSE
+       CALL Allocate_DeltaRad(delta_rad%nelem,delta_rad%nscan,delta_rad%nMC,&
+            delta_rad_tmp)
+       delta_rad_tmp%ch1 = delta_rad%ch1
+       delta_rad_tmp%ch2 = delta_rad%ch2
+       delta_rad_tmp%ch3a = delta_rad%ch3a
+       delta_rad_tmp%ch3 = delta_rad%ch3
+       delta_rad_tmp%ch4 = delta_rad%ch4
+       delta_rad_tmp%ch5 = delta_rad%ch5
+    ENDIF
 
-  SUBROUTINE Resize_Orbit(AVHRR,AVHRRout,startpos,endpos,all)
+  END SUBROUTINE Copy_Delta_Rad
+
+  SUBROUTINE Resize_Orbit(AVHRR,AVHRRout,startpos,endpos,all,&
+       montecarlo,delta_rad)
 
     TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
     TYPE(AVHRR_Data), INTENT(OUT), TARGET :: AVHRRout
     INTEGER, INTENT(IN) :: startpos
     INTEGER, INTENT(IN) :: endpos
     LOGICAL, INTENT(IN), OPTIONAL :: all
+    LOGICAL, INTENT(IN), OPTIONAL :: montecarlo
+    TYPE(mc_delta_str), INTENT(INOUT), OPTIONAL :: delta_rad
 
     ! Local variables
     INTEGER :: I,J,K
@@ -2041,6 +2096,22 @@ CONTAINS
     LOGICAL :: alldata
     TYPE(AVHRR_Data), POINTER :: pAVHRRout
     INTEGER :: mem_scale
+    TYPE(mc_delta_str) :: delta_rad_tmp
+    LOGICAL :: monte_carlo
+
+    IF( PRESENT(montecarlo) )THEN
+       monte_carlo = montecarlo
+       IF( .not. PRESENT(delta_rad) )THEN
+          CALL Gbcs_Critical(.TRUE.,'Must include delta_rad for MC',&
+               'Resize_Orbit','combine_orbits.f90')
+       ENDIF
+    ELSE
+       monte_carlo = .FALSE.
+    ENDIF
+
+    IF( monte_carlo )THEN
+       CALL Copy_Delta_Rad(delta_rad,delta_rad_tmp)
+    ENDIF
 
     pAVHRRout => AVHRRout
 
@@ -2054,7 +2125,8 @@ CONTAINS
     ! Allocate right size of output
     !
     AVHRRout%walton_there = .FALSE.
-    CALL Allocate_OldCal( AVHRR, pAVHRRout,startpos,endpos)
+
+    CALL Allocate_OldCal(AVHRR,pAVHRRout,startpos,endpos)
     !
     ! Set all data to bad
     !
@@ -2078,243 +2150,15 @@ CONTAINS
        CALL Copy_All_Scan(AVHRR,AVHRRout,I,K,alldata)
     END DO
 
+    IF( monte_carlo )THEN
+       CALL Deallocate_DeltaRad(delta_rad)
+       CALL Copy_Delta_Rad(delta_rad_tmp,delta_rad,startpos=startpos,&
+            endpos=endpos)
+       CALL Deallocate_DeltaRad(delta_rad_tmp)
+    ENDIF
+
   END SUBROUTINE Resize_Orbit
 
-  !
-  ! This is data which is not allocated
-  !
-  SUBROUTINE Copy_Top_Data(AVHRR,AVHRRout,startpos,endpos)
-
-    TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
-    TYPE(AVHRR_Data), INTENT(INout) :: AVHRRout
-    INTEGER, INTENT(IN) :: startpos
-    INTEGER, INTENT(IN) :: endpos
-    
-    AVHRRout%isGAC = AVHRR%isGAC
-    AVHRRout%dataFilled = AVHRR%dataFilled
-    AVHRRout%AVHRR_No = AVHRR%AVHRR_No
-    AVHRRout%nelem = AVHRR%nelem
-    AVHRRout%filter3a = AVHRR%filter3a
-    AVHRRout%start_valid = 1
-    AVHRRout%stop_valid = (endpos-startpos)+1
-    AVHRRout%valid_data_there = AVHRR%valid_data_there
-    AVHRRout%scan_line_delta_time = AVHRR%scan_line_delta_time
-    AVHRRout%walton_there = AVHRR%walton_there
-    AVHRRout%walton_bias_correction = AVHRR%walton_bias_correction
-    AVHRRout%walton_ict_corrected = AVHRR%walton_ict_corrected
-    AVHRRout%walton_bias_corr_uncert = AVHRR%walton_bias_corr_uncert
-    AVHRRout%newCalibration_There = AVHRR%newCalibration_There
-    AVHRRout%orbital_temperature = AVHRR%orbital_temperature
-    AVHRRout%new_cal_coefs3 = AVHRR%new_cal_coefs3
-    AVHRRout%new_cal_coefs4 = AVHRR%new_cal_coefs4
-    AVHRRout%new_cal_coefs5 = AVHRR%new_cal_coefs5
-    AVHRRout%gain_stdev = AVHRR%gain_stdev
-    AVHRRout%earthshine_eta = AVHRR%earthshine_eta
-    AVHRRout%poly_coefs3 = AVHRR%poly_coefs3
-    AVHRRout%poly_coefs4 = AVHRR%poly_coefs4
-    AVHRRout%poly_coefs5 = AVHRR%poly_coefs5
-    AVHRRout%gain_maxdev = AVHRR%gain_maxdev
-    AVHRRout%satelliteAlt_There = AVHRR%satelliteAlt_There
-    AVHRRout%scan_line_delta_time = AVHRR%scan_line_delta_time
-    AVHRRout%time_yearstart = AVHRR%time_yearstart
-    AVHRRout%CCI_Bias_Uncertainty_3b = AVHRR%CCI_Bias_Uncertainty_3b
-    AVHRRout%CCI_Bias_Uncertainty_4 = AVHRR%CCI_Bias_Uncertainty_4
-    AVHRRout%CCI_Bias_Uncertainty_5 = AVHRR%CCI_Bias_Uncertainty_5
-    AVHRRout%ict_model_uncert = AVHRR%ict_model_uncert
-    AVHRRout%ict_model_stdev = AVHRR%ict_model_stdev
-    AVHRRout%ict_plane_uncert = AVHRR%ict_plane_uncert
-    AVHRRout%ict_model_params = AVHRR%ict_model_params
-    AVHRRout%ict_prt_offset = AVHRR%ict_prt_offset
-    AVHRRout%nuc = AVHRR%nuc
-    AVHRRout%aval = AVHRR%aval
-    AVHRRout%bval = AVHRR%bval
-    AVHRRout%norig_l1b = AVHRR%norig_l1b
-    AVHRRout%orig_l1b = AVHRR%orig_l1b
-
-  END SUBROUTINE Copy_Top_Data
-
-  !
-  ! Copy all data from one to another structure
-  !
-  SUBROUTINE Copy_All_Scan(AVHRR,AVHRRout,I,K,alldata)
-    
-    TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
-    TYPE(AVHRR_Data), INTENT(INOUT) :: AVHRRout
-    INTEGER, INTENT(IN) :: I
-    INTEGER, INTENT(IN) :: K
-    LOGICAL, INTENT(IN) :: alldata
-
-    AVHRRout%ch3a_there(K) = AVHRR%ch3a_there(I)
-    AVHRRout%scnline_l1b(K) = AVHRR%scnline_l1b(I)
-    AVHRRout%scanLineNumber(K) = AVHRR%scanLineNumber(I)
-    AVHRRout%badTop(K) = AVHRR%badTop(I)
-    AVHRRout%badTime(K) = AVHRR%badTime(I)
-    AVHRRout%badNavigation(K) = AVHRR%badNavigation(I)
-    AVHRRout%badCalibration(K) = AVHRR%badCalibration(I)
-    AVHRRout%missingLines(K) = AVHRR%missingLines(I)
-    AVHRRout%transition3A3B(K) = AVHRR%transition3A3B(I)
-    AVHRRout%Lon(:,K) = AVHRR%Lon(:,I)
-    AVHRRout%Lat(:,K) = AVHRR%Lat(:,I)
-    AVHRRout%satZA(:,K) = AVHRR%satZA(:,I)
-    AVHRRout%solZA(:,K) = AVHRR%solZA(:,I)
-    AVHRRout%relAz(:,K) = AVHRR%relAz(:,I)
-    AVHRRout%Counts1(:,K) = AVHRR%Counts1(:,I)
-    AVHRRout%Counts2(:,K) = AVHRR%Counts2(:,I)
-    AVHRRout%Counts3(:,K) = AVHRR%Counts3(:,I)
-    AVHRRout%Counts4(:,K) = AVHRR%Counts4(:,I)
-    AVHRRout%Counts5(:,K) = AVHRR%Counts5(:,I)
-    AVHRRout%array1(:,K) = AVHRR%array1(:,I)
-    AVHRRout%array2(:,K) = AVHRR%array2(:,I)
-    AVHRRout%array3A(:,K) = AVHRR%array3A(:,I)
-    AVHRRout%array3B(:,K) = AVHRR%array3B(:,I)
-    AVHRRout%array4(:,K) = AVHRR%array4(:,I)
-    AVHRRout%array5(:,K) = AVHRR%array5(:,I)
-    AVHRRout%year(K) = AVHRR%year(I)
-    AVHRRout%month(K) = AVHRR%month(I)
-    AVHRRout%day(K) = AVHRR%day(I)
-    AVHRRout%dayno(K) = AVHRR%dayno(I)
-    AVHRRout%hours(K) = AVHRR%hours(I)
-    AVHRRout%UTC_msecs(K) = AVHRR%UTC_msecs(I)
-    AVHRRout%time(K) = AVHRR%time(I)
-    AVHRRout%prt1(K) = AVHRR%prt1(I)
-    AVHRRout%prt2(K) = AVHRR%prt2(I)
-    AVHRRout%prt3(K) = AVHRR%prt3(I)
-    AVHRRout%prt4(K) = AVHRR%prt4(I)
-    AVHRRout%prt1Counts(K) = AVHRR%prt1Counts(I)
-    AVHRRout%prt2Counts(K) = AVHRR%prt2Counts(I)
-    AVHRRout%prt3Counts(K) = AVHRR%prt3Counts(I)
-    AVHRRout%prt4Counts(K) = AVHRR%prt4Counts(I)
-    AVHRRout%prt1CountsAll(:,K) = AVHRR%prt1CountsAll(:,I)
-    AVHRRout%prt2CountsAll(:,K) = AVHRR%prt2CountsAll(:,I)
-    AVHRRout%prt3CountsAll(:,K) = AVHRR%prt3CountsAll(:,I)
-    AVHRRout%prt4CountsAll(:,K) = AVHRR%prt4CountsAll(:,I)
-    AVHRRout%bb3(K) = AVHRR%bb3(I)
-    AVHRRout%bb4(K) = AVHRR%bb4(I)
-    AVHRRout%bb5(K) = AVHRR%bb5(I)
-    AVHRRout%sp3(K) = AVHRR%sp3(I)
-    AVHRRout%sp4(K) = AVHRR%sp4(I)
-    AVHRRout%sp5(K) = AVHRR%sp5(I)
-    AVHRRout%bbodyFilter3(:,K) = AVHRR%bbodyFilter3(:,I)
-    AVHRRout%bbodyFilter4(:,K) = AVHRR%bbodyFilter4(:,I)
-    AVHRRout%bbodyFilter5(:,K) = AVHRR%bbodyFilter5(:,I)
-    AVHRRout%spaceFilter1(:,K) = AVHRR%spaceFilter1(:,I)
-    AVHRRout%spaceFilter2(:,K) = AVHRR%spaceFilter2(:,I)
-    AVHRRout%spaceFilter3a(:,K) = AVHRR%spaceFilter3a(:,I)
-    AVHRRout%spaceFilter3(:,K) = AVHRR%spaceFilter3(:,I)
-    AVHRRout%spaceFilter4(:,K) = AVHRR%spaceFilter4(:,I)
-    AVHRRout%spaceFilter5(:,K) = AVHRR%spaceFilter5(:,I)
-    AVHRRout%patch(K) = AVHRR%patch(I)
-    AVHRRout%patchExtended(K) = AVHRR%patchExtended(I)
-    AVHRRout%Radiator(K) = AVHRR%Radiator(I)
-    AVHRRout%Cooler(K) = AVHRR%Cooler(I)
-    AVHRRout%a_d_conv(K) = AVHRR%a_d_conv(I)
-    AVHRRout%motor(K) = AVHRR%motor(I)
-    AVHRRout%motorCurrent(K) = AVHRR%motorCurrent(I)
-    AVHRRout%electronics(K) = AVHRR%electronics(I)
-    AVHRRout%baseplate(K) = AVHRR%baseplate(I)
-    AVHRRout%calib1(:,K) = AVHRR%calib1(:,I)
-    AVHRRout%calib1_2(:,K) = AVHRR%calib1_2(:,I)
-    AVHRRout%calib1_intercept(K) = AVHRR%calib1_intercept(I)
-    AVHRRout%calib2(:,K) = AVHRR%calib2(:,I)
-    AVHRRout%calib2_2(:,K) = AVHRR%calib2_2(:,I)
-    AVHRRout%calib2_intercept(K) = AVHRR%calib2_intercept(I)
-    AVHRRout%calib3A(:,K) = AVHRR%calib3A(:,I)
-    AVHRRout%calib3A_2(:,K) = AVHRR%calib3A_2(:,I)
-    AVHRRout%calib3A_intercept(K) = AVHRR%calib3A_intercept(I)
-    AVHRRout%calib3(:,K) = AVHRR%calib3(:,I)
-    AVHRRout%calib4(:,K) = AVHRR%calib4(:,I)
-    AVHRRout%calib5(:,K) = AVHRR%calib5(:,I)
-    AVHRRout%clavr_mask(:,K) = AVHRR%clavr_mask(:,I)
-    AVHRRout%clavrx_mask(:,K) = AVHRR%clavrx_mask(:,I)
-    AVHRRout%clavrx_prb(:,K) = AVHRR%clavrx_prb(:,I)
-    AVHRRout%orig_solar_contamination_3B(K) = &
-         AVHRR%orig_solar_contamination_3B(I)
-    AVHRRout%orig_solar_contamination_4(K) = &
-         AVHRR%orig_solar_contamination_4(I)
-    AVHRRout%orig_solar_contamination_5(K) = &
-         AVHRR%orig_solar_contamination_5(I)
-    AVHRRout%satelliteAltitude(K) = AVHRR%satelliteAltitude(I)
-    
-    IF( AVHRR%walton_there )THEN
-       AVHRRout%array3B_error(:,K) = AVHRR%array3B_error(:,I)
-       AVHRRout%array4_error(:,K) = AVHRR%array4_error(:,I)
-       AVHRRout%array5_error(:,K) = AVHRR%array5_error(:,I)
-    ENDIF
-    
-    !
-    ! If new calbration there
-    !
-    IF( alldata .and. AVHRR%newCalibration_There )THEN
-       AVHRRout%new_calib3(:,K) = AVHRR%new_calib3(:,I)
-       AVHRRout%new_calib4(:,K) = AVHRR%new_calib4(:,I)
-       AVHRRout%new_calib5(:,K) = AVHRR%new_calib5(:,I)
-       AVHRRout%smoothPrt1(K) = AVHRR%smoothPrt1(I)
-       AVHRRout%smoothPrt2(K) = AVHRR%smoothPrt2(I)
-       AVHRRout%smoothPrt3(K) = AVHRR%smoothPrt3(I)
-       AVHRRout%smoothPrt4(K) = AVHRR%smoothPrt4(I)
-       AVHRRout%nsmoothPrt1(K) = AVHRR%nsmoothPrt1(I)
-       AVHRRout%nsmoothPrt2(K) = AVHRR%nsmoothPrt2(I)
-       AVHRRout%nsmoothPrt3(K) = AVHRR%nsmoothPrt3(I)
-       AVHRRout%nsmoothPrt4(K) = AVHRR%nsmoothPrt4(I)
-       AVHRRout%smoothPrt1Cnts(K) = AVHRR%smoothPrt1Cnts(I)
-       AVHRRout%smoothPrt2Cnts(K) = AVHRR%smoothPrt2Cnts(I)
-       AVHRRout%smoothPrt3Cnts(K) = AVHRR%smoothPrt3Cnts(I)
-       AVHRRout%smoothPrt4Cnts(K) = AVHRR%smoothPrt4Cnts(I)
-       AVHRRout%smoothPrt(K) = AVHRR%smoothPrt(I)
-       AVHRRout%smoothBB3(K) = AVHRR%smoothBB3(I)
-       AVHRRout%smoothBB4(K) = AVHRR%smoothBB4(I)
-       AVHRRout%smoothBB5(K) = AVHRR%smoothBB5(I)
-       AVHRRout%smoothSp3(K) = AVHRR%smoothSp3(I)
-       AVHRRout%smoothSp4(K) = AVHRR%smoothSp4(I)
-       AVHRRout%smoothSp5(K) = AVHRR%smoothSp5(I)
-       AVHRRout%nsmoothPrt1(K) = AVHRR%nsmoothPrt1(I)
-       AVHRRout%nsmoothPrt2(K) = AVHRR%nsmoothPrt2(I)
-       AVHRRout%nsmoothPrt3(K) = AVHRR%nsmoothPrt3(I)
-       AVHRRout%nsmoothPrt4(K) = AVHRR%nsmoothPrt4(I)
-       AVHRRout%nsmoothBB3(K) = AVHRR%nsmoothBB3(I)
-       AVHRRout%nsmoothBB4(K) = AVHRR%nsmoothBB4(I)
-       AVHRRout%nsmoothBB5(K) = AVHRR%nsmoothBB5(I)
-       AVHRRout%nsmoothSp3(K) = AVHRR%nsmoothSp3(I)
-       AVHRRout%nsmoothSp4(K) = AVHRR%nsmoothSp4(I)
-       AVHRRout%nsmoothSp5(K) = AVHRR%nsmoothSp5(I)
-       AVHRRout%Interpolated(K) = AVHRR%Interpolated(I)
-       AVHRRout%solar_contamination_failure(K) = &
-            AVHRR%solar_contamination_failure(I)
-       AVHRRout%solar_contamination_3B(K) = AVHRR%solar_contamination_3B(I)
-       AVHRRout%solar_contamination_4(K) = AVHRR%solar_contamination_4(I)
-       AVHRRout%solar_contamination_5(K) = AVHRR%solar_contamination_5(I)
-       AVHRRout%moon_contamination(K) = AVHRR%moon_contamination(I)
-       AVHRRout%new_array1(:,K) = AVHRR%new_array1(:,I)
-       AVHRRout%new_array2(:,K) = AVHRR%new_array2(:,I)
-       AVHRRout%new_array3A(:,K) = AVHRR%new_array3A(:,I)
-       AVHRRout%new_array3B(:,K) = AVHRR%new_array3B(:,I)
-       AVHRRout%new_array4(:,K) = AVHRR%new_array4(:,I)
-       AVHRRout%new_array5(:,K) = AVHRR%new_array5(:,I)
-       AVHRRout%new_array1_error(:,K) = AVHRR%new_array1_error(:,I)
-       AVHRRout%new_array2_error(:,K) = AVHRR%new_array2_error(:,I)
-       AVHRRout%new_array3A_error(:,K) = AVHRR%new_array3A_error(:,I)
-       AVHRRout%new_array3B_error(:,K) = AVHRR%new_array3B_error(:,I)
-       AVHRRout%new_array4_error(:,K) = AVHRR%new_array4_error(:,I)
-       AVHRRout%new_array5_error(:,K) = AVHRR%new_array5_error(:,I)
-       AVHRRout%new_array1_spnoise(K) = AVHRR%new_array1_spnoise(I)
-       AVHRRout%new_array2_spnoise(K) = AVHRR%new_array2_spnoise(I)
-       AVHRRout%new_array3A_spnoise(K) = AVHRR%new_array3A_spnoise(I)
-       AVHRRout%new_array1_dsp(K) = AVHRR%new_array1_dsp(I)
-       AVHRRout%new_array2_dsp(K) = AVHRR%new_array2_dsp(I)
-       AVHRRout%new_array3A_dsp(K) = AVHRR%new_array3A_dsp(I)
-       AVHRRout%noise_cnts(:,K) = AVHRR%noise_cnts(:,I)
-       AVHRRout%noise_cnts_cal(:,K) = AVHRR%noise_cnts_cal(:,I)
-       AVHRRout%noise_cnts_cal_bb(:,K) = AVHRR%noise_cnts_cal_bb(:,I)
-       AVHRRout%ict_prt_gain_value(K) = AVHRR%ict_prt_gain_value(I)
-       AVHRRout%prt_correction(K) = AVHRR%prt_correction(I)
-       AVHRRout%prt_ict_temp(K) = AVHRR%prt_ict_temp(I)
-       AVHRRout%prt1_plane_error(K) = AVHRR%prt1_plane_error(I)
-       AVHRRout%prt2_plane_error(K) = AVHRR%prt2_plane_error(I)
-       AVHRRout%prt3_plane_error(K) = AVHRR%prt3_plane_error(I)
-       AVHRRout%prt4_plane_error(K) = AVHRR%prt4_plane_error(I)
-    ENDIF
-
-  END SUBROUTINE Copy_All_Scan
   !
   ! TEST TEST TEST TEST TEST TEST TEST TEST
   !
@@ -3136,10 +2980,12 @@ CONTAINS
 
   END SUBROUTINE Get_Grp_Attr
 
-  SUBROUTINE fill_missing_lines(AVHRR,AVHRRout)
+  SUBROUTINE fill_missing_lines(AVHRR,AVHRRout,montecarlo,delta_rad)
 
     TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
     TYPE(AVHRR_Data), INTENT(OUT), TARGET :: AVHRRout
+    LOGICAL, INTENT(IN), OPTIONAL :: montecarlo
+    TYPE(mc_delta_str), INTENT(INOUT), OPTIONAL :: delta_rad
 
     ! Local variables
     INTEGER :: I
@@ -3153,6 +2999,18 @@ CONTAINS
     INTEGER :: nmissing_total
     TYPE(AVHRR_Data), POINTER :: pAVHRRout
     LOGICAL :: too_many
+    LOGICAL :: monte_carlo
+    TYPE(mc_delta_str) :: delta_rad_tmp
+    
+    IF( PRESENT(montecarlo) )THEN
+       IF( .not. PRESENT(delta_rad) )THEN
+          CALL Gbcs_Critical(.TRUE.,'Must include delta_rad',&
+               'fill_missing_lines','combine_orbits.f90')
+       ENDIF
+       monte_carlo = montecarlo
+    ELSE
+       monte_carlo = .FALSE.
+    ENDIF
 
     ! Find how many lines needed for output
     start_line = -1
@@ -3187,10 +3045,18 @@ CONTAINS
        too_many = .TRUE.
        pAVHRRout => AVHRRout
        CALL Allocate_OldCal( AVHRR, pAVHRRout,start_line,stop_line)
+       IF( monte_carlo )THEN
+          CALL Allocate_DeltaRad( delta_rad%nelem,stop_line-start_line+1,&
+               delta_rad%nMC,delta_rad_tmp)
+       ENDIF
     ELSE
        ! Allocate output structure
        pAVHRRout => AVHRRout
-       CALL Allocate_OldCal( AVHRR, pAVHRRout,start_line,start_line+ntotal-1)
+       CALL Allocate_OldCal( AVHRR, pAVHRRout,start_line,start_line+ntotal)
+       IF( monte_carlo )THEN
+          CALL Allocate_DeltaRad( delta_rad%nelem,ntotal+1,&
+               delta_rad%nMC,delta_rad_tmp)
+       ENDIF
     ENDIF
     !
     ! Set all data to bad
@@ -3222,6 +3088,9 @@ CONTAINS
        K=1
        DO WHILE(I .le. stop_line)
           CALL Copy_All_Scan(AVHRR,AVHRRout,I,K,.TRUE.)
+          IF( monte_carlo )THEN
+             CALL Copy_DeltaRad_Ind(delta_rad_tmp,delta_rad,I,K=K)
+          ENDIF
           AVHRRout%missingLines(K) = .FALSE.
           I=I+1
           K=K+1
@@ -3245,6 +3114,9 @@ CONTAINS
                      'fill_missing_lines','combine_orbits.f90')
              ENDIF
              CALL Copy_All_Scan(AVHRR,AVHRRout,I,K,.TRUE.)
+             IF( monte_carlo )THEN
+                CALL Copy_DeltaRad_Ind(delta_rad_tmp,delta_rad,I,K=K)
+             ENDIF
              AVHRRout%missingLines(K) = .FALSE.
              !
              ! Check time to next scan line
@@ -3268,6 +3140,12 @@ CONTAINS
           ENDIF
           I=I+1
        END DO
+    ENDIF
+
+    IF( monte_carlo )THEN
+       CALL Deallocate_Deltarad(delta_rad)
+       CALL Copy_Delta_Rad(delta_rad_tmp,delta_rad)
+       CALL Deallocate_Deltarad(delta_rad_tmp)
     ENDIF
 
     WRITE(*,'(''  Number of missing scanlines added = '',i5)')nmissing_total
