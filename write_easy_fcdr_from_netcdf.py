@@ -30,10 +30,14 @@ import netCDF4
 import numpy as np
 import datetime
 import xarray
+import argparse
 from optparse import OptionParser
 import FCDR_HIRS.metrology as met
 import write_l1c_data as l1c
 import matplotlib.pyplot as plt
+import uuid
+import os
+
 
 class read_netcdf(object):
 
@@ -170,6 +174,19 @@ class read_netcdf(object):
         self.nx = self.lat.shape[1]
         self.ny = self.lat.shape[0]
 
+        try:
+            self.montecarlo_seed = ncid.montecarlo_seed
+            self.ch1_MC = ncid.variables['ch1_MC'][:,:,:]
+            self.ch2_MC = ncid.variables['ch2_MC'][:,:,:]
+            self.ch3a_MC = ncid.variables['ch3a_MC'][:,:,:]
+            self.ch3_MC = ncid.variables['ch3_MC'][:,:,:]
+            self.ch4_MC = ncid.variables['ch4_MC'][:,:,:]
+            self.ch5_MC = ncid.variables['ch5_MC'][:,:,:]
+            self.nmc = self.ch1_MC.shape[0]
+            self.montecarlo = True
+        except:
+            self.montecarlo = False
+
         ncid.close()
 
         if False:
@@ -289,6 +306,14 @@ class read_netcdf(object):
         self.ch4_harm = self.add_nan_values(self.ch4_harm)
         self.ch5_harm = self.add_nan_values(self.ch5_harm)
 
+        if self.montecarlo:
+            self.ch1_MC = self.add_nan_values(self.ch1_MC)
+            self.ch2_MC = self.add_nan_values(self.ch2_MC)
+            self.ch3a_MC = self.add_nan_values(self.ch3a_MC)
+            self.ch3_MC = self.add_nan_values(self.ch3_MC)
+            self.ch4_MC = self.add_nan_values(self.ch4_MC)
+            self.ch5_MC = self.add_nan_values(self.ch5_MC)
+
 #        self.ch1 = self.scale_values(self.ch1)
 #        self.ch2 = self.scale_values(self.ch2)
 #        if self.ch3a_there:
@@ -406,6 +431,15 @@ class read_netcdf(object):
 
         self.nx = self.lat.shape[1]
         self.ny = self.lat.shape[0]
+
+        if self.montecarlo:
+            self.ch1_MC = self.ch1_MC[:,gd,:]
+            self.ch2_MC = self.ch2_MC[:,gd,:]
+            self.ch3a_MC = self.ch3a_MC[:,gd,:]
+            self.ch3_MC = self.ch3_MC[:,gd,:]
+            self.ch4_MC = self.ch4_MC[:,gd,:]
+            self.ch5_MC = self.ch5_MC[:,gd,:]
+            self.nmc = self.ch1_MC.shape[0]
 
     def __init__(self,filename):
 
@@ -1737,10 +1771,443 @@ def get_srf(noaa,allchans):
     return out_wave,out_srf,out_radiance,out_bt
 
 #
+# Write MonteCarlo ensemble output (L1)
+#
+def write_ensemble(file_out,file_uuid,data,ocean_only=False):
+
+    ch1_mc = np.copy(data.ch1_MC)
+    gd = (np.abs(ch1_mc) > 1.0000)
+    if np.sum(gd) > 0:
+        ch1_mc[gd] = float('nan')
+    ch2_mc = np.copy(data.ch2_MC)
+    gd = (np.abs(ch2_mc) > 1.0000)
+    if np.sum(gd) > 0:
+        ch2_mc[gd] = float('nan')
+    ch3a_mc = np.copy(data.ch3a_MC)
+    gd = (np.abs(ch3a_mc) > 1.0000)
+    if np.sum(gd) > 0:
+        ch3a_mc[gd] = float('nan')
+    ch3_mc = np.copy(data.ch3_MC)
+    gd = (np.abs(ch3_mc) > 30.000)
+    if np.sum(gd) > 0:
+        ch3_mc[gd] = float('nan')
+    ch4_mc = np.copy(data.ch4_MC)
+    gd = (np.abs(ch4_mc) > 30.000)
+    if np.sum(gd) > 0:
+        ch4_mc[gd] = float('nan')
+    ch5_mc = np.copy(data.ch5_MC)
+    gd = (np.abs(ch5_mc) > 30.000)
+    if np.sum(gd) > 0:
+        ch5_mc[gd] = float('nan')
+
+    #
+    # If ocean only then use reduced resolution output to save space
+    #
+    if ocean_only:
+
+        gd = np.isfinite(ch1_mc)
+        if np.abs(ch1_mc[gd]).max()/0.0006 < 127:
+            d1 = xarray.DataArray(ch1_mc,dims=('nMC','y','x'),\
+                                      encoding={'dtype':'int8',\
+                                                    'add_offset':0.,\
+                                                    'scale_factor':0.0006,\
+                                                    '_FillValue':-128,\
+                                                    'valid_min':-127,\
+                                                    'valid_max':127,\
+                                                    'zlib':True,\
+                                                    'complevel':9,\
+                                                    'shuffle':True},\
+                                      attrs={'units':'reflectance',\
+                                                 'coordinates':'longitude latitude',\
+                                                 'long_name':'MonteCarlo delta from FCDR'}\
+                                      )
+        else:
+            d1 = xarray.DataArray(ch1_mc,dims=('nMC','y','x'),\
+                                      encoding={'dtype':'int16',\
+                                                    'add_offset':0.,\
+                                                    'scale_factor':1e-05,\
+                                                    '_FillValue':-32768,\
+                                                    'valid_min':-10000,\
+                                                    'valid_max':10000,\
+                                                    'zlib':True,\
+                                                    'complevel':9,\
+                                                    'shuffle':True},\
+                                      attrs={'units':'reflectance',\
+                                                 'coordinates':'longitude latitude',\
+                                                 'long_name':'MonteCarlo delta from FCDR'}\
+                                      )
+        gd = np.isfinite(ch2_mc)
+        if np.abs(ch2_mc[gd]).max()/0.0006 < 127:
+            d2 = xarray.DataArray(ch2_mc,dims=('nMC','y','x'),\
+                                      encoding={'dtype':'int8',\
+                                                    'add_offset':0.,\
+                                                    'scale_factor':0.0006,\
+                                                    '_FillValue':-128,\
+                                                    'valid_min':-127,\
+                                                    'valid_max':127,\
+                                                    'zlib':True,\
+                                                    'complevel':9,\
+                                                    'shuffle':True},\
+                                      attrs={'units':'reflectance',\
+                                                 'coordinates':'longitude latitude',\
+                                                 'long_name':'MonteCarlo delta from FCDR'}\
+                                      )
+        else:
+            d2 = xarray.DataArray(ch2_mc,dims=('nMC','y','x'),\
+                                      encoding={'dtype':'int16',\
+                                                    'add_offset':0.,\
+                                                    'scale_factor':1e-05,\
+                                                    '_FillValue':-32768,\
+                                                    'valid_min':-10000,\
+                                                    'valid_max':10000,\
+                                                    'zlib':True,\
+                                                    'complevel':9,\
+                                                    'shuffle':True},\
+                                      attrs={'units':'reflectance',\
+                                                 'coordinates':'longitude latitude',\
+                                                 'long_name':'MonteCarlo delta from FCDR'}\
+                                      )
+        gd = np.isfinite(ch3a_mc)
+        if np.abs(ch3a_mc[gd]).max()/0.0006 < 127:
+            d3a = xarray.DataArray(ch3a_mc,dims=('nMC','y','x'),\
+                                       encoding={'dtype':'int8',\
+                                                     'add_offset':0.,\
+                                                     'scale_factor':0.0006,\
+                                                     '_FillValue':-128,\
+                                                     'valid_min':-127,\
+                                                     'valid_max':127,\
+                                                     'zlib':True,\
+                                                     'complevel':9,\
+                                                     'shuffle':True},\
+                                       attrs={'units':'reflectance',\
+                                                  'coordinates':'longitude latitude',\
+                                                  'long_name':'MonteCarlo delta from FCDR'}\
+                                       )
+        else:
+            d3a = xarray.DataArray(ch3a_mc,dims=('nMC','y','x'),\
+                                       encoding={'dtype':'int16',\
+                                                     'add_offset':0.,\
+                                                     'scale_factor':1e-05,\
+                                                     '_FillValue':-32768,\
+                                                     'valid_min':-10000,\
+                                                     'valid_max':10000,\
+                                                     'zlib':True,\
+                                                     'complevel':9,\
+                                                     'shuffle':True},\
+                                       attrs={'units':'reflectance',\
+                                                  'coordinates':'longitude latitude',\
+                                                  'long_name':'MonteCarlo delta from FCDR'}\
+                                   )
+        gd = np.isfinite(ch3_mc)
+        if np.abs(ch3_mc[gd]).max()/1e-2 < 127:
+            d3 = xarray.DataArray(ch3_mc,dims=('nMC','y','x'),\
+                                      encoding={'dtype':'int8',\
+                                                    'add_offset':0.,\
+                                                    'scale_factor':1e-02,\
+                                                    '_FillValue':-128,\
+                                                    'valid_min':-127,\
+                                                    'valid_max':127,\
+                                                    'zlib':True,\
+                                                    'complevel':9,\
+                                                    'shuffle':True},\
+                                      attrs={'units':'K',\
+                                                 'coordinates':'longitude latitude',\
+                                                 'long_name':'MonteCarlo delta from FCDR'}\
+                                      )
+        else:
+            d3 = xarray.DataArray(ch3_mc,dims=('nMC','y','x'),\
+                                      encoding={'dtype':'int16',\
+                                                    'add_offset':0.,\
+                                                    'scale_factor':1e-02,\
+                                                    '_FillValue':-32768,\
+                                                    'valid_min':-30000,\
+                                                    'valid_max':30000,\
+                                                    'zlib':True,\
+                                                    'complevel':9,\
+                                                    'shuffle':True},\
+                                      attrs={'units':'K',\
+                                                 'coordinates':'longitude latitude',\
+                                                 'long_name':'MonteCarlo delta from FCDR'}\
+                                      )
+        gd = np.isfinite(ch4_mc)
+        if np.abs(ch4_mc[gd]).max()/1e-2 < 127:
+            d4 = xarray.DataArray(ch4_mc,dims=('nMC','y','x'),\
+                                      encoding={'dtype':'int8',\
+                                                    'add_offset':0.,\
+                                                    'scale_factor':1e-02,\
+                                                    '_FillValue':-128,\
+                                                    'valid_min':-127,\
+                                                    'valid_max':127,\
+                                                    'zlib':True,\
+                                                    'complevel':9,\
+                                                    'shuffle':True},\
+                                      attrs={'units':'K',\
+                                                 'coordinates':'longitude latitude',\
+                                                 'long_name':'MonteCarlo delta from FCDR'}\
+                                      )
+        else:
+            d4 = xarray.DataArray(ch4_mc,dims=('nMC','y','x'),\
+                                      encoding={'dtype':'int16',\
+                                                    'add_offset':0.,\
+                                                    'scale_factor':1e-02,\
+                                                    '_FillValue':-32768,\
+                                                    'valid_min':-30000,\
+                                                    'valid_max':30000,\
+                                                    'zlib':True,\
+                                                    'complevel':9,\
+                                                    'shuffle':True},\
+                                      attrs={'units':'K',\
+                                                 'coordinates':'longitude latitude',\
+                                                 'long_name':'MonteCarlo delta from FCDR'}\
+                                      )
+        gd = np.isfinite(ch5_mc)
+        if np.abs(ch4_mc[gd]).max()/1e-2 < 127:
+            d5 = xarray.DataArray(ch5_mc,dims=('nMC','y','x'),\
+                                      encoding={'dtype':'int8',\
+                                                    'add_offset':0.,\
+                                                    'scale_factor':1e-02,\
+                                                    '_FillValue':-128,\
+                                                    'valid_min':-127,\
+                                                    'valid_max':127,\
+                                                    'zlib':True,\
+                                                    'complevel':9,\
+                                                    'shuffle':True},\
+                                      attrs={'units':'K',\
+                                                 'coordinates':'longitude latitude',\
+                                                 'long_name':'MonteCarlo delta from FCDR'}\
+                                      )
+        else:
+            d5 = xarray.DataArray(ch5_mc,dims=('nMC','y','x'),\
+                                      encoding={'dtype':'int16',\
+                                                    'add_offset':0.,\
+                                                    'scale_factor':1e-02,\
+                                                    '_FillValue':-32768,\
+                                                    'valid_min':-30000,\
+                                                    'valid_max':30000,\
+                                                    'zlib':True,\
+                                                    'complevel':9,\
+                                                    'shuffle':True},\
+                                      attrs={'units':'K',\
+                                                 'coordinates':'longitude latitude',\
+                                                 'long_name':'MonteCarlo delta from FCDR'}\
+                                      )
+    else:
+        d1 = xarray.DataArray(ch1_mc,dims=('nMC','y','x'),\
+                                  encoding={'dtype':'int16',\
+                                                'add_offset':0.,\
+                                                'scale_factor':1e-05,\
+                                                '_FillValue':-32768,\
+                                                'valid_min':-10000,\
+                                                'valid_max':10000,\
+                                                'zlib':True,\
+                                                'complevel':9,\
+                                                'shuffle':True},\
+                                  attrs={'units':'reflectance',\
+                                             'coordinates':'longitude latitude',\
+                                             'long_name':'MonteCarlo delta from FCDR'}\
+                                  )
+        d2 = xarray.DataArray(ch2_mc,dims=('nMC','y','x'),\
+                                  encoding={'dtype':'int16',\
+                                                'add_offset':0.,\
+                                                'scale_factor':1e-05,\
+                                                '_FillValue':-32768,\
+                                                'valid_min':-10000,\
+                                                'valid_max':10000,\
+                                                'zlib':True,\
+                                                'complevel':9,\
+                                                'shuffle':True},\
+                                  attrs={'units':'reflectance',\
+                                             'coordinates':'longitude latitude',\
+                                             'long_name':'MonteCarlo delta from FCDR'}\
+                                  )
+        d3a = xarray.DataArray(ch3a_mc,dims=('nMC','y','x'),\
+                                   encoding={'dtype':'int16',\
+                                                 'add_offset':0.,\
+                                                 'scale_factor':1e-05,\
+                                                 '_FillValue':-32768,\
+                                                 'valid_min':-10000,\
+                                                 'valid_max':10000,\
+                                                 'zlib':True,\
+                                                 'complevel':9,\
+                                                 'shuffle':True},\
+                                   attrs={'units':'reflectance',\
+                                              'coordinates':'longitude latitude',\
+                                              'long_name':'MonteCarlo delta from FCDR'}\
+                                   )
+        d3 = xarray.DataArray(ch3_mc,dims=('nMC','y','x'),\
+                                  encoding={'dtype':'int16',\
+                                                'add_offset':0.,\
+                                                'scale_factor':1e-03,\
+                                                '_FillValue':-32768,\
+                                                'valid_min':-30000,\
+                                                'valid_max':30000,\
+                                                'zlib':True,\
+                                                'complevel':9,\
+                                                'shuffle':True},\
+                                  attrs={'units':'K',\
+                                             'coordinates':'longitude latitude',\
+                                             'long_name':'MonteCarlo delta from FCDR'}\
+                                  )
+        d4 = xarray.DataArray(ch4_mc,dims=('nMC','y','x'),\
+                                  encoding={'dtype':'int16',\
+                                                'add_offset':0.,\
+                                                'scale_factor':1e-03,\
+                                                '_FillValue':-32768,\
+                                                'valid_min':-30000,\
+                                                'valid_max':30000,\
+                                                'zlib':True,\
+                                                'complevel':9,\
+                                                'shuffle':True},\
+                                  attrs={'units':'K',\
+                                             'coordinates':'longitude latitude',\
+                                             'long_name':'MonteCarlo delta from FCDR'}\
+                                  )
+        d5 = xarray.DataArray(ch5_mc,dims=('nMC','y','x'),\
+                                  encoding={'dtype':'int16',\
+                                                'add_offset':0.,\
+                                                'scale_factor':1e-03,\
+                                                '_FillValue':-32768,\
+                                                'valid_min':-30000,\
+                                                'valid_max':30000,\
+                                                'zlib':True,\
+                                                'complevel':9,\
+                                                'shuffle':True},\
+                                  attrs={'units':'K',\
+                                             'coordinates':'longitude latitude',\
+                                             'long_name':'MonteCarlo delta from FCDR'}\
+                                  )
+        
+    if ocean_only:
+        ds = xarray.Dataset(data_vars={'Ch1_MC':d1,'Ch2_MC':d2,'Ch3a_MC':d3a,\
+                                           'Ch3b_MC':d3,'Ch4_MC':d4,'Ch5_MC':d5},\
+                                attrs={'Conventions':"CF-1.6",\
+                                           'licence':"This dataset is released for use under CC-BY licence (https://creativecommons.org/licenses/by/4.0/) and was developed in the EC FIDUCEO project \"Fidelity and Uncertainty in Climate Data Records from Earth Observations\". Grant Agreement: 638822.",\
+                                           'institution':"University of Reading",\
+                                           'title':data.version+" version of AVHRR Fundamental Climate Data Record Ensemble",\
+                                           'sensor':"AVHRR",\
+                                           'platform':data.noaa_string,\
+                                           'software_version':data.version,\
+                                           'origin_FCDR':file_out,\
+                                           'origin_FCDR_UUID':file_uuid,\
+                                           'MC_Seed':data.montecarlo_seed,\
+                                           'UUID':'{0}'.format(uuid.uuid4()),\
+                                           'Ensemble_Type':'Ocean_Only'})
+    else:
+        ds = xarray.Dataset(data_vars={'Ch1_MC':d1,'Ch2_MC':d2,'Ch3a_MC':d3a,\
+                                           'Ch3b_MC':d3,'Ch4_MC':d4,'Ch5_MC':d5},\
+                                attrs={'Conventions':"CF-1.6",\
+                                           'licence':"This dataset is released for use under CC-BY licence (https://creativecommons.org/licenses/by/4.0/) and was developed in the EC FIDUCEO project \"Fidelity and Uncertainty in Climate Data Records from Earth Observations\". Grant Agreement: 638822.",\
+                                           'institution':"University of Reading",\
+                                           'title':data.version+" version of AVHRR Fundamental Climate Data Record Ensemble",\
+                                           'sensor':"AVHRR",\
+                                           'platform':data.noaa_string,\
+                                           'software_version':data.version,\
+                                           'origin_FCDR':file_out,\
+                                           'origin_FCDR_UUID':file_uuid,\
+                                           'MC_Seed':data.montecarlo_seed,\
+                                           'UUID':'{0}'.format(uuid.uuid4()),\
+                                           'Ensemble_Type':'All_Data'})
+
+    file_ensemble = os.path.splitext(file_out)[0]+'_Ensemble.nc'
+    ds.to_netcdf(file_ensemble)
+
+def ensemble_orig_netcdf(fileout,file_uuid,data):
+
+    file_ensemble = os.path.splitext(file_out)[0]+'_Ensemble.nc'
+    ncid = netCDF4.Dataset(file_ensemble,'w')
+
+    dim_nx = ncid.createDimension('x',size=data.nx)
+    dim_ny = ncid.createDimension('y',size=data.ny)
+    dim_nmc = ncid.createDimension('nMC',size=data.nmc)
+
+    ch1 = ncid.createVariable('Ch1_MC','i2',('nMC','y','x'),zlib=True,\
+                                  complevel=6,shuffle=True,fill_value=-32768)
+    ch1.units = "percent"
+    ch1.coordinates = "longitude latitude"
+    ch1.long_name = "MonteCarlo delta from FCDR"
+    ch1.valid_max = 10000
+    ch1.valid_min = -10000
+    ch1.add_offset = 0.
+    ch1.scale_factor = 1.e-05
+
+    ch2 = ncid.createVariable('Ch2_MC','i2',('nMC','y','x'),zlib=True,\
+                                  complevel=6,shuffle=True,fill_value=-32768)
+    ch2.units = "percent"
+    ch2.coordinates = "longitude latitude"
+    ch2.long_name = "MonteCarlo delta from FCDR"
+    ch2.valid_max = 10000
+    ch2.valid_min = -10000
+    ch2.add_offset = 0.
+    ch2.scale_factor = 1.e-05
+
+    ch3a = ncid.createVariable('Ch3a_MC','i2',('nMC','y','x'),zlib=True,\
+                                  complevel=6,shuffle=True,fill_value=-32768)
+    ch3a.units = "percent"
+    ch3a.coordinates = "longitude latitude"
+    ch3a.long_name = "MonteCarlo delta from FCDR"
+    ch3a.valid_max = 10000
+    ch3a.valid_min = -10000
+    ch3a.add_offset = 0.
+    ch3a.scale_factor = 1.e-05
+
+    ch3b = ncid.createVariable('Ch3b_MC','i2',('nMC','y','x'),zlib=True,\
+                                  complevel=6,shuffle=True,fill_value=-32768)
+    ch3b.units = "K"
+    ch3b.coordinates = "longitude latitude"
+    ch3b.long_name = "MonteCarlo delta from FCDR"
+    ch3b.valid_max = 30000
+    ch3b.valid_min = -30000
+    ch3b.add_offset = 0.
+    ch3b.scale_factor = 1.e-03
+
+    ch4 = ncid.createVariable('Ch4_MC','i2',('nMC','y','x'),zlib=True,\
+                                  complevel=6,shuffle=True,fill_value=-32768)
+    ch4.units = "K"
+    ch4.coordinates = "longitude latitude"
+    ch4.long_name = "MonteCarlo delta from FCDR"
+    ch4.valid_max = 30000
+    ch4.valid_min = -30000
+    ch4.add_offset = 0.
+    ch4.scale_factor = 1.e-03
+
+    ch5 = ncid.createVariable('Ch5_MC','i2',('nMC','y','x'),zlib=True,\
+                                  complevel=6,shuffle=True,fill_value=-32768)
+    ch5.units = "K"
+    ch5.coordinates = "longitude latitude"
+    ch5.long_name = "MonteCarlo delta from FCDR"
+    ch5.valid_max = 30000
+    ch5.valid_min = -30000
+    ch5.add_offset = 0.
+    ch5.scale_factor = 1.e-03
+
+    ch1[:,:,:] = ch1_mc
+    ch2[:,:,:] = ch2_mc
+    ch3a[:,:,:] = ch3a_mc
+    ch3b[:,:,:] = ch3_mc
+    ch4[:,:,:] = ch4_mc
+    ch5[:,:,:] = ch5_mc
+
+    ncid.Conventions = "CF-1.6"
+    ncid.licence = "This dataset is released for use under CC-BY licence (https://creativecommons.org/licenses/by/4.0/) and was developed in the EC FIDUCEO project \"Fidelity and Uncertainty in Climate Data Records from Earth Observations\". Grant Agreement: 638822."
+    ncid.institution = "University of Reading"
+    ncid.title = data.version+" version of AVHRR Fundamental Climate Data Record Ensemble"
+    ncid.sensor = "AVHRR"
+    ncid.platform = data.noaa_string
+    ncid.software_version = data.version
+    ncid.origin_FCDR = file_out
+    ncid.origin_FCDR_UUID = file_uuid
+    ncid.MC_Seed = data.montecarlo_seed
+    # UUID for MC file
+    ncid.UUID = '{0}'.format(uuid.uuid4())
+    
+    Ncid.close()
+
+#
 # Calculate CURUC etc. and output file. Note changes behaviour
 # dependent on channel set
 #
-def main_outfile(data,ch3a_version,fileout='None',split=False,gbcs_l1c=False):
+def main_outfile(data,ch3a_version,fileout='None',split=False,gbcs_l1c=False,\
+                     ocean_only=False):
 
     # Run CURUC to get CURUC values (lenths, vectors and chan cross 
     # correlations)
@@ -1801,9 +2268,14 @@ def main_outfile(data,ch3a_version,fileout='None',split=False,gbcs_l1c=False):
     xe_all = np.copy(vis_xe_all.values)
     xe_all = np.append(xe_all,ir_xe_all.values,axis=1)
 
-    gd = (xl_all > 0.)
-    corr_l = xl_all[gd]
-    corr_l = np.append(corr_l,np.array([0.]))
+    length = np.zeros(xl_all.shape[1],dtype=np.int16)
+    for i in range(xl_all.shape[0]):
+        for j in range(xl_all.shape[1]):
+            if xl_all[i,j] > 0:
+                length[j] = i
+
+    max_len = length.max()
+    corr_l = xl_all[0:max_len+2,:]
 
     # Get SRF and lookup tables
     srf_x,srf_y,lut_rad,lut_bt = get_srf(data.noaa_string,chans)
@@ -1930,6 +2402,19 @@ def main_outfile(data,ch3a_version,fileout='None',split=False,gbcs_l1c=False):
         dataset.attrs['sensor'] = "AVHRR"
         dataset.attrs['platform'] = data.noaa_string
         dataset.attrs['software_version'] = data.version
+        if split:
+            dataset.attrs['Ch3a_Ch3b_split_file'] = 'TRUE'
+        else:
+            dataset.attrs['Ch3a_Ch3b_split_file'] = 'FALSE'
+        if ch3a_version:
+            dataset.attrs['Ch3a_only'] = 'TRUE'
+            dataset.attrs['Ch3b_only'] = 'FALSE'
+        else:
+            dataset.attrs['Ch3a_only'] = 'FALSE'
+            dataset.attrs['Ch3b_only'] = 'TRUE'
+        file_uuid = '{0}'.format(uuid.uuid4())
+        dataset.attrs['UUID'] = file_uuid
+
         # write real data to the variables. All variables initially contain "_FillValue".
         # Not writing to the whole array is completely OK
         dataset.variables["latitude"].data = data.lat
@@ -1963,14 +2448,14 @@ def main_outfile(data,ch3a_version,fileout='None',split=False,gbcs_l1c=False):
         dataset.variables["u_structured_Ch4"].data = data.u_non_random_ch4
         if data.ch5_there:
             dataset.variables["u_structured_Ch5"].data = data.u_non_random_ch5
-#        dataset.variables["u_common_Ch1"].data = data.u_common_ch1
-#        dataset.variables["u_common_Ch2"].data = data.u_common_ch2
-#        if data.ch3a_there:
-#            dataset.variables["u_common_Ch3a"].data = data.u_common_ch3a
-#        dataset.variables["u_common_Ch3b"].data = data.u_common_ch3b
-#        dataset.variables["u_common_Ch4"].data = data.u_common_ch4
-#        if data.ch5_there:
-#            dataset.variables["u_common_Ch5"].data = data.u_common_ch5
+        dataset.variables["u_common_Ch1"].data = data.u_common_ch1
+        dataset.variables["u_common_Ch2"].data = data.u_common_ch2
+        if data.ch3a_there:
+            dataset.variables["u_common_Ch3a"].data = data.u_common_ch3a
+        dataset.variables["u_common_Ch3b"].data = data.u_common_ch3b
+        dataset.variables["u_common_Ch4"].data = data.u_common_ch4
+        if data.ch5_there:
+            dataset.variables["u_common_Ch5"].data = data.u_common_ch5
 # MT: 18-10-2017: added quality flag fields
         dataset.variables["quality_scanline_bitmask"].data = data.scan_qual
         dataset.variables["quality_channel_bitmask"].data = data.chan_qual
@@ -1983,11 +2468,25 @@ def main_outfile(data,ch3a_version,fileout='None',split=False,gbcs_l1c=False):
         elem_corr[:,:] = 1.
         dataset.variables["cross_element_correlation_coefficients"].\
             data[:,start:stop] = elem_corr
-        line_corr = np.zeros((corr_l.shape[0],stop-start))
-        for i in range(line_corr.shape[1]):
-            line_corr[:,i] = corr_l
         dataset.variables["cross_line_correlation_coefficients"].\
-            data[:,start:stop] = line_corr
+            data[0:corr_l.shape[0],0] = corr_l[:,0]
+        dataset.variables["cross_line_correlation_coefficients"].\
+            data[0:corr_l.shape[0],1] = corr_l[:,1]
+        if data.ch3a_there:
+            dataset.variables["cross_line_correlation_coefficients"].\
+                data[0:corr_l.shape[0],2] = corr_l[:,2]
+            dataset.variables["cross_line_correlation_coefficients"].\
+                data[0:corr_l.shape[0],4] = corr_l[:,3]
+            dataset.variables["cross_line_correlation_coefficients"].\
+                data[0:corr_l.shape[0],5] = corr_l[:,4]
+        else:
+            dataset.variables["cross_line_correlation_coefficients"].\
+                data[0:corr_l.shape[0],3] = corr_l[:,2]
+            dataset.variables["cross_line_correlation_coefficients"].\
+                data[0:corr_l.shape[0],4] = corr_l[:,3]
+            if data.ch5_there:
+                dataset.variables["cross_line_correlation_coefficients"].\
+                    data[0:corr_l.shape[0],5] = corr_l[:,4]
         
 # JM: 05/07/2018: Added in SRF data and rad->BT etc. lookup tables
         dataset.variables["SRF_weights"].data[start:stop,:] = srf_y
@@ -2003,10 +2502,60 @@ def main_outfile(data,ch3a_version,fileout='None',split=False,gbcs_l1c=False):
         # dump it to disk, netcdf4, medium compression
         # writing will fail when the target file already exists
         if 'None' == fileout:
-            file_out = writer.create_file_name_FCDR_easy('AVHRR',data.noaa_string,\
+            # Change noaa_string to something that includes the possibility
+            # of a split file
+            if split:
+                if ch3a_version:
+                    ch_string='C3A'
+                else:
+                    ch_string='C3B'
+            else:
+                ch_string='ALL'
+            if data.noaa_string == 'TIROSN':
+                noaa_string='TRN'+ch_string
+            elif data.noaa_string == 'NOAA06':
+                noaa_string='N06'+ch_string
+            elif data.noaa_string == 'NOAA07':
+                noaa_string='N07'+ch_string
+            elif data.noaa_string == 'NOAA08':
+                noaa_string='N08'+ch_string
+            elif data.noaa_string == 'NOAA09':
+                noaa_string='N09'+ch_string
+            elif data.noaa_string == 'NOAA10':
+                noaa_string='N10'+ch_string
+            elif data.noaa_string == 'NOAA11':
+                noaa_string='N11'+ch_string
+            elif data.noaa_string == 'NOAA12':
+                noaa_string='N12'+ch_string
+            elif data.noaa_string == 'NOAA14':
+                noaa_string='N14'+ch_string
+            elif data.noaa_string == 'NOAA15':
+                noaa_string='N15'+ch_string
+            elif data.noaa_string == 'NOAA16':
+                noaa_string='N16'+ch_string
+            elif data.noaa_string == 'NOAA17':
+                noaa_string='N17'+ch_string
+            elif data.noaa_string == 'NOAA18':
+                noaa_string='N18'+ch_string
+            elif data.noaa_string == 'NOAA19':
+                noaa_string='N19'+ch_string
+            elif data.noaa_string == 'METOPA':
+                noaa_string='MTA'+ch_string
+            elif data.noaa_string == 'METOPB':
+                noaa_string='MTB'+ch_string
+            else:
+                print(data.noaa_string)
+                raise Exception('Cannot match data.noaa_string')
+            file_out = writer.create_file_name_FCDR_easy('AVHRR',noaa_string,\
                                                              data.date_time[0],\
                                                              data.date_time[-1],\
                                                              data.version)
+            #
+            # If montecarlo then output this file as well
+            #
+            if data.montecarlo:
+                write_ensemble(file_out,file_uuid,data,ocean_only=ocean_only)
+
         else:
             if split:
                 if ch3a_version:
@@ -2061,6 +2610,14 @@ class copy_to_data(object):
         self.u_non_random_ch4 = data.u_non_random_ch4[gd,:]
         if self.ch5_there:
             self.u_non_random_ch5 = data.u_non_random_ch5[gd,:]
+        self.u_common_ch1 = data.u_common_ch1[gd,:]
+        self.u_common_ch2 = data.u_common_ch2[gd,:]
+        if self.ch3a_there:
+            self.u_common_ch3a = data.u_common_ch3a[gd,:]
+        self.u_common_ch3b = data.u_common_ch3b[gd,:]
+        self.u_common_ch4 = data.u_common_ch4[gd,:]
+        if self.ch5_there:
+            self.u_common_ch5 = data.u_common_ch5[gd,:]
         self.scan_qual = data.scan_qual[gd]
         self.chan_qual = data.chan_qual[gd,:]
         self.dRe1_over_dCS = data.dRe1_over_dCS[gd,:]
@@ -2098,6 +2655,17 @@ class copy_to_data(object):
         self.noaa_string = data.noaa_string
         self.sources = data.sources
         self.version = data.version
+
+        self.montecarlo = data.montecarlo
+        if data.montecarlo:
+            self.montecarlo_seed = data.montecarlo_seed
+            self.ch1_MC = data.ch1_MC[:,gd,:]
+            self.ch2_MC = data.ch2_MC[:,gd,:]
+            self.ch3a_MC = data.ch3a_MC[:,gd,:]
+            self.ch3_MC = data.ch3_MC[:,gd,:]
+            self.ch4_MC = data.ch4_MC[:,gd,:]
+            self.ch5_MC = data.ch5_MC[:,gd,:]
+            self.nmc = self.ch1_MC.shape[0]
 
     def __init__(self,data,gd):
 
@@ -2167,6 +2735,20 @@ class mask_data(object):
         if self.ch5_there:
             self.u_non_random_ch5 = np.copy(data.u_non_random_ch5[:,:])
             self.u_non_random_ch5[gd,:] = float('nan')
+        self.u_common_ch1 = np.copy(data.u_common_ch1[:,:])
+        self.u_common_ch1[gd,:] = float('nan')
+        self.u_common_ch2 = np.copy(data.u_common_ch2[:,:])
+        self.u_common_ch2[gd,:] = float('nan')
+        if self.ch3a_there:
+            self.u_common_ch3a = np.copy(data.u_common_ch3a[:,:])
+            self.u_common_ch3a[gd,:] = float('nan')
+        self.u_common_ch3b = np.copy(data.u_common_ch3b[:,:])
+        self.u_common_ch3b[gd,:] = float('nan')
+        self.u_common_ch4 = np.copy(data.u_common_ch4[:,:])
+        self.u_common_ch4[gd,:] = float('nan')
+        if self.ch5_there:
+            self.u_common_ch5 = np.copy(data.u_common_ch5[:,:])
+            self.u_common_ch5[gd,:] = float('nan')
         #
         # set quality to bad
         #
@@ -2233,7 +2815,23 @@ class mask_data(object):
         self.noaa_string = data.noaa_string
         self.sources = data.sources
         self.version = data.version
-
+ 
+        self.montecarlo = data.montecarlo
+        if data.montecarlo:
+            self.montecarlo_seed = data.montecarlo_seed
+            self.ch1_MC = np.copy(data.ch1_MC)
+            self.ch1_MC[:,gd,:] = float('nan')
+            self.ch2_MC = np.copy(data.ch2_MC)
+            self.ch2_MC[:,gd,:] = float('nan')
+            self.ch3a_MC = np.copy(data.ch3a_MC)
+            self.ch3a_MC[:,gd,:] = float('nan')
+            self.ch3_MC = np.copy(data.ch3_MC)
+            self.ch3_MC[:,gd,:] = float('nan')
+            self.ch4_MC = np.copy(data.ch4_MC)
+            self.ch4_MC[:,gd,:] = float('nan')
+            self.ch5_MC = np.copy(data.ch5_MC)
+            self.ch5_MC[:,gd,:] = float('nan')
+            self.nmc = self.ch1_MC.shape[0]
         #
         # Top and Tail data if needed - using scan_qual flag
         # Original start/end time already filtered to have good data only
@@ -2242,13 +2840,15 @@ class mask_data(object):
         ggd = np.zeros(len(gd),dtype=np.bool)
         ggd[:] = True
         for i in range(len(self.scan_qual)):
-            if 1 == self.scan_qual[i]:
+            if 1 == self.scan_qual[i] or self.time[i] < 0 or \
+                    ~np.isfinite(self.time[i]):
                 ggd[i] = False
                 ok=True
             else:
                 break
         for i in range(len(self.scan_qual)-1,0,-1):
-            if 1 == self.scan_qual[i]:
+            if 1 == self.scan_qual[i] or self.time[i] < 0 or \
+                    ~np.isfinite(self.time[i]):
                 ggd[i] = False
                 ok=True
             else:
@@ -2292,6 +2892,14 @@ class mask_data(object):
             self.u_non_random_ch4 = self.u_non_random_ch4[ggd,:]
             if self.ch5_there:
                 self.u_non_random_ch5 = self.u_non_random_ch5[ggd,:]
+            self.u_common_ch1 = self.u_common_ch1[ggd,:]
+            self.u_common_ch2 = self.u_common_ch2[ggd,:]
+            if self.ch3a_there:
+                self.u_common_ch3a = self.u_common_ch3a[ggd,:]
+            self.u_common_ch3b = self.u_common_ch3b[ggd,:]
+            self.u_common_ch4 = self.u_common_ch4[ggd,:]
+            if self.ch5_there:
+                self.u_common_ch5 = self.u_common_ch5[ggd,:]
             self.scan_qual = self.scan_qual[ggd]
             self.chan_qual = self.chan_qual[ggd,:]
             self.dRe1_over_dCS = self.dRe1_over_dCS[ggd,:]
@@ -2319,6 +2927,15 @@ class mask_data(object):
             self.ch3b_harm = self.ch3b_harm[ggd,:]
             self.ch4_harm = self.ch4_harm[ggd,:]
             self.ch5_harm = self.ch5_harm[ggd,:]
+
+            if self.montecarlo:
+                self.ch1_MC = self.ch1_MC[:,ggd,:]
+                self.ch2_MC = self.ch2_MC[:,ggd,:]
+                self.ch3a_MC = self.ch3a_MC[:,ggd,:]
+                self.ch3_MC = self.ch3_MC[:,ggd,:]
+                self.ch4_MC = self.ch4_MC[:,ggd,:]
+                self.ch5_MC = self.ch5_MC[:,ggd,:]
+                self.nmc = self.ch1_MC.shape[0]
 
     def __init__(self,data,gd):
 
@@ -2377,7 +2994,7 @@ def get_split_data(data,ch3a=False):
 #
 # Top level routine to output FCDR
 #
-def main(file_in,fileout='None'):
+def main(file_in,fileout='None',ocean_only=False):
 
     data = read_netcdf(file_in)
 
@@ -2391,24 +3008,63 @@ def main(file_in,fileout='None'):
         #        
         data1 = get_split_data(data,ch3a=True)
         if data1.ny >= 1280:
-            main_outfile(data1,ch3a_version=True,fileout=fileout,split=True)
+            main_outfile(data1,ch3a_version=True,fileout=fileout,split=True,\
+                             ocean_only=ocean_only)
         data2 = get_split_data(data,ch3a=False)
         if data2.ny >= 1280:
-            main_outfile(data2,ch3a_version=False,fileout=fileout,split=True)
+            main_outfile(data2,ch3a_version=False,fileout=fileout,split=True,\
+                             ocean_only=ocean_only)
     else:
-        main_outfile(data,ch3a_version=False,fileout=fileout)
+        main_outfile(data,ch3a_version=False,fileout=fileout,\
+                         ocean_only=ocean_only)
 
 if __name__ == "__main__":
 
-    usage = "usage: %prog [options] arg1 arg2"
-    parser = OptionParser(usage=usage)
-    (options, args) = parser.parse_args()
+    parser = argparse.ArgumentParser(description='Process FIDUCEO FCDR data.')
+
     
-    if len(args) != 1 and len(args) != 2:
-        parser.error("incorrect number of arguments")
+    parser.add_argument('input_file', nargs=1,\
+                            help='Input temporary netCDF file with all variables')    
+
+    parser.add_argument('--output',nargs=1,\
+                            help='L1C output format')
+
+    parser.add_argument('--ocean',action='store_true',\
+                            help='Output ocean_only data for ensemble')
+
+    args = parser.parse_args()
     
-    if len(args) == 1:
-        main(args[0])
-    elif len(args) == 2:
-        main(args[0],fileout=args[1])
+    try:
+        outfile = args.output[0]
+        outfile_there = True
+    except:
+        outfile_there = False
+
+    try:
+        ocean = args.ocean
+    except:
+        ocean = False
+
+    if outfile_there:
+        if ocean:
+            main(args.input_file[0],fileout=outfile,ocean_only=True)
+        else:
+            main(args.input_file[0],fileout=outfile,ocean_only=False)
+    else:
+        if ocean:
+            main(args.input_file[0],ocean_only=True)
+        else:
+            main(args.input_file[0],ocean_only=False)
+
+#    usage = "usage: %prog [options] arg1 arg2"
+#    parser = OptionParser(usage=usage)
+#    (options, args) = parser.parse_args()
+#    
+#    if len(args) != 1 and len(args) != 2:
+#        parser.error("incorrect number of arguments")
+#    
+#    if len(args) == 1:
+#        main(args[0])
+#    elif len(args) == 2:
+#        main(args[0],fileout=args[1])
 
