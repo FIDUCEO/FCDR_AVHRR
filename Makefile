@@ -21,8 +21,8 @@ FC = ifort
 FL = ifort
 #NCDFPATH = /group_workspaces/cems2/esacci_sst/software/common.gfortran
 NCDFPATH = /gws/nopw/j04/esacci_sst/software/common
-FC_FLAGS = -I/gws/nopw/j04/esacci_sst/software/common/include -I. -fpp -free -fPIC -assume byterecl -fpconstant -std03 -O2
-#FC_FLAGS = -I/gws/nopw/j04/esacci_sst/software/common/include -I. -fpp -free -fPIC -assume byterecl -fpconstant -std03 -check all -debug all -traceback -g
+#FC_FLAGS = -I/gws/nopw/j04/esacci_sst/software/common/include -I. -fpp -free -fPIC -assume byterecl -fpconstant -std03 -O2
+FC_FLAGS = -I/gws/nopw/j04/esacci_sst/software/common/include -I. -fpp -free -fPIC -assume byterecl -fpconstant -std03 -check all -debug all -traceback -g
 #F_FLAGS = -fpp -fPIC -assume byterecl -fpconstant -check all -debug all -traceback -g -O2
 #FC_FLAGS = -Wall -g -fbounds-check -I. -I$(NCDFPATH)/include -cpp 
 #FC_FLAGS = -g -fbounds-check -I. -I$(NCDFPATH)/include -cpp 
@@ -39,10 +39,12 @@ GBCSOBJECTS = GbcsKinds.o GbcsBaseTypes.o GbcsConstants.o simpledict.o GbcsStrin
 	GbcsTimeSpace.o GbcsSystemTools.o GbcsInterpolators.o GbcsForecastModel.o \
 	GbcsMatrixOps.o GbcsPDFLoaders.o \
 	GbcsScattPhysics.o GbcsCleanUp.o \
-	GbcsPixelLoaders.o AVHRR_Filter_Data.o AVHRR_Amoeba_Fit.o AVHRR_ICTContamination.o FIDUCEO_Calibration.o NOAA_LoadAVHRRLevel1B.o GbcsImageUtil.o \
+	GbcsPixelLoaders.o GbcsTileCache.o GbcsLandMask.o \
+	AVHRR_Filter_Data.o AVHRR_Amoeba_Fit.o AVHRR_ICTContamination.o FIDUCEO_Calibration.o NOAA_LoadAVHRRLevel1B.o GbcsImageUtil.o \
 	epr_wrapper_c.o epr_wrapper.o ARC_ATSR1.o ARC_L1bCorrection.o ARC_ATSRVarNEdT.o ARC_LoadImagery.o
 
-OBJECTS = $(GBCSOBJECTS) fiduceo_uncertainties.o combine_orbits.o
+MCOBJECTS = mod_sfmt.o sfmt.o normal_generator.o sampled_gaussian.o
+OBJECTS = $(GBCSOBJECTS) $(MCOBJECTS) fiduceo_uncertainties.o monte_carlo.o combine_orbits.o
 OBJECTS_ALL1 =  $(OBJECTS) write_fcdr.o
 OBJECTS_ALL2 =  $(OBJECTS) write_fcdr_single.o
 
@@ -53,15 +55,18 @@ vpath %.f90 GBCS/src/GbcsMod_Globals GBCS/src/GbcsMod_SystemTools \
 	GBCS/src/GbcsMod_ProcessImagery GBCS/src/GbcsMod_Physics \
 	GBCS/src/GbcsMod_Maths GBCS/src/GbcsMod_Initialize \
 	GBCS/src/GbcsMod_DataReaders GBCS/src/GbcsMod_RTM \
-	GBCS/src/AVHRR GBCS/src/ARC GBCS/thirdparty/epr_api/src GBCS/src/EPR_API
+	GBCS/src/AVHRR GBCS/src/ARC GBCS/thirdparty/epr_api/src \
+	GBCS/src/EPR_API MonteCarlo
 vpath %.c GBCS/src/EPR_API
 vpath %.f .
 
 all: $(OBJECTS_ALL1)
-	$(FC) -o make_fcdr.exe write_fcdr.o $(OBJECTS) $(LIBRARIES)
+	$(FC) -o make_fcdr_mc.exe write_fcdr.o $(OBJECTS) $(LIBRARIES)
+montecarlo: $(OBJECTS_ALL1)
+	$(FC) -o make_fcdr_mc.exe write_fcdr.o $(OBJECTS) $(LIBRARIES)
 
 .PHONY: clean
 clean:
-	rm -rf *.o *.mod *.exe
+	rm -rf *.o *.mod *_mc.exe
 
 include GBCS/src/make.rules
