@@ -182,6 +182,21 @@ MODULE fiduceo_uncertainties
      INTEGER(GbcsInt1), ALLOCATABLE :: quality_scanline_bitmask(:)
   END TYPE FIDUCEO_Data
 
+  !
+  ! Structure to hold radiance/bt deltas from MC runs
+  !
+  TYPE mc_delta_str
+     INTEGER :: nscan
+     INTEGER :: nelem
+     INTEGER :: nmc
+     REAL, ALLOCATABLE :: ch1(:,:,:)
+     REAL, ALLOCATABLE :: ch2(:,:,:)
+     REAL, ALLOCATABLE :: ch3a(:,:,:)
+     REAL, ALLOCATABLE :: ch3(:,:,:)
+     REAL, ALLOCATABLE :: ch4(:,:,:)
+     REAL, ALLOCATABLE :: ch5(:,:,:)
+  END type mc_delta_str
+
   ! Constants
   REAL, PARAMETER :: c1 = 1.1910427E-5
   REAL, PARAMETER :: c2 = 1.4387752
@@ -192,7 +207,8 @@ MODULE fiduceo_uncertainties
   !
   ! MT: 19-12-2017: v0.3pre
   ! MT: 09-03-2018: v0.5beta
-  CHARACTER(LEN=6) :: software_version = 'vBeta0.1'
+  ! JM: 12/04/2019: v0.2Bet (Beta)
+  CHARACTER(LEN=6) :: software_version = '0.2Bet'
 
 ! MT: 11-11-2017: Define temp variables to store structured uncertainties on the reflectance channels
   REAL, ALLOCATABLE :: us1(:,:)
@@ -202,12 +218,15 @@ MODULE fiduceo_uncertainties
   PRIVATE
   PUBLIC :: FIDUCEO_Data
   PUBLIC :: Add_FIDUCEO_Uncert
+  PUBLIC :: mc_delta_str
+  PUBLIC :: prt_accuracy
 
 CONTAINS
 
   SUBROUTINE Add_FIDUCEO_Uncert(IMG,AVHRR,uuid_in,filename_nc,&
        use_iasi_calibration,gbcs_l1c_output,&
-       gbcs_l1c_cal,use_walton,keep_temp,write_fcdr)
+       gbcs_l1c_cal,use_walton,keep_temp,write_fcdr,monte_carlo,&
+       delta_radiance,seedval,ocean_only)
 
     TYPE(Imagery), INTENT(IN) :: IMG
     TYPE(AVHRR_Data), INTENT(INOUT) :: AVHRR
@@ -219,6 +238,10 @@ CONTAINS
     LOGICAL, OPTIONAL :: use_walton
     LOGICAL, OPTIONAL :: keep_temp
     LOGICAL, OPTIONAL :: write_fcdr
+    LOGICAL, OPTIONAL :: monte_carlo
+    TYPE(mc_delta_str), OPTIONAL, INTENT(INOUT) :: delta_radiance
+    INTEGER, OPTIONAL :: seedval
+    LOGICAL, OPTIONAL :: ocean_only
 
     ! Local variables
     INTEGER :: I
@@ -247,6 +270,9 @@ CONTAINS
     INTEGER :: nparam
     INTEGER :: nparam3
     INTEGER :: stat
+    LOGICAL :: montecarlo
+    TYPE(mc_delta_str) :: delta_bts
+    LOGICAL :: oceanonly
 
     IF( .not. AVHRR%valid_data_there )THEN
        RETURN
@@ -280,6 +306,22 @@ CONTAINS
        writefcdr = write_fcdr
     ELSE
        writefcdr = .TRUE.
+    ENDIF
+    IF( PRESENT(monte_carlo) )THEN
+       montecarlo = monte_carlo
+    ELSE
+       montecarlo = .FALSE.
+    ENDIF
+    IF( PRESENT(ocean_only) )THEN
+       oceanonly = ocean_only
+    ELSE
+       oceanonly = .FALSE.
+    ENDIF
+
+    IF( montecarlo .and. .not. PRESENT(delta_radiance) .and. &
+         .not. PRESENT(seedval) )THEN
+       CALL Gbcs_Critical(.TRUE.,'delta_radiance needs to be set for montecarlo',&
+            'Add_FIDUCEO_Uncert','fiduceo_uncertainties.f90')            
     ENDIF
 
     call Get_Calib_Coefficients_FIDUCEO( IMG, AVHRR%time(AVHRR%start_valid), &
@@ -348,6 +390,17 @@ CONTAINS
     ! Get Quality flags
     !
     CALL Get_Quality_Flags(AVHRR,FCDR)
+
+    !
+    ! If monte-carlo data, then calculate delta BTs
+    ! Forces use of same coefficients
+    !
+    IF( montecarlo )THEN
+       CALL Get_Delta_BTs(AVHRR,delta_radiance,coefs1,coefs2,coefs3,&
+            delta_bts,twelve_micron_there)
+       CALL Deallocate_delta(delta_radiance)
+    ENDIF
+
     !
     ! If GBCS output - write out
     !
@@ -359,7 +412,8 @@ CONTAINS
        ! write to NetCDF
        !
        temp_file=TRIM(uuid_in)//'.nc'
-       CALL Write_Temp_NETCDF(temp_file,AVHRR,FCDR,twelve_micron_there)
+       CALL Write_Temp_NETCDF(temp_file,AVHRR,FCDR,twelve_micron_there,&
+            montecarlo,delta_bts,seedval)
 !    CALL Rescale(AVHRR,FCDR)
        IF( writefcdr )THEN
           !
@@ -369,10 +423,18 @@ CONTAINS
           !
           IF( 'None' .eq. filename_nc )THEN
 !             command_fcdr ='python2.7 write_easy_fcdr_from_netcdf.py '//TRIM(temp_file)
-             command_fcdr = './write_easy_fcdr.sh '//TRIM(temp_file)
+             IF( oceanonly )THEN
+                command_fcdr = './write_easy_fcdr.sh '//TRIM(temp_file)//' --ocean'
+             ELSE
+                command_fcdr = './write_easy_fcdr.sh '//TRIM(temp_file)
+             ENDIF
           ELSE
 !             command_fcdr ='python2.7 write_easy_fcdr_from_netcdf.py '//TRIM(temp_file)//' '//TRIM(filename_nc)
-             command_fcdr = './write_easy_fcdr.sh '//TRIM(temp_file)//' '//TRIM(filename_nc)
+             IF( oceanonly )THEN
+                command_fcdr = './write_easy_fcdr.sh '//TRIM(temp_file)//' --output '//TRIM(filename_nc)//' --ocean'
+             ELSE
+                command_fcdr = './write_easy_fcdr.sh '//TRIM(temp_file)//' --output '//TRIM(filename_nc)
+             ENDIF
           ENDIF
           call SYSTEM(TRIM(command_fcdr))
        ENDIF
@@ -389,6 +451,158 @@ CONTAINS
 
   END SUBROUTINE Add_FIDUCEO_Uncert
 
+  !
+  ! Deallocate delta arrays
+  !
+  SUBROUTINE Deallocate_delta(delta)
+
+    TYPE(mc_delta_str), INTENT(INOUT) :: delta
+
+    ! Local variables
+    INTEGER :: STAT
+
+    DEALLOCATE(delta%ch1,delta%ch2,delta%ch3a,delta%ch3,delta%ch4,delta%ch5,&
+         STAT=STAT)
+    IF( 0 .ne. STAT )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot DEALLOCATE delta',&
+            'Deallocate_delta','fiduceo_uncertainties.f90')
+    ENDIF
+
+  END SUBROUTINE Deallocate_delta
+
+  !
+  ! Get deltaBTs from Monte-Carlo runs
+  ! Note we have delta radiances so use the derivative of the Planck
+  ! function to get delta B
+  !
+  SUBROUTINE Get_Delta_BTs(AVHRR,delta_radiance,coefs1,coefs2,coefs3,&
+            delta_bts,twelve_micron_there)
+    TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
+    TYPE(mc_delta_str), INTENT(IN) :: delta_radiance
+    REAL, INTENT(IN) :: coefs1(8,2)
+    REAL, INTENT(IN) :: coefs2(8,2)
+    REAL, INTENT(IN) :: coefs3(8,2)
+    TYPE(mc_delta_str), INTENT(OUT) :: delta_bts
+    LOGICAL, INTENT(IN) :: twelve_micron_there
+
+    ! Local variables
+    INTEGER :: I,J,K
+    INTEGER :: STAT
+    REAL :: nrmin
+    REAL :: nrmax
+    REAL :: trmin
+    REAL :: trmax
+    REAL :: newBT37
+    REAL :: newBT11
+    REAL :: newBT12
+    
+    !
+    ! Check AVHRR/delta_radiance inputs
+    !
+    IF( AVHRR%arraySize .ne. delta_radiance%nscan .or. &
+         AVHRR%nelem .ne. delta_radiance%nelem )THEN
+       print *,AVHRR%nelem,delta_radiance%nelem
+       print *,AVHRR%arraySize,delta_radiance%nscan
+       CALL Gbcs_Critical(.TRUE.,'Mismatch in size',&
+            'Get_Delta_BTs','fiduceo_uncertainties.f90')
+    ENDIF
+
+    !
+    ! Allocate BT arrays
+    !
+    delta_bts%nelem = delta_radiance%nelem
+    delta_bts%nscan = delta_radiance%nscan
+    delta_bts%nmc = delta_radiance%nmc
+    ALLOCATE(delta_bts%ch1(delta_bts%nelem,delta_bts%nscan,delta_bts%nmc),&
+         delta_bts%ch2(delta_bts%nelem,delta_bts%nscan,delta_bts%nmc),&
+         delta_bts%ch3a(delta_bts%nelem,delta_bts%nscan,delta_bts%nmc),&
+         delta_bts%ch3(delta_bts%nelem,delta_bts%nscan,delta_bts%nmc),&
+         delta_bts%ch4(delta_bts%nelem,delta_bts%nscan,delta_bts%nmc),&
+         delta_bts%ch5(delta_bts%nelem,delta_bts%nscan,delta_bts%nmc),&
+         STAT=STAT)
+    IF( 0 .ne. STAT )THEN
+       CALL Gbcs_Critical(.TRUE.,'Allocation error delta_bts',&
+            'Get_Delta_BTs','fiduceo_uncertainties.f90')
+    ENDIF
+    
+    !
+    ! Copy over vis chan deltas (needed in radiance space)
+    !
+    delta_bts%ch1 = delta_radiance%ch1
+    delta_bts%ch2 = delta_radiance%ch2
+    delta_bts%ch3a = delta_radiance%ch3a
+
+    !
+    ! Get delta BTs
+    !
+    DO J=1,delta_bts%nscan
+       DO K=1,delta_bts%nelem
+          !
+          ! As this is constant over all MC runs calculate here
+          !
+          IF( AVHRR%new_array3B(k,j) .gt. 0 )THEN
+             newBT37 = convertBT(AVHRR%new_array3B(k,j),DBLE(coefs1(5,1)), &
+                  DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))
+          ENDIF
+          IF( AVHRR%new_array4(k,j) .gt. 0 )THEN
+             newBT11 = convertBT(AVHRR%new_array4(k,j),DBLE(coefs2(5,1)), &
+                  DBLE(coefs2(6,1)), DBLE(coefs2(7,1)))
+          ENDIF
+          IF( AVHRR%new_array5(k,j) .gt. 0 )THEN
+             newBT12 = convertBT(AVHRR%new_array5(k,j),DBLE(coefs3(5,1)), &
+                  DBLE(coefs3(6,1)), DBLE(coefs3(7,1)))
+          ENDIF
+          !
+          ! Loop round MC runs
+          !
+          DO I=1,delta_bts%nmc
+             IF( -1e20 .lt. delta_radiance%ch3(k,j,i) )THEN
+                nrmax=AVHRR%new_array3B(k,j)+delta_radiance%ch3(k,j,i)
+                IF( nrmax .gt. 0 )THEN
+                   delta_bts%ch3(k,j,i)=convertBT(nrmax,DBLE(coefs1(5,1)), &
+                        DBLE(coefs1(6,1)), DBLE(coefs1(7,1)))-&
+                        newBT37
+                ELSE
+                   delta_bts%ch3(k,j,i) = NAN_R
+                ENDIF
+             ELSE
+                delta_bts%ch3(k,j,i) = NAN_R
+             ENDIF
+
+             IF( -1e20 .lt. delta_radiance%ch4(k,j,i) )THEN
+                nrmax=AVHRR%new_array4(k,j)+delta_radiance%ch4(k,j,i)
+                IF( nrmax .gt. 0 )THEN
+                   delta_bts%ch4(k,j,i)=convertBT(nrmax,DBLE(coefs2(5,1)), &
+                        DBLE(coefs2(6,1)), DBLE(coefs2(7,1)))-&
+                        newBT11
+                ELSE
+                   delta_bts%ch4(k,j,i) = NAN_R
+                ENDIF
+             ELSE
+                delta_bts%ch4(k,j,i) = NAN_R
+             ENDIF
+
+             IF( twelve_micron_there )THEN
+                IF( -1e20 .lt. delta_radiance%ch5(k,j,i) )THEN
+                   nrmax=AVHRR%new_array5(k,j)+delta_radiance%ch5(k,j,i)
+                   IF( nrmax .gt. 0 )THEN
+                      delta_bts%ch5(k,j,i)=convertBT(nrmax,DBLE(coefs3(5,1)), &
+                           DBLE(coefs3(6,1)), DBLE(coefs3(7,1)))-&
+                           newBT12
+                   ELSE
+                      delta_bts%ch5(k,j,i) = NAN_R
+                   ENDIF
+                ELSE
+                   delta_bts%ch5(k,j,i) = NAN_R
+                ENDIF
+             ELSE
+                delta_bts%ch5(k,j,i) = NAN_R
+             ENDIF
+          END DO
+       END DO
+    END DO
+
+  END SUBROUTINE Get_Delta_BTs
   !
   ! Work out quality flags from data in AVHRR_Data structure
   !
@@ -595,12 +809,16 @@ CONTAINS
   ! Write a tempory netcdf file for python to then convert
   ! Different from Marine's original version
   !
-  SUBROUTINE Write_Temp_NETCDF(temp_file,AVHRR,FCDR,twelve_micron_there)
+  SUBROUTINE Write_Temp_NETCDF(temp_file,AVHRR,FCDR,twelve_micron_there,&
+       monte_carlo,delta_bts,seedval)
 
     CHARACTER(LEN=*), INTENT(IN) :: temp_file
     TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
     TYPE(FIDUCEO_Data), INTENT(IN) :: FCDR
     LOGICAL, INTENT(IN) :: twelve_micron_there
+    LOGICAL, INTENT(IN) :: monte_carlo
+    TYPE(mc_delta_str), INTENT(INOUT) :: delta_bts
+    INTEGER, INTENT(IN) :: seedval
 
     ! Local variables
     INTEGER :: I
@@ -672,14 +890,22 @@ CONTAINS
     INTEGER :: ch3b_harm_varid
     INTEGER :: ch4_harm_varid
     INTEGER :: ch5_harm_varid
+    INTEGER :: ch1_MC_varid
+    INTEGER :: ch2_MC_varid
+    INTEGER :: ch3a_MC_varid
+    INTEGER :: ch3_MC_varid
+    INTEGER :: ch4_MC_varid
+    INTEGER :: ch5_MC_varid
     INTEGER :: stat
 
     INTEGER :: dimid_nx
     INTEGER :: dimid_ny
     INTEGER :: dimid_ir
     INTEGER :: dimid_band
+    INTEGER :: dimid_mc
     INTEGER :: dims1(1)
     INTEGER :: dims2(2)
+    INTEGER :: dims3(3)
     INTEGER :: dims_band(1)
     INTEGER(GbcsInt1), ALLOCATABLE :: badNav(:)
     INTEGER(GbcsInt1), ALLOCATABLE :: badCal(:)
@@ -709,6 +935,11 @@ CONTAINS
 
     stat = NF90_DEF_DIM(ncid,'nband_coef',3,dimid_band)
     call check(stat)
+
+    if( monte_carlo )THEN
+       stat = NF90_DEF_DIM(ncid,'n_montecarlo',delta_bts%nmc,dimid_mc)
+       call check(stat)
+    ENDIF
 
     dims1(1) = dimid_ny
     dims2(1) = dimid_nx
@@ -1253,6 +1484,57 @@ CONTAINS
     call check(stat)
     stat = NF90_DEF_VAR_FILL(ncid, ch5_harm_varid, 0, NAN_R)
     call check(stat)        
+
+    !
+    ! If monte_carlo the add varids
+    !
+    IF( monte_carlo )THEN
+       dims3(1) = dimid_nx
+       dims3(2) = dimid_ny
+       dims3(3) = dimid_mc
+       stat = NF90_DEF_VAR(ncid,'ch1_MC',NF90_FLOAT,&
+            dims3,ch1_MC_varid)
+       call check(stat)
+       stat = NF90_DEF_VAR_DEFLATE(ncid, ch1_MC_varid, 1, 1, compress_level)
+       call check(stat)
+       stat = NF90_DEF_VAR_FILL(ncid, ch1_MC_varid, 0, NAN_R)
+       call check(stat)        
+       stat = NF90_DEF_VAR(ncid,'ch2_MC',NF90_FLOAT,&
+            dims3,ch2_MC_varid)
+       call check(stat)
+       stat = NF90_DEF_VAR_DEFLATE(ncid, ch2_MC_varid, 1, 1, compress_level)
+       call check(stat)
+       stat = NF90_DEF_VAR_FILL(ncid, ch2_MC_varid, 0, NAN_R)
+       call check(stat)        
+       stat = NF90_DEF_VAR(ncid,'ch3a_MC',NF90_FLOAT,&
+            dims3,ch3a_MC_varid)
+       call check(stat)
+       stat = NF90_DEF_VAR_DEFLATE(ncid, ch3a_MC_varid, 1, 1, compress_level)
+       call check(stat)
+       stat = NF90_DEF_VAR_FILL(ncid, ch3a_MC_varid, 0, NAN_R)
+       call check(stat)        
+       stat = NF90_DEF_VAR(ncid,'ch3_MC',NF90_FLOAT,&
+            dims3,ch3_MC_varid)
+       call check(stat)
+       stat = NF90_DEF_VAR_DEFLATE(ncid, ch3_MC_varid, 1, 1, compress_level)
+       call check(stat)
+       stat = NF90_DEF_VAR_FILL(ncid, ch3_MC_varid, 0, NAN_R)
+       call check(stat)        
+       stat = NF90_DEF_VAR(ncid,'ch4_MC',NF90_FLOAT,&
+            dims3,ch4_MC_varid)
+       call check(stat)
+       stat = NF90_DEF_VAR_DEFLATE(ncid, ch4_MC_varid, 1, 1, compress_level)
+       call check(stat)
+       stat = NF90_DEF_VAR_FILL(ncid, ch4_MC_varid, 0, NAN_R)
+       call check(stat)        
+       stat = NF90_DEF_VAR(ncid,'ch5_MC',NF90_FLOAT,&
+            dims3,ch5_MC_varid)
+       call check(stat)
+       stat = NF90_DEF_VAR_DEFLATE(ncid, ch5_MC_varid, 1, 1, compress_level)
+       call check(stat)
+       stat = NF90_DEF_VAR_FILL(ncid, ch5_MC_varid, 0, NAN_R)
+       call check(stat)               
+    ENDIF
     
     !
     ! Define global attributes
@@ -1290,6 +1572,11 @@ CONTAINS
     stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'sources',TRIM(noaa_string))
     call check(stat) 
 
+    IF( monte_carlo )THEN
+       stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'montecarlo_seed',&
+            seedval)
+       call check(stat) 
+    ENDIF
     stat = NF90_ENDDEF(ncid)
     call check(stat)
 
@@ -1406,7 +1693,8 @@ CONTAINS
 !   ENDDO
     us1 = -1e30
     WHERE(AVHRR%new_array1.gt.-1e20)
-       us1 = 0.03
+!       us1 = 0.03
+       us1 = CSPP_Uncertainty(1)
     ENDWHERE
     IF( ALLOCATED(AVHRR%new_array1) )THEN
 !       stat = NF90_PUT_VAR(ncid, ch1_non_random_varid, 0.03*AVHRR%new_array1_error)
@@ -1421,7 +1709,8 @@ CONTAINS
     ALLOCATE(us2(AVHRR%nelem,AVHRR%arraySize), STAT=STAT)
     us2 = -1e30
     WHERE(AVHRR%new_array2.gt.-1e20)
-       us2 = 0.05
+!       us2 = 0.05
+       us2 = CSPP_Uncertainty(2)
     ENDWHERE
     IF( ALLOCATED(AVHRR%new_array2) )THEN
 !       stat = NF90_PUT_VAR(ncid, ch2_non_random_varid, 0.05*AVHRR%new_array2_error)
@@ -1436,7 +1725,8 @@ CONTAINS
     ALLOCATE(us3a(AVHRR%nelem,AVHRR%arraySize), STAT=STAT)
     us3a = -1e30
     WHERE(AVHRR%new_array3a.gt.-1e20)
-       us3a = 0.05
+!       us3a = 0.05
+       us3a = CSPP_Uncertainty(3)
     ENDWHERE
     IF( ALLOCATED(AVHRR%new_array3a) )THEN
 !       stat = NF90_PUT_VAR(ncid, ch3a_non_random_varid, 0.05*AVHRR%new_array3A_error)
@@ -1631,10 +1921,32 @@ CONTAINS
        call check(stat)
     ENDIF
 
+    IF( monte_carlo )THEN
+       stat = NF90_PUT_VAR(ncid, ch1_MC_varid, delta_bts%ch1)
+       call check(stat)
+       stat = NF90_PUT_VAR(ncid, ch2_MC_varid, delta_bts%ch2)
+       call check(stat)
+       IF( ALLOCATED(AVHRR%new_array3a) )THEN
+          stat = NF90_PUT_VAR(ncid, ch3a_MC_varid, delta_bts%ch3a)
+          call check(stat)
+       ENDIF
+       stat = NF90_PUT_VAR(ncid, ch3_MC_varid, delta_bts%ch3)
+       call check(stat)
+       stat = NF90_PUT_VAR(ncid, ch4_MC_varid, delta_bts%ch4)
+       call check(stat)
+       IF( twelve_micron_there )THEN
+          stat = NF90_PUT_VAR(ncid, ch5_MC_varid, delta_bts%ch5)
+          call check(stat)
+       ENDIF
+    ENDIF
+
     stat = NF90_CLOSE(ncid)
     call check(stat)
 
     DEALLOCATE(badNav,badCal,badTime,missingLines,solar3,solar4,solar5)
+    IF( monte_carlo )THEN
+       CALL Deallocate_delta(delta_bts)
+    ENDIF
 
   END SUBROUTINE Write_Temp_NETCDF
 
@@ -4638,7 +4950,8 @@ CONTAINS
     !
     noise = NAN_R
     WHERE(AVHRR%new_array1 .gt. 0. .and. AVHRR%new_array1_error .gt. 0.)
-       noise = SQRT((0.03*AVHRR%new_array1)**2+AVHRR%new_array1_error**2)
+       noise = SQRT((CSPP_Uncertainty(1)*AVHRR%new_array1)**2+&
+            AVHRR%new_array1_error**2)
     ENDWHERE
     CALL Write_GBCS_Float_to_Int_3D(ncid,'ch1_noise',dimid_nx,dimid_ny,&
          dimid_time,nx,ny,noise,-32768_GbcsInt2,'Channel 1 noise estimate','',&
@@ -4647,7 +4960,8 @@ CONTAINS
     
     noise = NAN_R
     WHERE(AVHRR%new_array2 .gt. 0. .and. AVHRR%new_array2_error .gt. 0.)
-       noise = SQRT((0.05*AVHRR%new_array2)**2+AVHRR%new_array2_error**2)
+       noise = SQRT((CSPP_Uncertainty(2)*AVHRR%new_array2)**2+&
+            AVHRR%new_array2_error**2)
     ENDWHERE
     CALL Write_GBCS_Float_to_Int_3D(ncid,'ch2_noise',dimid_nx,dimid_ny,&
          dimid_time,nx,ny,noise,-32768_GbcsInt2,'Channel 2 noise estimate','',&
