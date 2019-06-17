@@ -592,7 +592,7 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
                            test=False,gbcs_l1c_args='N',\
                            walton_only=False,keep_temp=False,\
                            write_fcdr=True,walton_cal=False,\
-                           get_stats=False):
+                           get_stats=False,montecarlo=montecarlo):
     
     curr_dir = os.getcwd()
     # Check to see if we've already made this directory
@@ -634,6 +634,8 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
         fp.write('export OMP_NUM_THREADS=1\n')
         fp.write('. /home/users/jpdmittaz/Python/jpdm/bin/activate\n')
         fp.write('export PYGAC_CONFIG_FILE=/home/users/jpdmittaz/pygac.cfg\n')
+        if montecarlo:
+            fp.write('export FIDUCEO_MC_HARM=/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/Mike/FCDR_AVHRR/MC_Harmonisation.nc\n')
         outfile_stem = []
         for j in range(len(filelist)):
             # Convert listed data via pygac
@@ -851,7 +853,8 @@ def write_commands(instr,year,month,day,split_single,spawn_job,\
                        keep_temp=False,\
                        write_fcdr=True,\
                        walton_cal=False,\
-                       get_stats=False):
+                       get_stats=False,\
+                       montecarlo=False):
     
     # Get equator crossing times in the day
     t = tle_data(instr,year,month,day)
@@ -881,14 +884,14 @@ def write_commands(instr,year,month,day,split_single,spawn_job,\
                                    gbcs_l1c_args=gbcs_l1c_args,\
                                    walton_only=walton_only,keep_temp=keep_temp,\
                                    write_fcdr=write_fcdr,walton_cal=walton_cal,\
-                                   get_stats=get_stats)
+                                   get_stats=get_stats,montecarlo=montecarlo)
             nwrites=nwrites+1
 
     print 'Number of command files : ',nwrites
 
 if __name__ == "__main__":
 
-    parser = OptionParser("usage: %prog instr year month day split_single_file GBCS_L1C(Y/N/C) Spawn_Jobs(Y/N) walton_only(Y/N/F) keep_temp(Y/N) write_fcdr{Y/N) get_stats(Y/N) (test=Y/N)")
+    parser = OptionParser("usage: %prog instr year month day split_single_file GBCS_L1C(Y/N/C) Spawn_Jobs(Y/N) walton_only(Y/N/F/M) keep_temp(Y/N) write_fcdr{Y/N) get_stats(Y/N) (test=Y/N)")
     (options, args) = parser.parse_args()
     if len(args) != 11 and len(args) != 12:
         parser.error("incorrect number of arguments")
@@ -902,12 +905,16 @@ if __name__ == "__main__":
     else:
         spawn_job=False
     walton_cal=True
+    montecarlo=False
     if args[7] == 'Y':
         walton_only=True
     else:
         walton_only=False
         if args[7] == 'F':
             walton_cal=False
+        elif args[7] == 'M':
+            walton_cal=False
+            montecarlo=True
     if args[8] == 'Y':
         keep_temp=True
     else:
@@ -937,5 +944,5 @@ if __name__ == "__main__":
     write_commands(args[0],year,month,day,split_single,spawn_job,test=test,\
                        gbcs_l1c_args=gbcs_l1c_args,walton_only=walton_only,\
                        keep_temp=keep_temp,write_fcdr=write_fcdr,\
-                       walton_cal=walton_cal,get_stats=get_stats)
+                       walton_cal=walton_cal,get_stats=get_stats,montecarlo=montecarlo)
 
