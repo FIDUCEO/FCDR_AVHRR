@@ -27,6 +27,7 @@ MODULE Monte_Carlo
   USE fiduceo_uncertainties
   USE sampled_gaussian
   USE fiduceo_calibration
+  USE GbcsLandMask
 
   IMPLICIT NONE
 
@@ -97,10 +98,10 @@ CONTAINS
        dig_noise,all_noise,&
        correctict,applyict,walton,&
        tinstrapply,output_solar_temp,&
-       bad_tiny,digitize)
+       bad_tiny,digitize,ocean_only)
 
     TYPE(mc_harm_str), INTENT(IN) :: harm_mc
-    TYPE(Imagery), INTENT(IN) :: IMG
+    TYPE(Imagery), INTENT(INOUT) :: IMG
     TYPE(AVHRR_Instrument_Coefs), INTENT(in) :: instr_coefs
     TYPE(AVHRR_Data), POINTER :: AVHRR
     TYPE(AVHRR_Data), INTENT(IN) :: AVHRR_MC
@@ -123,6 +124,7 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: output_solar_temp
     LOGICAL, INTENT(IN), OPTIONAL :: bad_tiny
     LOGICAL, INTENT(IN), OPTIONAL :: digitize
+    LOGICAL, INTENT(IN), OPTIONAL :: ocean_only
     
     ! Local variables
     INTEGER :: noMC
@@ -150,11 +152,19 @@ CONTAINS
     LOGICAL :: digitize_data
     REAL :: noise_cnts(6)
     LOGICAL :: ok
+    LOGICAL :: oceanonly
+    REAL :: rad_threshold
     
     IF( PRESENT(digitize) )THEN
        digitize_data = digitize
     ELSE
        digitize_data = .TRUE.
+    ENDIF
+
+    IF( PRESENT(ocean_only) )THEN
+       oceanonly = ocean_only
+    ELSE
+       oceanonly = .TRUE.
     ENDIF
 
     noMC = harm_mc%noMC
@@ -270,40 +280,89 @@ CONTAINS
        !
        ! Now get delta Radiances
        !
-       DO J=1,AVHRR%arraySize
-          DO K=1,AVHRR%nelem
-             IF( newAVHRR%new_array1(K,J) .gt. 0 .and. &
-                  AVHRR%new_array1(K,J) .gt. 0 )THEN
-                delta_rad%ch1(K,J,I) = newAVHRR%new_array1(K,J) - &
-                     AVHRR%new_array1(K,J)
-             ENDIF
-             IF( newAVHRR%new_array2(K,J) .gt. 0 .and. &
-                  AVHRR%new_array2(K,J) .gt. 0 )THEN
-                delta_rad%ch2(K,J,I) = newAVHRR%new_array2(K,J) - &
-                     AVHRR%new_array2(K,J)
-             ENDIF
-             IF( newAVHRR%new_array3a(K,J) .gt. 0 .and. &
-                  AVHRR%new_array3a(K,J) .gt. 0 )THEN
-                delta_rad%ch3a(K,J,I) = newAVHRR%new_array3a(K,J) - &
-                     AVHRR%new_array3a(K,J)
-             ENDIF
-             IF( newAVHRR%new_array3b(K,J) .gt. 0 .and. &
-                  AVHRR%new_array3b(K,J) .gt. 0 )THEN
-                delta_rad%ch3(K,J,I) = newAVHRR%new_array3b(K,J) - &
-                     AVHRR%new_array3b(K,J)
-             ENDIF
-             IF( newAVHRR%new_array4(K,J) .gt. 0 .and. &
-                  AVHRR%new_array4(K,J) .gt. 0 )THEN
-                delta_rad%ch4(K,J,I) = newAVHRR%new_array4(K,J) - &
-                     AVHRR%new_array4(K,J)
-             ENDIF
-             IF( newAVHRR%new_array5(K,J) .gt. 0 .and. &
-                  AVHRR%new_array5(K,J) .gt. 0 )THEN
-                delta_rad%ch5(K,J,I) = newAVHRR%new_array5(K,J) - &
-                     AVHRR%new_array5(K,J)
-             ENDIF
+       IF( oceanonly )THEN
+          !
+          ! Get land sea mask
+          !
+          rad_threshold = newAVHRR%BT260_11mu_Radiance
+          IMG%LandSeaMaskFile = TRIM(IMG%GbcsDataPath)//'/Globolakes-distance_to_land.nc:distance_to_land'
+          CALL Calc_Land_Mask(IMG)
+          DO J=1,AVHRR%arraySize
+             DO K=1,AVHRR%nelem
+                IF( AVHRR%new_array4(K,J) .ge. rad_threshold .and. &
+                     IMG%LandSeaMask(K,J) .eq. Gbcs_Surface_Sea )THEN
+                   IF( newAVHRR%new_array1(K,J) .gt. 0 .and. &
+                        AVHRR%new_array1(K,J) .gt. 0 .and. &
+                        AVHRR%new_array1(K,J) .lt. 0.5 )THEN
+                      delta_rad%ch1(K,J,I) = newAVHRR%new_array1(K,J) - &
+                           AVHRR%new_array1(K,J)
+                   ENDIF
+                   IF( newAVHRR%new_array2(K,J) .gt. 0 .and. &
+                        AVHRR%new_array2(K,J) .gt. 0 .and. &
+                        AVHRR%new_array2(K,J) .lt. 0.5 )THEN
+                      delta_rad%ch2(K,J,I) = newAVHRR%new_array2(K,J) - &
+                           AVHRR%new_array2(K,J)
+                   ENDIF
+                   IF( newAVHRR%new_array3a(K,J) .gt. 0 .and. &
+                        AVHRR%new_array3a(K,J) .gt. 0 .and. &
+                        AVHRR%new_array3a(K,J) .lt. 0.5 )THEN
+                      delta_rad%ch3a(K,J,I) = newAVHRR%new_array3a(K,J) - &
+                           AVHRR%new_array3a(K,J)
+                   ENDIF
+                   IF( newAVHRR%new_array3b(K,J) .gt. 0 .and. &
+                     AVHRR%new_array3b(K,J) .gt. 0 )THEN
+                      delta_rad%ch3(K,J,I) = newAVHRR%new_array3b(K,J) - &
+                           AVHRR%new_array3b(K,J)
+                   ENDIF
+                   IF( newAVHRR%new_array4(K,J) .gt. 0 .and. &
+                        AVHRR%new_array4(K,J) .gt. 0 )THEN
+                      delta_rad%ch4(K,J,I) = newAVHRR%new_array4(K,J) - &
+                           AVHRR%new_array4(K,J)
+                   ENDIF
+                   IF( newAVHRR%new_array5(K,J) .gt. 0 .and. &
+                        AVHRR%new_array5(K,J) .gt. 0 )THEN
+                      delta_rad%ch5(K,J,I) = newAVHRR%new_array5(K,J) - &
+                           AVHRR%new_array5(K,J)
+                   ENDIF
+                ENDIF
+             END DO
           END DO
-       END DO
+       ELSE
+          DO J=1,AVHRR%arraySize
+             DO K=1,AVHRR%nelem
+                IF( newAVHRR%new_array1(K,J) .gt. 0 .and. &
+                     AVHRR%new_array1(K,J) .gt. 0 )THEN
+                   delta_rad%ch1(K,J,I) = newAVHRR%new_array1(K,J) - &
+                        AVHRR%new_array1(K,J)
+                ENDIF
+                IF( newAVHRR%new_array2(K,J) .gt. 0 .and. &
+                     AVHRR%new_array2(K,J) .gt. 0 )THEN
+                   delta_rad%ch2(K,J,I) = newAVHRR%new_array2(K,J) - &
+                        AVHRR%new_array2(K,J)
+                ENDIF
+                IF( newAVHRR%new_array3a(K,J) .gt. 0 .and. &
+                     AVHRR%new_array3a(K,J) .gt. 0 )THEN
+                   delta_rad%ch3a(K,J,I) = newAVHRR%new_array3a(K,J) - &
+                        AVHRR%new_array3a(K,J)
+                ENDIF
+                IF( newAVHRR%new_array3b(K,J) .gt. 0 .and. &
+                     AVHRR%new_array3b(K,J) .gt. 0 )THEN
+                   delta_rad%ch3(K,J,I) = newAVHRR%new_array3b(K,J) - &
+                        AVHRR%new_array3b(K,J)
+                ENDIF
+                IF( newAVHRR%new_array4(K,J) .gt. 0 .and. &
+                     AVHRR%new_array4(K,J) .gt. 0 )THEN
+                   delta_rad%ch4(K,J,I) = newAVHRR%new_array4(K,J) - &
+                        AVHRR%new_array4(K,J)
+                ENDIF
+                IF( newAVHRR%new_array5(K,J) .gt. 0 .and. &
+                     AVHRR%new_array5(K,J) .gt. 0 )THEN
+                   delta_rad%ch5(K,J,I) = newAVHRR%new_array5(K,J) - &
+                        AVHRR%new_array5(K,J)
+                ENDIF
+             END DO
+          END DO
+       ENDIF
        
     END DO
     DEALLOCATE(prt_adjust,Counts1,Counts2,Counts3,Counts4,Counts5,bb3,bb4,bb5,&
