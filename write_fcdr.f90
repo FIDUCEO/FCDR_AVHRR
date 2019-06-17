@@ -23,6 +23,8 @@ PROGRAM Extract_L1b_Data
   USE GbcsErrorHandler
   USE NOAA_LoadAVHRRLevel1B 
   USE Combine_Orbits
+  USE FIDUCEO_Calibration
+  USE NETCDF
 
   IMPLICIT NONE
 
@@ -81,6 +83,9 @@ CONTAINS
     LOGICAL :: write_fcdr
     LOGICAL :: fiduceo_cal
     INTEGER :: output_solar_temp
+    TYPE(mc_harm_str) :: mc_harm
+    LOGICAL :: monte_carlo
+    LOGICAL :: ocean_only
 
 !MT: 26-10-2017: extract list of input arguments: 
 !    INTEGER :: i
@@ -93,7 +98,7 @@ CONTAINS
 !    ENDDO
 
     nArgs = COMMAND_ARGUMENT_COUNT()
-    print *,'Number of Arguments : ',nArgs
+    WRITE(*,*)'Number of Arguments : ',nArgs
     IF( 20 .gt. nArgs .or. 30 .le. nArgs )THEN
        write(*,*)'nArgs=',nArgs
        CALL Gbcs_Critical(.TRUE.,&
@@ -230,8 +235,8 @@ CONTAINS
     ENDIF
 
     IF( nArgs .ne. 18+nfiles*2 )THEN
-       print *,'nfiles=',nfiles
-       print *,nArgs,18+nfiles*2
+       WRITE(*,*)'nfiles=',nfiles
+       WRITE(*,*)nArgs,18+nfiles*2
        CALL Gbcs_Critical(.TRUE.,'nFiles not match no of input files/pygac',&
             'Main','extract_l1b_data.f90')
     ENDIF
@@ -508,20 +513,226 @@ CONTAINS
        ofile = 'None'
     ENDIF
     !
-    ! Note walton calibration for pre-beta
+    ! Note walton calibration available
     !
-    CALL read_all_data(nfiles,file1,file2,file3,file4,file5,uuid_in,&
+    !
+    ! MC switch
+    !
+    CALL Read_MC_Harmonisation(mc_harm,monte_carlo)
+    IF( monte_carlo )THEN
+       WRITE(*,'(''*********** Running Monte-Carlo Version **********'')')
+    else
+       WRITE(*,'(''*********** Single Process Version **********'')')
+    endif
+    ocean_only=.TRUE.
+    CALL read_all_data(mc_harm,nfiles,file1,file2,file3,file4,file5,uuid_in,&
          AVHRR,year1,month1,day1,hour1,minute1,year2,month2,day2,hour2,&
          minute2,ofile,.not.fiduceo_cal,split_single_file,pygac1,pygac2,pygac3,&
          pygac4,pygac5,gbcs_l1c_output=gbcs_l1c,gbcs_l1c_cal=gbcs_l1c_cal,&
          walton_only=walton_only,keep_temp=keep_temp,write_fcdr=write_fcdr,&
-         output_solar_temp=output_solar_temp)
+         output_solar_temp=output_solar_temp,montecarlo=monte_carlo,&
+         ocean_only=ocean_only)
     !
     ! Deallocate structure
     !
     CALL Deallocate_OutData(AVHRR)
 
   END SUBROUTINE TopLevel
+
+  !
+  ! Read Harmonisation file if available
+  !
+  SUBROUTINE Read_MC_Harmonisation(mc_harm,monte_carlo)
+
+    TYPE(mc_harm_str), INTENT(OUT) :: mc_harm
+    LOGICAL, INTENT(OUT) :: monte_carlo
+    
+    ! Local variables
+    INTEGER :: STAT
+    INTEGER :: ncid
+    INTEGER :: dim_nmc
+    INTEGER :: dim_nparam
+    INTEGER :: noMC
+    INTEGER :: nparams3
+    INTEGER :: nparams4
+    INTEGER :: nparams5
+    INTEGER :: varID
+    CHARACTER(LEN=256) :: name
+    CHARACTER(LEN=256) :: filename
+    CHARACTER(LEN=128) :: harm_env
+
+    monte_carlo=.FALSE.
+
+    !
+    ! Look for environment variable
+    !
+    CALL GET_ENVIRONMENT_VARIABLE('FIDUCEO_MC_HARM',VALUE=filename,&
+         STATUS=STAT)
+    IF( 0 .ne. STAT )THEN
+       mc_harm%noMC=0
+       mc_harm%nparams3=0
+       mc_harm%nparams4=0
+       mc_harm%nparams5=0
+       mc_harm%uuid3=' '
+       mc_harm%uuid4=' '
+       mc_harm%uuid5=' '
+    ELSE
+       STAT = NF90_OPEN(filename,0,ncid)
+       IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
+          CALL Gbcs_Critical(.TRUE.,'Cannot open FIDUCEO_MC_HARM',&
+               'Read_MC_Harmonisation','write_fcdr.f90')
+       ENDIF
+
+       STAT = NF90_INQ_DIMID(ncid,'noMC',dim_nmc)
+       IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
+          CALL Gbcs_Critical(.TRUE.,'Cannot get noMC dimid',&
+               'Read_MC_Harmonisation','write_fcdr.f90')
+       ENDIF
+
+       STAT = NF90_INQUIRE_DIMENSION(ncid,dim_nmc,name,noMc)
+       IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
+          CALL Gbcs_Critical(.TRUE.,'Cannot get noMC',&
+               'Read_MC_Harmonisation','write_fcdr.f90')
+       ENDIF
+
+       STAT = NF90_INQ_DIMID(ncid,'nparam3',dim_nparam)
+       IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
+          CALL Gbcs_Critical(.TRUE.,'Cannot get nparam3 dimid',&
+               'Read_MC_Harmonisation','write_fcdr.f90')
+       ENDIF
+
+       STAT = NF90_INQUIRE_DIMENSION(ncid,dim_nparam,name,nparams3)
+       IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
+          CALL Gbcs_Critical(.TRUE.,'Cannot get nparam3',&
+               'Read_MC_Harmonisation','write_fcdr.f90')
+       ENDIF
+
+       STAT = NF90_INQ_DIMID(ncid,'nparam4',dim_nparam)
+       IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
+          CALL Gbcs_Critical(.TRUE.,'Cannot get nparam4 dimid',&
+               'Read_MC_Harmonisation','write_fcdr.f90')
+       ENDIF
+
+       STAT = NF90_INQUIRE_DIMENSION(ncid,dim_nparam,name,nparams4)
+       IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
+          CALL Gbcs_Critical(.TRUE.,'Cannot get nparam4',&
+               'Read_MC_Harmonisation','write_fcdr.f90')
+       ENDIF
+
+       STAT = NF90_INQ_DIMID(ncid,'nparam5',dim_nparam)
+       IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
+          CALL Gbcs_Critical(.TRUE.,'Cannot get nparam5 dimid',&
+               'Read_MC_Harmonisation','write_fcdr.f90')
+       ENDIF
+
+       STAT = NF90_INQUIRE_DIMENSION(ncid,dim_nparam,name,nparams5)
+       IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
+          CALL Gbcs_Critical(.TRUE.,'Cannot get nparam5',&
+               'Read_MC_Harmonisation','write_fcdr.f90')
+       ENDIF
+
+       mc_harm%noMC = noMC
+       mc_harm%nparams3 = nparams3
+       mc_harm%nparams4 = nparams4
+       mc_harm%nparams5 = nparams5
+       ALLOCATE(mc_harm%delta_params3(nparams3,noMC),STAT=STAT)
+       IF( 0 .ne. STAT )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot alloc params3',&
+               'Read_MC_Harmonisation','write_fcdr.f90')
+       ENDIF
+       ALLOCATE(mc_harm%delta_params4(nparams4,noMC),STAT=STAT)
+       IF( 0 .ne. STAT )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot alloc params4',&
+               'Read_MC_Harmonisation','write_fcdr.f90')
+       ENDIF
+       ALLOCATE(mc_harm%delta_params5(nparams5,noMC),STAT=STAT)
+       IF( 0 .ne. STAT )THEN
+          CALL Gbcs_Critical(.TRUE.,'Cannot alloc params5',&
+               'Read_MC_Harmonisation','write_fcdr.f90')
+       ENDIF
+
+       STAT = NF90_INQ_VARID(ncid,"delta_params3", VarId)
+       IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
+          CALL Gbcs_Critical(.TRUE.,'Cannot get delta_params3 varid',&
+               'Read_MC_Harmonisation','write_fcdr.f90')
+       ENDIF
+
+       STAT = NF90_GET_VAR(ncid,varID,mc_harm%delta_params3)
+       IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
+          CALL Gbcs_Critical(.TRUE.,'Cannot get delta_params3',&
+               'Read_MC_Harmonisation','write_fcdr.f90')
+       ENDIF
+
+       STAT = NF90_INQ_VARID(ncid,"delta_params4", VarId)
+       IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
+          CALL Gbcs_Critical(.TRUE.,'Cannot get delta_params4 varid',&
+               'Read_MC_Harmonisation','write_fcdr.f90')
+       ENDIF
+
+       STAT = NF90_GET_VAR(ncid,varID,mc_harm%delta_params4)
+       IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
+          CALL Gbcs_Critical(.TRUE.,'Cannot get delta_params4',&
+               'Read_MC_Harmonisation','write_fcdr.f90')
+       ENDIF
+
+       STAT = NF90_INQ_VARID(ncid,"delta_params5", VarId)
+       IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
+          CALL Gbcs_Critical(.TRUE.,'Cannot get delta_params5 varid',&
+               'Read_MC_Harmonisation','write_fcdr.f90')
+       ENDIF
+
+       STAT = NF90_GET_VAR(ncid,varID,mc_harm%delta_params5)
+       IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
+          CALL Gbcs_Critical(.TRUE.,'Cannot get delta_params5',&
+               'Read_MC_Harmonisation','write_fcdr.f90')
+       ENDIF
+
+       STAT = NF90_GET_ATT(ncid,NF90_GLOBAL,"HARM_UUID3",mc_harm%uuid3)
+       IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
+          CALL Gbcs_Critical(.TRUE.,'Cannot get UUID3',&
+               'Read_MC_Harmonisation','write_fcdr.f90')
+       ENDIF       
+
+       STAT = NF90_GET_ATT(ncid,NF90_GLOBAL,"HARM_UUID4",mc_harm%uuid4)
+       IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
+          CALL Gbcs_Critical(.TRUE.,'Cannot get UUID4',&
+               'Read_MC_Harmonisation','write_fcdr.f90')
+       ENDIF       
+
+       STAT = NF90_GET_ATT(ncid,NF90_GLOBAL,"HARM_UUID5",mc_harm%uuid5)
+       IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
+          CALL Gbcs_Critical(.TRUE.,'Cannot get UUID5',&
+               'Read_MC_Harmonisation','write_fcdr.f90')
+       ENDIF       
+
+       STAT = NF90_CLOSE(ncid)
+       IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
+          CALL Gbcs_Critical(.TRUE.,'Cannot close FIDUCEO_MC_HARM',&
+               'Read_MC_Harmonisation','write_fcdr.f90')
+       ENDIF
+       monte_carlo = .TRUE.
+    ENDIF
+
+  END SUBROUTINE Read_MC_Harmonisation
 
 END PROGRAM EXTRACT_L1B_DATA
 
