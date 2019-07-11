@@ -189,7 +189,7 @@ class read_netcdf(object):
 
         ncid.close()
 
-        if False:
+        if True:
             self.lat = np.ma.filled(self.lat,np.NaN)
             self.lon = np.ma.filled(self.lon,np.NaN)
             self.time = np.ma.filled(self.time,np.NaN)
@@ -246,6 +246,14 @@ class read_netcdf(object):
                 self.dBT5_over_dCICT = np.ma.filled(self.dBT5_over_dCICT,np.NaN)
             self.cal_cnts_noise = np.ma.filled(self.cal_cnts_noise,np.NaN)
             self.cnts_noise = np.ma.filled(self.cnts_noise,np.NaN)
+
+            if self.montecarlo:
+                self.ch1_MC = np.ma.filled(self.ch1_MC,np.NaN)
+                self.ch2_MC = np.ma.filled(self.ch2_MC,np.NaN)
+                self.ch3a_MC = np.ma.filled(self.ch3a_MC,np.NaN)
+                self.ch3_MC = np.ma.filled(self.ch3_MC,np.NaN)
+                self.ch4_MC = np.ma.filled(self.ch4_MC,np.NaN)
+                self.ch5_MC = np.ma.filled(self.ch5_MC,np.NaN)
 
         self.lat = self.add_nan_values(self.lat)
         self.lon = self.add_nan_values(self.lon)
@@ -1054,13 +1062,12 @@ def plot_hist(datum,mask,title,subplot,datatype):
 def bad_scan_quality(scan_qual):
 
 #         1,        2,              4,               8,                16,                        32,                  64
-#DO_NOT_USE, BAD_TIME, BAD_NAVIGATION, BAD_CALIBRATION, CHANNEL3A_PRESENT,SOLAR_CONTAMINATION_FAILURE,SOLAR_CONTAMINATION
+#DO_NOT_USE, BAD_TIME, BAD_NAVIGATION, BAD_CALIBRATION, CHANNEL3A_PRESENT,SOLAR_CONTAMINATION,SOLAR_IN_EARTHVIEW
 
     out_scan = np.zeros(len(scan_qual),dtype=np.int8)
     for i in range(len(scan_qual)):
         if 1 == scan_qual[i]&1 or 2 == scan_qual[i]&2 or \
-                4 == scan_qual[i]&4 or 8 == scan_qual[i]&8 or \
-                32 == scan_qual[i]&32:
+                4 == scan_qual[i]&4 or 8 == scan_qual[i]&8:
             out_scan[i] = 1
 
     return out_scan
@@ -2417,6 +2424,7 @@ def main_outfile(data,ch3a_version,fileout='None',split=False,gbcs_l1c=False,\
 
         # write real data to the variables. All variables initially contain "_FillValue".
         # Not writing to the whole array is completely OK
+
         dataset.variables["latitude"].data = data.lat
         dataset.variables["longitude"].data = data.lon
         dataset.variables["Time"].data = data.time
