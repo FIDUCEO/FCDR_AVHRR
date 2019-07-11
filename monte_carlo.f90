@@ -719,7 +719,7 @@ CONTAINS
        Counts = NAN_R
        RETURN
     ENDIF
-    CALL Get_Gaussian_Eq_Area_Even_Switch(noMC,random_array,&
+    CALL Get_Gaussian_Eq_Area_Even_Three(noMC,random_array,&
          shuffle=.TRUE.)
     IF( digitize )THEN
        DO K=1,noMC
@@ -750,7 +750,7 @@ CONTAINS
        Counts = NAN_R
        RETURN
     ENDIF
-    CALL Get_Gaussian_Eq_Area_Even_Switch(noMC,random_array,&
+    CALL Get_Gaussian_Eq_Area_Even_Three(noMC,random_array,&
          shuffle=.TRUE.)
     IF( digitize )THEN
        DO K=1,noMC
@@ -781,7 +781,7 @@ CONTAINS
        Counts = NAN_R
        RETURN
     ENDIF
-    CALL Get_Gaussian_Eq_Area_ODD_Switch(noMC,random_array,&
+    CALL Get_Gaussian_Eq_Area_ODD_Three(noMC,random_array,&
          shuffle=.TRUE.)
     IF( digitize )THEN
        DO K=1,noMC
@@ -812,7 +812,7 @@ CONTAINS
        Counts = NAN_R
        RETURN
     ENDIF
-    CALL Get_Gaussian_Eq_Area_ODD_Switch(noMC,random_array,&
+    CALL Get_Gaussian_Eq_Area_ODD_Three(noMC,random_array,&
          shuffle=.TRUE.)
     IF( digitize )THEN
        DO K=1,noMC
