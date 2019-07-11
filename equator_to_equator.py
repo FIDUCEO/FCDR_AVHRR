@@ -552,6 +552,10 @@ def __get_filelist(low_time,high_time,avhrr_dir_name):
             if infile.start_time <= ect1_time and infile.end_time <= ect2_time: 
                 ok = True
                 stored_file.append(filelist[i])
+# JM: 01/07/2019: Missing case
+            elif infile.start_time <= ect1_time and infile.end_time >= ect2_time: 
+                ok = True
+                stored_file.append(filelist[i])
 # MT: 24-10-2017: end of orbit overlaps start of ECT window 
 # MT: 15-11-2017: convert if to elif to fix repetition of orbit files in filelist
             elif infile.start_time >= ect1_time and infile.end_time >= ect2_time: 
@@ -592,7 +596,7 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
                            test=False,gbcs_l1c_args='N',\
                            walton_only=False,keep_temp=False,\
                            write_fcdr=True,walton_cal=False,\
-                           get_stats=False,montecarlo=montecarlo):
+                           get_stats=False,montecarlo=False):
     
     curr_dir = os.getcwd()
     # Check to see if we've already made this directory
