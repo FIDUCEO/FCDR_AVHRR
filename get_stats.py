@@ -362,6 +362,10 @@ class read_temp_file(object):
         self.ch4_common = ncid.variables['ch4_common'][:,:]
         self.ch5_common = ncid.variables['ch5_common'][:,:]
 
+        self.nsolar = ncid.nsolar_contam
+        self.min_ict = ncid.min_ict_terr
+        self.max_ict = ncid.max_ict_terr
+
         ncid.close()
 
     def __init__(self,filename):
@@ -551,6 +555,10 @@ def write_stats_netcdf(ofile,data):
                                            dimensions=('nchan','nlat'),\
                                            zlib=True,fill_value=-999)
 
+    ncid.nsolar_contam = data.nsolar
+    ncid.min_ict_terr = data.min_ict
+    ncid.max_ict_terr = data.max_ict
+
     ch1rand[:] = ch1_rand
     ch2rand[:] = ch2_rand
     ch3arand[:] = ch3a_rand
@@ -619,7 +627,11 @@ class merge_stats(object):
 
         try:
             date = dateutil.parser.parse(ncid.date)
-        
+            nsolar = ncid.nsolar_contam
+            min_ict = ncid.min_ict_terr
+            max_ict = ncid.max_ict_terr
+            ict_terr = (max_ict-min_ict)
+
             ch1_rand = ncid.variables['ch1_random'][:]
             ch2_rand = ncid.variables['ch2_random'][:]
             ch3a_rand = ncid.variables['ch3a_random'][:]
@@ -676,6 +688,10 @@ class merge_stats(object):
                                               dtype=np.int32)
                 
                 self.datetime = []
+                self.nsolar = np.zeros(1,dtype=np.int32)
+                self.min_ict = np.zeros(1)
+                self.max_ict = np.zeros(1)
+                self.ict_terr = np.zeros(1)
                 
                 self.ch1_rand[0,:] = ch1_rand
                 self.ch2_rand[0,:] = ch2_rand
@@ -702,6 +718,10 @@ class merge_stats(object):
                 self.nmap_vals[0,:,:] = nmap_vals
                 
                 self.datetime.append(date)
+                self.nsolar[0] = nsolar
+                self.min_ict[0] = min_ict
+                self.max_ict[0] = max_ict
+                self.ict_terr[0] = ict_terr
                 
             else:
                 
@@ -750,6 +770,10 @@ class merge_stats(object):
                                                nmap_vals[np.newaxis,...],axis=0)
             
                 self.datetime.append(date)
+                self.nsolar = np.append(self.nsolar,nsolar)
+                self.min_ict = np.append(self.min_ict,min_ict)
+                self.max_ict = np.append(self.max_ict,max_ict)
+                self.ict_terr = np.append(self.ict_terr,ict_terr)
             
             self.init = True
             self.ndata = self.ndata + 1                                    
@@ -837,6 +861,19 @@ class merge_stats(object):
                                            dimensions=('ndata','nchan','nlat'),\
                                            zlib=True,fill_value=-999)
 
+        nsolar = ncid.createVariable('nsolar','i4',\
+                                           dimensions=('ndata'),\
+                                           zlib=True,fill_value=-999)
+        min_ict = ncid.createVariable('min_ict','f4',\
+                                          dimensions=('ndata'),\
+                                          zlib=True,fill_value=-1e30)
+        max_ict = ncid.createVariable('max_ict','f4',\
+                                          dimensions=('ndata'),\
+                                          zlib=True,fill_value=-1e30)
+        ict_terr = ncid.createVariable('ict_terr','f4',\
+                                           dimensions=('ndata'),\
+                                           zlib=True,fill_value=-1e30)
+
         timeval = nc.date2num(self.datetime,'seconds since 1970-01-01')
 
         index = np.argsort(timeval)
@@ -865,6 +902,11 @@ class merge_stats(object):
 
         mapdata[:,:,:] = self.map_vals[index,:,:]
         nmapdata[:,:,:] = self.nmap_vals[index,:,:]
+
+        nsolar[:] = self.nsolar[index]
+        min_ict[:] = self.min_ict[index]
+        max_ict[:] = self.max_ict[index]
+        ict_terr[:] = self.ict_terr[index]
 
         ncid.close()
 
