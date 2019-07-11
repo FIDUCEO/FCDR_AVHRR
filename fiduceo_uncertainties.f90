@@ -208,7 +208,7 @@ MODULE fiduceo_uncertainties
   ! MT: 19-12-2017: v0.3pre
   ! MT: 09-03-2018: v0.5beta
   ! JM: 12/04/2019: v0.2Bet (Beta)
-  CHARACTER(LEN=6) :: software_version = '0.2Bet'
+  CHARACTER(LEN=6) :: software_version = '0.3Bet'
 
 ! MT: 11-11-2017: Define temp variables to store structured uncertainties on the reflectance channels
   REAL, ALLOCATABLE :: us1(:,:)
@@ -604,6 +604,27 @@ CONTAINS
 
   END SUBROUTINE Get_Delta_BTs
   !
+  ! Is sun in earth view?
+  !
+  LOGICAL FUNCTION check_for_solar_earthview(AVHRR,y)RESULT(solar_there)
+
+    TYPE(AVHRR_Data), INTENT(IN) :: AVHRR
+    INTEGER, INTENT(IN) :: y
+
+    ! Local variables
+    INTEGER :: x
+    
+    solar_there = .FALSE.
+    
+    DO x=1,AVHRR%nelem
+       IF( AVHRR%solza(x,y) .ge. 102 .and. AVHRR%array1(x,y) > 0.05 )THEN
+          solar_there = .TRUE.
+       ENDIF
+    END DO
+          
+  END FUNCTION check_for_solar_earthview
+
+  !
   ! Work out quality flags from data in AVHRR_Data structure
   !
   SUBROUTINE Get_Quality_Flags(AVHRR,FCDR)
@@ -651,17 +672,24 @@ CONTAINS
           FCDR%quality_scanline_bitmask(I) = &
                IBSET(FCDR%quality_scanline_bitmask(I),4)
        ENDIF       
-       !
-       ! Solar contamination failure
-       !
-       IF( AVHRR%solar_contamination_failure(I) )THEN
-          FCDR%quality_scanline_bitmask(I) = &
-               IBSET(FCDR%quality_scanline_bitmask(I),5)
-       ENDIF
+!       !
+!       ! Solar contamination failure
+!       !
+!       IF( AVHRR%solar_contamination_failure(I) )THEN
+!          FCDR%quality_scanline_bitmask(I) = &
+!               IBSET(FCDR%quality_scanline_bitmask(I),5)
+!       ENDIF
        !
        ! Solar contamination
        !
        IF( AVHRR%solar_contamination_3B(I) )THEN
+          FCDR%quality_scanline_bitmask(I) = &
+               IBSET(FCDR%quality_scanline_bitmask(I),5)
+       ENDIF
+       !
+       ! Sun in earth view
+       !
+       IF( check_for_solar_earthview(AVHRR,I) )THEN
           FCDR%quality_scanline_bitmask(I) = &
                IBSET(FCDR%quality_scanline_bitmask(I),6)
        ENDIF
@@ -917,28 +945,31 @@ CONTAINS
 
     REAL :: noise_cnts(6)
     REAL :: earth_noise_cnts(6)
+    REAL :: min_ict
+    REAL :: max_ict
+    iNTEGER :: nsolar
 
     INTEGER :: compress_level=5
     CHARACTER(LEN=512) :: noaa_string
     
     stat = NF90_CREATE(temp_file,IOR(NF90_HDF5,NF90_CLOBBER),ncid)
-    call check(stat)
+    call check(stat,1)
 
     stat = NF90_DEF_DIM(ncid,'nx',AVHRR%nelem,dimid_nx)
-    call check(stat)
+    call check(stat,2)
 
     stat = NF90_DEF_DIM(ncid,'ny',AVHRR%arraySize,dimid_ny)
-    call check(stat)
+    call check(stat,3)
 
     stat = NF90_DEF_DIM(ncid,'nir',6,dimid_ir)
-    call check(stat)
+    call check(stat,4)
 
     stat = NF90_DEF_DIM(ncid,'nband_coef',3,dimid_band)
-    call check(stat)
+    call check(stat,5)
 
     if( monte_carlo )THEN
        stat = NF90_DEF_DIM(ncid,'n_montecarlo',delta_bts%nmc,dimid_mc)
-       call check(stat)
+       call check(stat,6)
     ENDIF
 
     dims1(1) = dimid_ny
@@ -946,296 +977,296 @@ CONTAINS
     dims2(2) = dimid_ny
     
     stat = NF90_DEF_VAR(ncid,'latitude',NF90_FLOAT,dims2,latitude_varid)
-    call check(stat)
+    call check(stat,7)
     stat = NF90_DEF_VAR_DEFLATE(ncid, latitude_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,8)
     stat = NF90_DEF_VAR_FILL(ncid, latitude_varid, 0, NAN_R)
-    call check(stat)
+    call check(stat,9)
 
     !
     ! Write variables including define - ensures valid min/max held
     !
     stat = NF90_DEF_VAR(ncid,'longitude',NF90_FLOAT,dims2,longitude_varid)
-    call check(stat)
+    call check(stat,10)
     stat = NF90_DEF_VAR_DEFLATE(ncid, longitude_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,11)
     stat = NF90_DEF_VAR_FILL(ncid, longitude_varid, 0, NAN_R)
-    call check(stat)
+    call check(stat,12)
 
     stat = NF90_DEF_VAR(ncid,'time',NF90_DOUBLE,dims1,time_varid)
-    call check(stat)
+    call check(stat,13)
     stat = NF90_DEF_VAR_DEFLATE(ncid, time_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,14)
     stat = NF90_DEF_VAR_FILL(ncid, time_varid, 0, NAN_R)
-    call check(stat)
+    call check(stat,15)
 
     stat = NF90_DEF_VAR(ncid,'year',NF90_INT,dims1,year_varid)
-    call check(stat)
+    call check(stat,16)
     stat = NF90_DEF_VAR_DEFLATE(ncid, year_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,17)
     stat = NF90_DEF_VAR_FILL(ncid, year_varid, 0, -1)
-    call check(stat)
+    call check(stat,18)
 
     stat = NF90_DEF_VAR(ncid,'month',NF90_INT,dims1,month_varid)
-    call check(stat)
+    call check(stat,19)
     stat = NF90_DEF_VAR_DEFLATE(ncid, month_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,20)
     stat = NF90_DEF_VAR_FILL(ncid, month_varid, 0, -1)
-    call check(stat)
+    call check(stat,21)
 
     stat = NF90_DEF_VAR(ncid,'day',NF90_INT,dims1,day_varid)
-    call check(stat)
+    call check(stat,22)
     stat = NF90_DEF_VAR_DEFLATE(ncid, day_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,23)
     stat = NF90_DEF_VAR_FILL(ncid, day_varid, 0, -1)
-    call check(stat)
+    call check(stat,24)
 
     stat = NF90_DEF_VAR(ncid,'hours',NF90_FLOAT,dims1,hours_varid)
-    call check(stat)
+    call check(stat,25)
     stat = NF90_DEF_VAR_DEFLATE(ncid, hours_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,26)
     stat = NF90_DEF_VAR_FILL(ncid, hours_varid, 0, -1)
-    call check(stat)
+    call check(stat,27)
 
     stat = NF90_DEF_VAR(ncid,'satza',NF90_FLOAT,dims2,satza_varid)
-    call check(stat)
+    call check(stat,28)
     stat = NF90_DEF_VAR_DEFLATE(ncid, satza_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,29)
     stat = NF90_DEF_VAR_FILL(ncid, satza_varid, 0, NAN_R)
-    call check(stat)
+    call check(stat,30)
 
     stat = NF90_DEF_VAR(ncid,'solza',NF90_FLOAT,dims2,solza_varid)
-    call check(stat)
+    call check(stat,31)
     stat = NF90_DEF_VAR_DEFLATE(ncid, solza_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,32)
     stat = NF90_DEF_VAR_FILL(ncid, solza_varid, 0, NAN_R)
-    call check(stat)
+    call check(stat,33)
 
     IF( ALLOCATED(AVHRR%relaz) )THEN
        stat = NF90_DEF_VAR(ncid,'relaz',NF90_FLOAT,dims2,relaz_varid)
-       call check(stat)
+       call check(stat,34)
        stat = NF90_DEF_VAR_DEFLATE(ncid, relaz_varid, 1, 1, compress_level)
-       call check(stat)
+       call check(stat,35)
        stat = NF90_DEF_VAR_FILL(ncid, relaz_varid, 0, NAN_R)
-       call check(stat)
+       call check(stat,36)
     ENDIF
 
     stat = NF90_DEF_VAR(ncid,'ch1',NF90_FLOAT,dims2,ch1_varid)
-    call check(stat)
+    call check(stat,37)
     stat = NF90_DEF_VAR_DEFLATE(ncid, ch1_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,38)
     stat = NF90_DEF_VAR_FILL(ncid, ch1_varid, 0, NAN_R)
-    call check(stat)
+    call check(stat,39)
     
     stat = NF90_DEF_VAR(ncid,'ch2',NF90_FLOAT,dims2,ch2_varid)
-    call check(stat)
+    call check(stat,40)
     stat = NF90_DEF_VAR_DEFLATE(ncid, ch2_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,41)
     stat = NF90_DEF_VAR_FILL(ncid, ch2_varid, 0, NAN_R)
-    call check(stat)
+    call check(stat,42)
     
     IF( ALLOCATED(AVHRR%array3a) )THEN
        stat = NF90_DEF_VAR(ncid,'ch3a',NF90_FLOAT,dims2,ch3a_varid)
-       call check(stat)
+       call check(stat,43)
        stat = NF90_DEF_VAR_DEFLATE(ncid, ch3a_varid, 1, 1, compress_level)
-       call check(stat)
+       call check(stat,44)
        stat = NF90_DEF_VAR_FILL(ncid, ch3a_varid, 0, NAN_R)
-       call check(stat)
+       call check(stat,45)
     ENDIF
     
     stat = NF90_DEF_VAR(ncid,'ch3b',NF90_FLOAT,dims2,ch3b_varid)
-    call check(stat)
+    call check(stat,46)
     stat = NF90_DEF_VAR_DEFLATE(ncid, ch3b_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,47)
     stat = NF90_DEF_VAR_FILL(ncid, ch3b_varid, 0, NAN_R)
-    call check(stat)
+    call check(stat,48)
     
     stat = NF90_DEF_VAR(ncid,'ch4',NF90_FLOAT,dims2,ch4_varid)
-    call check(stat)
+    call check(stat,49)
     stat = NF90_DEF_VAR_DEFLATE(ncid, ch4_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,50)
     stat = NF90_DEF_VAR_FILL(ncid, ch4_varid, 0, NAN_R)
-    call check(stat)
+    call check(stat,51)
     
     IF( twelve_micron_there )THEN
        stat = NF90_DEF_VAR(ncid,'ch5',NF90_FLOAT,dims2,ch5_varid)
-       call check(stat)
+       call check(stat,52)
        stat = NF90_DEF_VAR_DEFLATE(ncid, ch5_varid, 1, 1, compress_level)
-       call check(stat)
+       call check(stat,53)
        stat = NF90_DEF_VAR_FILL(ncid, ch5_varid, 0, NAN_R)
-       call check(stat)
+       call check(stat,54)
     ENDIF
 
     stat = NF90_DEF_VAR(ncid,'ch1_random',NF90_FLOAT,dims2,ch1_random_varid)
-    call check(stat)
+    call check(stat,55)
     stat = NF90_DEF_VAR_DEFLATE(ncid, ch1_random_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,56)
     stat = NF90_DEF_VAR_FILL(ncid, ch1_random_varid, 0, NAN_R)
-    call check(stat)
+    call check(stat,57)
     
     stat = NF90_DEF_VAR(ncid,'ch2_random',NF90_FLOAT,dims2,ch2_random_varid)
-    call check(stat)
+    call check(stat,58)
     stat = NF90_DEF_VAR_DEFLATE(ncid, ch2_random_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,59)
     stat = NF90_DEF_VAR_FILL(ncid, ch2_random_varid, 0, NAN_R)
-    call check(stat)
+    call check(stat,60)
     
     IF( ALLOCATED(AVHRR%array3a) )THEN
        stat = NF90_DEF_VAR(ncid,'ch3a_random',NF90_FLOAT,dims2,ch3a_random_varid)
-       call check(stat)
+       call check(stat,61)
        stat = NF90_DEF_VAR_DEFLATE(ncid, ch3a_random_varid, 1, 1, compress_level)
-       call check(stat)
+       call check(stat,62)
        stat = NF90_DEF_VAR_FILL(ncid, ch3a_random_varid, 0, NAN_R)
-       call check(stat)
+       call check(stat,63)
     ENDIF
     
     stat = NF90_DEF_VAR(ncid,'ch3b_random',NF90_FLOAT,dims2,ch3b_random_varid)
-    call check(stat)
+    call check(stat,64)
     stat = NF90_DEF_VAR_DEFLATE(ncid, ch3b_random_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,65)
     stat = NF90_DEF_VAR_FILL(ncid, ch3b_random_varid, 0, NAN_R)
-    call check(stat)
+    call check(stat,66)
     
     stat = NF90_DEF_VAR(ncid,'ch4_random',NF90_FLOAT,dims2,ch4_random_varid)
-    call check(stat)
+    call check(stat,67)
     stat = NF90_DEF_VAR_DEFLATE(ncid, ch4_random_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,68)
     stat = NF90_DEF_VAR_FILL(ncid, ch4_random_varid, 0, NAN_R)
-    call check(stat)
+    call check(stat,69)
     
     IF( twelve_micron_there )THEN
        stat = NF90_DEF_VAR(ncid,'ch5_random',NF90_FLOAT,dims2,ch5_random_varid)
-       call check(stat)
+       call check(stat,70)
        stat = NF90_DEF_VAR_DEFLATE(ncid, ch5_random_varid, 1, 1, compress_level)
-       call check(stat)
+       call check(stat,71)
        stat = NF90_DEF_VAR_FILL(ncid, ch5_random_varid, 0, NAN_R)
-       call check(stat)
+       call check(stat,72)
     ENDIF
 
     stat = NF90_DEF_VAR(ncid,'ch1_non_random',NF90_FLOAT,dims2,ch1_non_random_varid)
-    call check(stat)
+    call check(stat,73)
     stat = NF90_DEF_VAR_DEFLATE(ncid, ch1_non_random_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,74)
     stat = NF90_DEF_VAR_FILL(ncid, ch1_non_random_varid, 0, NAN_R)
-    call check(stat)
+    call check(stat,75)
     
     stat = NF90_DEF_VAR(ncid,'ch2_non_random',NF90_FLOAT,dims2,ch2_non_random_varid)
-    call check(stat)
+    call check(stat,76)
     stat = NF90_DEF_VAR_DEFLATE(ncid, ch2_non_random_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,77)
     stat = NF90_DEF_VAR_FILL(ncid, ch2_non_random_varid, 0, NAN_R)
-    call check(stat)
+    call check(stat,78)
     
     IF( ALLOCATED(AVHRR%array3a) )THEN
        stat = NF90_DEF_VAR(ncid,'ch3a_non_random',NF90_FLOAT,dims2,ch3a_non_random_varid)
-       call check(stat)
+       call check(stat,79)
        stat = NF90_DEF_VAR_DEFLATE(ncid, ch3a_non_random_varid, 1, 1, compress_level)
-       call check(stat)
+       call check(stat,80)
        stat = NF90_DEF_VAR_FILL(ncid, ch3a_non_random_varid, 0, NAN_R)
-       call check(stat)
+       call check(stat,81)
     ENDIF
     
     stat = NF90_DEF_VAR(ncid,'ch3b_non_random',NF90_FLOAT,dims2,ch3b_non_random_varid)
-    call check(stat)
+    call check(stat,82)
     stat = NF90_DEF_VAR_DEFLATE(ncid, ch3b_non_random_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,83)
     stat = NF90_DEF_VAR_FILL(ncid, ch3b_non_random_varid, 0, NAN_R)
-    call check(stat)
+    call check(stat,84)
     
     stat = NF90_DEF_VAR(ncid,'ch4_non_random',NF90_FLOAT,dims2,ch4_non_random_varid)
-    call check(stat)
+    call check(stat,85)
     stat = NF90_DEF_VAR_DEFLATE(ncid, ch4_non_random_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,86)
     stat = NF90_DEF_VAR_FILL(ncid, ch4_non_random_varid, 0, NAN_R)
-    call check(stat)
+    call check(stat,87)
     
     IF( twelve_micron_there )THEN
        stat = NF90_DEF_VAR(ncid,'ch5_non_random',NF90_FLOAT,dims2,ch5_non_random_varid)
-       call check(stat)
+       call check(stat,88)
        stat = NF90_DEF_VAR_DEFLATE(ncid, ch5_non_random_varid, 1, 1, compress_level)
-       call check(stat)
+       call check(stat,89)
        stat = NF90_DEF_VAR_FILL(ncid, ch5_non_random_varid, 0, NAN_R)
-       call check(stat)
+       call check(stat,90)
     ENDIF
 
     stat = NF90_DEF_VAR(ncid,'ch1_common',NF90_FLOAT,dims2,ch1_common_varid)
-    call check(stat)
+    call check(stat,91)
     stat = NF90_DEF_VAR_DEFLATE(ncid, ch1_common_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,92)
     stat = NF90_DEF_VAR_FILL(ncid, ch1_common_varid, 0, NAN_R)
-    call check(stat)
+    call check(stat,93)
     
     stat = NF90_DEF_VAR(ncid,'ch2_common',NF90_FLOAT,dims2,ch2_common_varid)
-    call check(stat)
+    call check(stat,94)
     stat = NF90_DEF_VAR_DEFLATE(ncid, ch2_common_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,95)
     stat = NF90_DEF_VAR_FILL(ncid, ch2_common_varid, 0, NAN_R)
-    call check(stat)
+    call check(stat,96)
     
     IF( ALLOCATED(AVHRR%array3a) )THEN
        stat = NF90_DEF_VAR(ncid,'ch3a_common',NF90_FLOAT,dims2,ch3a_common_varid)
-       call check(stat)
+       call check(stat,97)
        stat = NF90_DEF_VAR_DEFLATE(ncid, ch3a_common_varid, 1, 1, compress_level)
-       call check(stat)
+       call check(stat,98)
        stat = NF90_DEF_VAR_FILL(ncid, ch3a_common_varid, 0, NAN_R)
-       call check(stat)
+       call check(stat,99)
     ENDIF
 
     stat = NF90_DEF_VAR(ncid,'ch3b_common',NF90_FLOAT,dims2,ch3b_common_varid)
-    call check(stat)
+    call check(stat,100)
     stat = NF90_DEF_VAR_DEFLATE(ncid, ch3b_common_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,101)
     stat = NF90_DEF_VAR_FILL(ncid, ch3b_common_varid, 0, NAN_R)
-    call check(stat)
+    call check(stat,102)
     
     stat = NF90_DEF_VAR(ncid,'ch4_common',NF90_FLOAT,dims2,ch4_common_varid)
-    call check(stat)
+    call check(stat,103)
     stat = NF90_DEF_VAR_DEFLATE(ncid, ch4_common_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,104)
     stat = NF90_DEF_VAR_FILL(ncid, ch4_common_varid, 0, NAN_R)
-    call check(stat)
+    call check(stat,105)
     
     IF( twelve_micron_there )THEN
        stat = NF90_DEF_VAR(ncid,'ch5_common',NF90_FLOAT,dims2,ch5_common_varid)
-       call check(stat)
+       call check(stat,106)
        stat = NF90_DEF_VAR_DEFLATE(ncid, ch5_common_varid, 1, 1, compress_level)
-       call check(stat)
+       call check(stat,107)
        stat = NF90_DEF_VAR_FILL(ncid, ch5_common_varid, 0, NAN_R)
-       call check(stat)
+       call check(stat,108)
     ENDIF
 
     dims1(1) = dimid_ny
     stat = NF90_DEF_VAR(ncid,'quality_scanline_bitmask',NF90_UBYTE,dims1,&
          scan_qual_varid)
-    call check(stat)
+    call check(stat,109)
     stat = NF90_DEF_VAR_DEFLATE(ncid, scan_qual_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,110)
     stat = NF90_PUT_ATT(ncid,scan_qual_varid,'long_name',&
          'Bitmask for quality per scanline')
-    call check(stat)
+    call check(stat,111)
     stat = NF90_PUT_ATT(ncid,scan_qual_varid,'flag_masks',&
          '1,2,4,8,16,32,64')
-    call check(stat)
+    call check(stat,112)
     stat = NF90_PUT_ATT(ncid,scan_qual_varid,'flag_meanings',&
-         'DO_NOT_USE, BAD_TIME, BAD_NAVIGATION, BAD_CALIBRATION, CHANNEL3A_PRESENT,SOLAR_CONTAMINATION_FAILURE,SOLAR_CONTAMINATION')
-    call check(stat)
+         'DO_NOT_USE, BAD_TIME, BAD_NAVIGATION, BAD_CALIBRATION, CHANNEL3A_PRESENT,SOLAR_CONTAMINATION,SOLAR_IN_EARTHVIEW')
+    call check(stat,113)
 
     dims2(1) = dimid_ir
     dims2(2) = dimid_ny
     stat = NF90_DEF_VAR(ncid,'quality_channel_bitmask',NF90_UBYTE,dims2,&
          chan_qual_varid)
-    call check(stat)
+    call check(stat,114)
     stat = NF90_DEF_VAR_DEFLATE(ncid, chan_qual_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,115)
     stat = NF90_PUT_ATT(ncid,chan_qual_varid,'long_name',&
          'Bitmask for quality per channel/scanline')
-    call check(stat)
+    call check(stat,116)
     stat = NF90_PUT_ATT(ncid,chan_qual_varid,'flag_masks',&
          '1,2')
-    call check(stat)
+    call check(stat,117)
     stat = NF90_PUT_ATT(ncid,chan_qual_varid,'flag_meanings',&
          'BAD_CHANNEL, SOME_PIXELS_NOT_DETECTED_2SIGMA')
-    call check(stat)
+    call check(stat,118)
 
     !
     ! Now write fields needed for CURUC process
@@ -1243,104 +1274,104 @@ CONTAINS
     dims2(1) = dimid_nx
     dims2(2) = dimid_ny
     stat = NF90_DEF_VAR(ncid,'dBT3_over_dT',NF90_FLOAT,dims2,dBT3_over_dT_varid)
-    call check(stat)
+    call check(stat,119)
     stat = NF90_DEF_VAR_DEFLATE(ncid, dBT3_over_dT_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,120)
     stat = NF90_DEF_VAR_FILL(ncid, dBT3_over_dT_varid, 0, NAN_R)
-    call check(stat)    
+    call check(stat,121)    
 
     stat = NF90_DEF_VAR(ncid,'dBT4_over_dT',NF90_FLOAT,dims2,dBT4_over_dT_varid)
-    call check(stat)
+    call check(stat,122)
     stat = NF90_DEF_VAR_DEFLATE(ncid, dBT4_over_dT_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,123)
     stat = NF90_DEF_VAR_FILL(ncid, dBT4_over_dT_varid, 0, NAN_R)
-    call check(stat)    
+    call check(stat,124)    
 
     IF( twelve_micron_there )THEN
        stat = NF90_DEF_VAR(ncid,'dBT5_over_dT',NF90_FLOAT,dims2,dBT5_over_dT_varid)
-       call check(stat)
+       call check(stat,125)
        stat = NF90_DEF_VAR_DEFLATE(ncid, dBT5_over_dT_varid, 1, 1, compress_level)
-       call check(stat)
+       call check(stat,126)
        stat = NF90_DEF_VAR_FILL(ncid, dBT5_over_dT_varid, 0, NAN_R)
-       call check(stat)    
+       call check(stat,127)    
     ENDIF
 
     stat = NF90_DEF_VAR(ncid,'dRe1_over_dCS',NF90_FLOAT,dims2,&
          dRe1_over_dCS_varid)
-    call check(stat)
+    call check(stat,128)
     stat = NF90_DEF_VAR_DEFLATE(ncid, dRe1_over_dCS_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,129)
     stat = NF90_DEF_VAR_FILL(ncid, dRe1_over_dCS_varid, 0, NAN_R)
-    call check(stat)    
+    call check(stat,130)    
 
     stat = NF90_DEF_VAR(ncid,'dRe2_over_dCS',NF90_FLOAT,dims2,&
          dRe2_over_dCS_varid)
-    call check(stat)
+    call check(stat,131)
     stat = NF90_DEF_VAR_DEFLATE(ncid, dRe2_over_dCS_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,132)
     stat = NF90_DEF_VAR_FILL(ncid, dRe2_over_dCS_varid, 0, NAN_R)
-    call check(stat)    
+    call check(stat,133)    
 
     IF( ALLOCATED(AVHRR%array3a) )THEN
        stat = NF90_DEF_VAR(ncid,'dRe3a_over_dCS',NF90_FLOAT,dims2,&
             dRe3a_over_dCS_varid)
-       call check(stat)
+       call check(stat,134)
        stat = NF90_DEF_VAR_DEFLATE(ncid, dRe3a_over_dCS_varid, 1, 1, compress_level)
-       call check(stat)
+       call check(stat,135)
        stat = NF90_DEF_VAR_FILL(ncid, dRe3a_over_dCS_varid, 0, NAN_R)
-       call check(stat)    
+       call check(stat,136)    
     ENDIF
 
     stat = NF90_DEF_VAR(ncid,'dBT3_over_dCS',NF90_FLOAT,dims2,&
          dBT3_over_dCS_varid)
-    call check(stat)
+    call check(stat,137)
     stat = NF90_DEF_VAR_DEFLATE(ncid, dBT3_over_dCS_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,138)
     stat = NF90_DEF_VAR_FILL(ncid, dBT3_over_dCS_varid, 0, NAN_R)
-    call check(stat)    
+    call check(stat,139)    
 
     stat = NF90_DEF_VAR(ncid,'dBT4_over_dCS',NF90_FLOAT,dims2,&
          dBT4_over_dCS_varid)
-    call check(stat)
+    call check(stat,140)
     stat = NF90_DEF_VAR_DEFLATE(ncid, dBT4_over_dCS_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,141)
     stat = NF90_DEF_VAR_FILL(ncid, dBT4_over_dCS_varid, 0, NAN_R)
-    call check(stat)    
+    call check(stat,142)    
 
     IF( twelve_micron_there )THEN
        stat = NF90_DEF_VAR(ncid,'dBT5_over_dCS',NF90_FLOAT,dims2,&
             dBT5_over_dCS_varid)
-       call check(stat)
+       call check(stat,143)
        stat = NF90_DEF_VAR_DEFLATE(ncid, dBT5_over_dCS_varid, 1, 1, compress_level)
-       call check(stat)
+       call check(stat,144)
        stat = NF90_DEF_VAR_FILL(ncid, dBT5_over_dCS_varid, 0, NAN_R)
-       call check(stat)    
+       call check(stat,145)    
     ENDIF
 
     stat = NF90_DEF_VAR(ncid,'dBT3_over_dCICT',NF90_FLOAT,dims2,&
          dBT3_over_dCICT_varid)
-    call check(stat)
+    call check(stat,146)
     stat = NF90_DEF_VAR_DEFLATE(ncid, dBT3_over_dCICT_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,147)
     stat = NF90_DEF_VAR_FILL(ncid, dBT3_over_dCICT_varid, 0, NAN_R)
-    call check(stat)    
+    call check(stat,148)    
 
     stat = NF90_DEF_VAR(ncid,'dBT4_over_dCICT',NF90_FLOAT,dims2,&
          dBT4_over_dCICT_varid)
-    call check(stat)
+    call check(stat,149)
     stat = NF90_DEF_VAR_DEFLATE(ncid, dBT4_over_dCICT_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,150)
     stat = NF90_DEF_VAR_FILL(ncid, dBT4_over_dCICT_varid, 0, NAN_R)
-    call check(stat)    
+    call check(stat,151)    
 
     IF( twelve_micron_there )THEN
        stat = NF90_DEF_VAR(ncid,'dBT5_over_dCICT',NF90_FLOAT,dims2,&
             dBT5_over_dCICT_varid)
-       call check(stat)
+       call check(stat,152)
        stat = NF90_DEF_VAR_DEFLATE(ncid, dBT5_over_dCICT_varid, 1, 1, compress_level)
-       call check(stat)
+       call check(stat,153)
        stat = NF90_DEF_VAR_FILL(ncid, dBT5_over_dCICT_varid, 0, NAN_R)
-       call check(stat)    
+       call check(stat,154)    
     ENDIF
 
     !
@@ -1349,112 +1380,112 @@ CONTAINS
     dims1(1) = dimid_ny
     stat = NF90_DEF_VAR(ncid,'smoothPRT',NF90_FLOAT,dims1,&
          smoothprt_varid)
-    call check(stat)
+    call check(stat,155)
     stat = NF90_DEF_VAR_DEFLATE(ncid, smoothprt_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,156)
     stat = NF90_DEF_VAR_FILL(ncid, smoothprt_varid, 0, NAN_R)
-    call check(stat)    
+    call check(stat,157)    
 
     !
     ! AVHRR Flags for L1C
     !
     stat = NF90_DEF_VAR(ncid,'badNavigation',NF90_BYTE,dims1,badNavigation_varid)
-    call check(stat)
+    call check(stat,158)
     stat = NF90_DEF_VAR_DEFLATE(ncid, badNavigation_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,159)
 
     stat = NF90_DEF_VAR(ncid,'badCalibration',NF90_BYTE,dims1,badCalibration_varid)
-    call check(stat)
+    call check(stat,160)
     stat = NF90_DEF_VAR_DEFLATE(ncid, badCalibration_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,161)
  
     stat = NF90_DEF_VAR(ncid,'badTime',NF90_BYTE,dims1,badTime_varid)
-    call check(stat)
+    call check(stat,162)
     stat = NF90_DEF_VAR_DEFLATE(ncid, badTime_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,163)
  
     stat = NF90_DEF_VAR(ncid,'missingLines',NF90_BYTE,dims1,missingLines_varid)
-    call check(stat)
+    call check(stat,164)
     stat = NF90_DEF_VAR_DEFLATE(ncid, missingLines_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,165)
  
     stat = NF90_DEF_VAR(ncid,'solar_contam_3b',NF90_BYTE,dims1,solar3_varid)
-    call check(stat)
+    call check(stat,166)
     stat = NF90_DEF_VAR_DEFLATE(ncid, solar3_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,167)
  
     stat = NF90_DEF_VAR(ncid,'solar_contam_4',NF90_BYTE,dims1,solar4_varid)
-    call check(stat)
+    call check(stat,168)
     stat = NF90_DEF_VAR_DEFLATE(ncid, solar4_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,169)
  
     stat = NF90_DEF_VAR(ncid,'solar_contam_5',NF90_BYTE,dims1,solar5_varid)
-    call check(stat)
+    call check(stat,170)
     stat = NF90_DEF_VAR_DEFLATE(ncid, solar5_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,171)
 
     !
     ! Write band coefficients
     !
     dims_band(1) = dimid_band
     stat = NF90_DEF_VAR(ncid,'nuc',NF90_FLOAT,dims_band,nuc_varid)
-    call check(stat)
+    call check(stat,172)
     stat = NF90_DEF_VAR_DEFLATE(ncid, nuc_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,173)
     stat = NF90_DEF_VAR_FILL(ncid, nuc_varid, 0, NAN_R)
-    call check(stat)    
+    call check(stat,174)    
     
     stat = NF90_DEF_VAR(ncid,'aval',NF90_FLOAT,dims_band,aval_varid)
-    call check(stat)
+    call check(stat,175)
     stat = NF90_DEF_VAR_DEFLATE(ncid, aval_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,176)
     stat = NF90_DEF_VAR_FILL(ncid, aval_varid, 0, NAN_R)
-    call check(stat)    
+    call check(stat,177)    
     
     stat = NF90_DEF_VAR(ncid,'bval',NF90_FLOAT,dims_band,bval_varid)
-    call check(stat)
+    call check(stat,178)
     stat = NF90_DEF_VAR_DEFLATE(ncid, bval_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,179)
     stat = NF90_DEF_VAR_FILL(ncid, bval_varid, 0, NAN_R)
-    call check(stat)    
+    call check(stat,180)    
     
     dims1(1) = dimid_ir
     stat = NF90_DEF_VAR(ncid,'cal_cnts_noise',NF90_FLOAT,dims1,cal_cnts_varid)
-    call check(stat)
+    call check(stat,181)
     stat = NF90_DEF_VAR_DEFLATE(ncid, cal_cnts_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,182)
     stat = NF90_DEF_VAR_FILL(ncid, cal_cnts_varid, 0, NAN_R)
-    call check(stat)    
+    call check(stat,183)    
     
     stat = NF90_DEF_VAR(ncid,'cnts_noise',NF90_FLOAT,dims1,earth_cnts_varid)
-    call check(stat)
+    call check(stat,184)
     stat = NF90_DEF_VAR_DEFLATE(ncid, earth_cnts_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,185)
     stat = NF90_DEF_VAR_FILL(ncid, earth_cnts_varid, 0, NAN_R)
-    call check(stat)    
+    call check(stat,186)    
     
     dims1(1) = dimid_ny
     stat = NF90_DEF_VAR(ncid,'ch3a_there',NF90_INT,dims1,ch3a_there_varid)
-    call check(stat)
+    call check(stat,187)
     stat = NF90_DEF_VAR_DEFLATE(ncid, ch3a_there_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,188)
     stat = NF90_DEF_VAR_FILL(ncid, ch3a_there_varid, 0, NAN_I)
-    call check(stat)    
+    call check(stat,189)    
     
     stat = NF90_DEF_VAR(ncid,'scanline',NF90_INT,dims1,scanline_varid)
-    call check(stat)
+    call check(stat,190)
     stat = NF90_DEF_VAR_DEFLATE(ncid, scanline_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,191)
     stat = NF90_DEF_VAR_FILL(ncid, scanline_varid, 0, NAN_I)
-    call check(stat)    
+    call check(stat,192)    
     
     dims1(1) = dimid_ny
     stat = NF90_DEF_VAR(ncid,'orig_scanline',NF90_INT,dims1,oscanline_varid)
-    call check(stat)
+    call check(stat,193)
     stat = NF90_DEF_VAR_DEFLATE(ncid, oscanline_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,194)
     stat = NF90_DEF_VAR_FILL(ncid, oscanline_varid, 0, NAN_I)
-    call check(stat)    
+    call check(stat,195)    
 
     !
     ! For Harmonisation common uncertainty (needed for channel to channel
@@ -1463,27 +1494,27 @@ CONTAINS
     !
     stat = NF90_DEF_VAR(ncid,'ch3b_harm_uncertainty',NF90_FLOAT,&
          dims2,ch3b_harm_varid)
-    call check(stat)
+    call check(stat,196)
     stat = NF90_DEF_VAR_DEFLATE(ncid, ch3b_harm_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,197)
     stat = NF90_DEF_VAR_FILL(ncid, ch3b_harm_varid, 0, NAN_R)
-    call check(stat)        
+    call check(stat,198)        
     
     stat = NF90_DEF_VAR(ncid,'ch4_harm_uncertainty',NF90_FLOAT,&
          dims2,ch4_harm_varid)
-    call check(stat)
+    call check(stat,199)
     stat = NF90_DEF_VAR_DEFLATE(ncid, ch4_harm_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,200)
     stat = NF90_DEF_VAR_FILL(ncid, ch4_harm_varid, 0, NAN_R)
-    call check(stat)        
+    call check(stat,201)        
     
     stat = NF90_DEF_VAR(ncid,'ch5_harm_uncertainty',NF90_FLOAT,&
          dims2,ch5_harm_varid)
-    call check(stat)
+    call check(stat,202)
     stat = NF90_DEF_VAR_DEFLATE(ncid, ch5_harm_varid, 1, 1, compress_level)
-    call check(stat)
+    call check(stat,203)
     stat = NF90_DEF_VAR_FILL(ncid, ch5_harm_varid, 0, NAN_R)
-    call check(stat)        
+    call check(stat,204)        
 
     !
     ! If monte_carlo the add varids
@@ -1494,46 +1525,46 @@ CONTAINS
        dims3(3) = dimid_mc
        stat = NF90_DEF_VAR(ncid,'ch1_MC',NF90_FLOAT,&
             dims3,ch1_MC_varid)
-       call check(stat)
+       call check(stat,205)
        stat = NF90_DEF_VAR_DEFLATE(ncid, ch1_MC_varid, 1, 1, compress_level)
-       call check(stat)
+       call check(stat,206)
        stat = NF90_DEF_VAR_FILL(ncid, ch1_MC_varid, 0, NAN_R)
-       call check(stat)        
+       call check(stat,207)        
        stat = NF90_DEF_VAR(ncid,'ch2_MC',NF90_FLOAT,&
             dims3,ch2_MC_varid)
-       call check(stat)
+       call check(stat,208)
        stat = NF90_DEF_VAR_DEFLATE(ncid, ch2_MC_varid, 1, 1, compress_level)
-       call check(stat)
+       call check(stat,209)
        stat = NF90_DEF_VAR_FILL(ncid, ch2_MC_varid, 0, NAN_R)
-       call check(stat)        
+       call check(stat,210)        
        stat = NF90_DEF_VAR(ncid,'ch3a_MC',NF90_FLOAT,&
             dims3,ch3a_MC_varid)
-       call check(stat)
+       call check(stat,211)
        stat = NF90_DEF_VAR_DEFLATE(ncid, ch3a_MC_varid, 1, 1, compress_level)
-       call check(stat)
+       call check(stat,212)
        stat = NF90_DEF_VAR_FILL(ncid, ch3a_MC_varid, 0, NAN_R)
-       call check(stat)        
+       call check(stat,213)        
        stat = NF90_DEF_VAR(ncid,'ch3_MC',NF90_FLOAT,&
             dims3,ch3_MC_varid)
-       call check(stat)
+       call check(stat,214)
        stat = NF90_DEF_VAR_DEFLATE(ncid, ch3_MC_varid, 1, 1, compress_level)
-       call check(stat)
+       call check(stat,215)
        stat = NF90_DEF_VAR_FILL(ncid, ch3_MC_varid, 0, NAN_R)
-       call check(stat)        
+       call check(stat,216)        
        stat = NF90_DEF_VAR(ncid,'ch4_MC',NF90_FLOAT,&
             dims3,ch4_MC_varid)
-       call check(stat)
+       call check(stat,217)
        stat = NF90_DEF_VAR_DEFLATE(ncid, ch4_MC_varid, 1, 1, compress_level)
-       call check(stat)
+       call check(stat,218)
        stat = NF90_DEF_VAR_FILL(ncid, ch4_MC_varid, 0, NAN_R)
-       call check(stat)        
+       call check(stat,219)        
        stat = NF90_DEF_VAR(ncid,'ch5_MC',NF90_FLOAT,&
             dims3,ch5_MC_varid)
-       call check(stat)
+       call check(stat,220)
        stat = NF90_DEF_VAR_DEFLATE(ncid, ch5_MC_varid, 1, 1, compress_level)
-       call check(stat)
+       call check(stat,221)
        stat = NF90_DEF_VAR_FILL(ncid, ch5_MC_varid, 0, NAN_R)
-       call check(stat)               
+       call check(stat,222)               
     ENDIF
     
     !
@@ -1541,26 +1572,26 @@ CONTAINS
     !
     CALL NOAA_Name(AVHRR,noaa_string)
     stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'noaa_string',TRIM(noaa_string))
-    call check(stat)    
+    call check(stat,223)    
 
     stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'version',TRIM(software_version))
-    call check(stat)    
+    call check(stat,224)    
 
     stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'spatial_correlation_scale',&
          NPIXEL_PRT_SMOOTH)
-    call check(stat) 
+    call check(stat,225) 
 
     stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'ICT_Temperature_Uncertainty',&
          AVHRR%ict_plane_uncert)
-    call check(stat) 
+    call check(stat,226) 
 
     stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'PRT_Uncertainty',&
          prt_accuracy)
-    call check(stat) 
+    call check(stat,227) 
 
     stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'orbital_temperature',&
          AVHRR%orbital_temperature)
-    call check(stat) 
+    call check(stat,228) 
 
     DO I=1,AVHRR%norig_l1b
        IF( 1 .eq. I )THEN
@@ -1570,120 +1601,154 @@ CONTAINS
        ENDIF
     END DO
     stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'sources',TRIM(noaa_string))
-    call check(stat) 
+    call check(stat,229) 
 
     IF( monte_carlo )THEN
        stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'montecarlo_seed',&
             seedval)
-       call check(stat) 
+       call check(stat,230) 
     ENDIF
+
+    !
+    ! min/max ICT Terr correction and also number of solar contamination
+    ! scanlines
+    !
+    min_ict=1e30
+    max_ict=-1e30
+    nsolar = 0
+    IF( ALLOCATED(AVHRR%solar_contamination_3B) )THEN
+       DO I=1,AVHRR%arraySize       
+          IF( AVHRR%solar_contamination_3B(I) )THEN
+             nsolar = nsolar + 1
+          ENDIF
+       END DO
+    ENDIF
+    IF( ALLOCATED(AVHRR%prt_correction) )THEN
+       DO I=1,AVHRR%arraySize       
+          IF( AVHRR%prt_correction(I) .gt. -1e20 )THEN
+             min_ict = MIN(min_ict,AVHRR%prt_correction(I)) 
+             max_ict = MAX(max_ict,AVHRR%prt_correction(I)) 
+          ENDIF
+       END DO
+    ENDIF
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'nsolar_contam',nsolar)
+    call check(stat,2301) 
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'min_ict_terr',min_ict)
+    call check(stat,2302) 
+    stat = NF90_PUT_ATT(ncid,NF90_GLOBAL,'max_ict_terr',max_ict)
+    call check(stat,2303) 
+
     stat = NF90_ENDDEF(ncid)
-    call check(stat)
+    call check(stat,231)
 
     !
     ! Now write data
     !
 !    WRITE(*,*)'Latitude writing'
     stat = NF90_PUT_VAR(ncid, latitude_varid, AVHRR%Lat)
-    call check(stat)
+    call check(stat,232)
 
 !    WRITE(*,*)'Longitude writing'
     stat = NF90_PUT_VAR(ncid, longitude_varid, AVHRR%Lon)
-    call check(stat)
+    call check(stat,233)
 
 !    WRITE(*,*)'Time writing'
     stat = NF90_PUT_VAR(ncid, time_varid, AVHRR%time)
-    call check(stat)
+    call check(stat,234)
 
 !    WRITE(*,*)'year writing'
     stat = NF90_PUT_VAR(ncid, year_varid, AVHRR%year)
-    call check(stat)
+    call check(stat,235)
 
 !    WRITE(*,*)'Month writing'
     stat = NF90_PUT_VAR(ncid, month_varid, AVHRR%month)
-    call check(stat)
+    call check(stat,236)
 
 !    WRITE(*,*)'Day writing'
     stat = NF90_PUT_VAR(ncid, day_varid, AVHRR%day)
-    call check(stat)
+    call check(stat,237)
 
 !    WRITE(*,*)'Hours writing'
     stat = NF90_PUT_VAR(ncid, hours_varid, AVHRR%hours)
-    call check(stat)
+    call check(stat,238)
 
 !    WRITE(*,*)'Satza writing'
     stat = NF90_PUT_VAR(ncid, satza_varid, AVHRR%satza)
-    call check(stat)
+    call check(stat,239)
 
 !    WRITE(*,*)'Solza writing'
     stat = NF90_PUT_VAR(ncid, solza_varid, AVHRR%solza)
-    call check(stat)
+    call check(stat,240)
 
     IF( ALLOCATED(AVHRR%relaz) )THEN
 !       WRITE(*,*)'Relaz writing'
        stat = NF90_PUT_VAR(ncid, relaz_varid, AVHRR%relaz)
-       call check(stat)
+       call check(stat,241)
     ENDIF
 
 !    WRITE(*,*)'Ch1 writing'
     stat = NF90_PUT_VAR(ncid, ch1_varid, AVHRR%new_array1)
-    call check(stat)
+    call check(stat,242)
 
 !    WRITE(*,*)'Ch2 writing'
     stat = NF90_PUT_VAR(ncid, ch2_varid, AVHRR%new_array2)
-    call check(stat)
+    call check(stat,243)
 
     IF( ALLOCATED(AVHRR%new_array3a) )THEN
 !       WRITE(*,*)'Ch3a writing'
        stat = NF90_PUT_VAR(ncid, ch3a_varid, AVHRR%new_array3a)
-       call check(stat)
+       call check(stat,244)
     ENDIF
 
 !    WRITE(*,*)'Ch3b writing'
     stat = NF90_PUT_VAR(ncid, ch3b_varid, FCDR%btf3)
-    call check(stat)
+    call check(stat,245)
 
 !    WRITE(*,*)'Ch4 writing'
     stat = NF90_PUT_VAR(ncid, ch4_varid, FCDR%btf4)
-    call check(stat)
+    call check(stat,246)
 
     IF( twelve_micron_there )THEN
 !       WRITE(*,*)'Ch5 writing'
        stat = NF90_PUT_VAR(ncid, ch5_varid, FCDR%btf5)
-       call check(stat)
+       call check(stat,247)
     ENDIF
 
 !    WRITE(*,*)'Ch1 (Rand) writing'
     stat = NF90_PUT_VAR(ncid, ch1_random_varid, AVHRR%new_array1_error)
-    call check(stat)
+    call check(stat,248)
 
 !    WRITE(*,*)'Ch2 (Rand) writing'
     stat = NF90_PUT_VAR(ncid, ch2_random_varid, AVHRR%new_array2_error)
-    call check(stat)
+    call check(stat,249)
 
     IF( ALLOCATED(AVHRR%new_array3a) )THEN
 !       WRITE(*,*)'Ch3a (Rand) writing'
        stat = NF90_PUT_VAR(ncid, ch3a_random_varid, AVHRR%new_array3a_error)
-       call check(stat)
+       call check(stat,250)
     ENDIF
 
 !    WRITE(*,*)'Ch3b (Rand) writing'
     stat = NF90_PUT_VAR(ncid, ch3b_random_varid, FCDR%ur3)
-    call check(stat)
+    call check(stat,251)
 
 !    WRITE(*,*)'Ch4 (Rand) writing'
     stat = NF90_PUT_VAR(ncid, ch4_random_varid, FCDR%ur4)
-    call check(stat)
+    call check(stat,252)
 
     IF( twelve_micron_there )THEN
 !       WRITE(*,*)'Ch5 (Rand) writing'
        stat = NF90_PUT_VAR(ncid, ch5_random_varid, FCDR%ur5)
-       call check(stat)
+       call check(stat,253)
     ENDIF
 
 !    WRITE(*,*)'Ch1 (Non-Rand) writing'
 !MT: 11-11-2017: fix problem of value not filling array     
     ALLOCATE(us1(AVHRR%nelem,AVHRR%arraySize), STAT=STAT)
+    IF( 0 .ne. STAT )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot allocate us1',&
+            'Write_Temp_NETCDF','fiduceo_uncertainties.f90')
+    ENDIF
 !    DO I = 1,AVHRR%nelem
 !       DO J = 1,AVHRR%arraySize
 !          IF (ch1_varid(I,J).ne.-1e30) THEN
@@ -1699,14 +1764,18 @@ CONTAINS
     IF( ALLOCATED(AVHRR%new_array1) )THEN
 !       stat = NF90_PUT_VAR(ncid, ch1_non_random_varid, 0.03*AVHRR%new_array1_error)
        stat = NF90_PUT_VAR(ncid, ch1_non_random_varid, FCDR%us1)
-       call check(stat)
+       call check(stat,254)
        stat = NF90_PUT_VAR(ncid, ch1_common_varid, us1)
-       call check(stat)
+       call check(stat,255)
     ENDIF
 
 !    WRITE(*,*)'Ch2 (Non-Rand) writing'
 !MT: 11-11-2017: fix problem of value not filling array     
     ALLOCATE(us2(AVHRR%nelem,AVHRR%arraySize), STAT=STAT)
+    IF( 0 .ne. STAT )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot allocate us2',&
+            'Write_Temp_NETCDF','fiduceo_uncertainties.f90')
+    ENDIF
     us2 = -1e30
     WHERE(AVHRR%new_array2.gt.-1e20)
 !       us2 = 0.05
@@ -1715,14 +1784,18 @@ CONTAINS
     IF( ALLOCATED(AVHRR%new_array2) )THEN
 !       stat = NF90_PUT_VAR(ncid, ch2_non_random_varid, 0.05*AVHRR%new_array2_error)
        stat = NF90_PUT_VAR(ncid, ch2_non_random_varid, FCDR%us2)
-       call check(stat)
+       call check(stat,256)
        stat = NF90_PUT_VAR(ncid, ch2_common_varid, us2)
-       call check(stat)
+       call check(stat,257)
     ENDIF
 
 !       WRITE(*,*)'Ch3a (Non-Rand) writing'
 !MT: 11-11-2017: fix problem of value not filling array     
     ALLOCATE(us3a(AVHRR%nelem,AVHRR%arraySize), STAT=STAT)
+    IF( 0 .ne. STAT )THEN
+       CALL Gbcs_Critical(.TRUE.,'Cannot allocate us3a',&
+            'Write_Temp_NETCDF','fiduceo_uncertainties.f90')
+    ENDIF
     us3a = -1e30
     WHERE(AVHRR%new_array3a.gt.-1e20)
 !       us3a = 0.05
@@ -1731,91 +1804,91 @@ CONTAINS
     IF( ALLOCATED(AVHRR%new_array3a) )THEN
 !       stat = NF90_PUT_VAR(ncid, ch3a_non_random_varid, 0.05*AVHRR%new_array3A_error)
        stat = NF90_PUT_VAR(ncid, ch3a_non_random_varid, FCDR%us3a)
-       call check(stat)
+       call check(stat,258)
        stat = NF90_PUT_VAR(ncid, ch3a_common_varid, us3a)
-       call check(stat)
+       call check(stat,259)
     ENDIF
 
 !    WRITE(*,*)'Ch3b (Non-Rand) writing'
     stat = NF90_PUT_VAR(ncid, ch3b_non_random_varid, FCDR%us3)
-    call check(stat)
+    call check(stat,260)
 
 !    WRITE(*,*)'Ch4 (Non-Rand) writing'
     stat = NF90_PUT_VAR(ncid, ch4_non_random_varid, FCDR%us4)
-    call check(stat)
+    call check(stat,261)
 
     IF( twelve_micron_there )THEN
 !       WRITE(*,*)'Ch5 (Non-Rand) writing'
        stat = NF90_PUT_VAR(ncid, ch5_non_random_varid, FCDR%us5)
-       call check(stat)
+       call check(stat,262)
     ENDIF
 
     stat = NF90_PUT_VAR(ncid, ch3b_common_varid, FCDR%uc3)
-    call check(stat)
+    call check(stat,263)
 
     stat = NF90_PUT_VAR(ncid, ch4_common_varid, FCDR%uc4)
-    call check(stat)
+    call check(stat,264)
 
     IF( twelve_micron_there )THEN
        stat = NF90_PUT_VAR(ncid, ch5_common_varid, FCDR%uc5)
-       call check(stat)
+       call check(stat,265)
     ENDIF
 
     ! CURUC variables
     stat = NF90_PUT_VAR(ncid, dBT3_over_dT_varid, FCDR%dBT_over_dT3)
-    call check(stat)
+    call check(stat,266)
 
     stat = NF90_PUT_VAR(ncid, dBT4_over_dT_varid, FCDR%dBT_over_dT4)
-    call check(stat)
+    call check(stat,267)
 
     IF( twelve_micron_there )THEN
        stat = NF90_PUT_VAR(ncid, dBT5_over_dT_varid, FCDR%dBT_over_dT5)
-       call check(stat)
+       call check(stat,268)
     ENDIF
 
     stat = NF90_PUT_VAR(ncid, dRe1_over_dCS_varid, FCDR%dRe_over_dcs1)
-    call check(stat)
+    call check(stat,269)
 
     stat = NF90_PUT_VAR(ncid, dRe2_over_dCS_varid, FCDR%dRe_over_dcs2)
-    call check(stat)
+    call check(stat,270)
 
     IF( ALLOCATED(AVHRR%new_array3a) )THEN
        stat = NF90_PUT_VAR(ncid, dRe3a_over_dCS_varid, FCDR%dRe_over_dcs3a)
-       call check(stat)
+       call check(stat,271)
     ENDIF
 
     stat = NF90_PUT_VAR(ncid, dBT3_over_dCS_varid, FCDR%dBT_over_dcs3)
-    call check(stat)
+    call check(stat,272)
 
     stat = NF90_PUT_VAR(ncid, dBT4_over_dCS_varid, FCDR%dBT_over_dcs4)
-    call check(stat)
+    call check(stat,273)
 
     IF( twelve_micron_there )THEN
        stat = NF90_PUT_VAR(ncid, dBT5_over_dCS_varid, FCDR%dBT_over_dcs5)
-       call check(stat)
+       call check(stat,274)
     ENDIF
 
     stat = NF90_PUT_VAR(ncid, dBT3_over_dCICT_varid, FCDR%dBT_over_dcict3)
-    call check(stat)
+    call check(stat,275)
 
     stat = NF90_PUT_VAR(ncid, dBT4_over_dCICT_varid, FCDR%dBT_over_dcict4)
-    call check(stat)
+    call check(stat,276)
 
     IF( twelve_micron_there )THEN
        stat = NF90_PUT_VAR(ncid, dBT5_over_dCICT_varid, FCDR%dBT_over_dcict5)
-       call check(stat)
+       call check(stat,277)
     ENDIF
 
     stat = NF90_PUT_VAR(ncid, smoothprt_varid, AVHRR%smoothPRT)
-    call check(stat)
+    call check(stat,278)
 
     noise_cnts = AVHRR%noise_cnts_cal(:,1)
     stat = NF90_PUT_VAR(ncid, cal_cnts_varid, noise_cnts)
-    call check(stat)
+    call check(stat,279)
 
     earth_noise_cnts = AVHRR%noise_cnts(:,1)
     stat = NF90_PUT_VAR(ncid, earth_cnts_varid, earth_noise_cnts)
-    call check(stat)
+    call check(stat,280)
 
     ALLOCATE(badNav(AVHRR%arraySize),&
          badCal(AVHRR%arraySize),&
@@ -1867,81 +1940,81 @@ CONTAINS
        ENDIF
     END DO
     stat = NF90_PUT_VAR(ncid, badNavigation_varid, badNav)
-    call check(stat)
+    call check(stat,281)
     stat = NF90_PUT_VAR(ncid, badNavigation_varid, badCal)
-    call check(stat)
+    call check(stat,282)
     stat = NF90_PUT_VAR(ncid, badTime_varid, badTime)
-    call check(stat)
+    call check(stat,283)
     stat = NF90_PUT_VAR(ncid, missingLines_varid, missingLines)
-    call check(stat)
+    call check(stat,284)
     stat = NF90_PUT_VAR(ncid, solar3_varid, solar3)
-    call check(stat)
+    call check(stat,285)
     stat = NF90_PUT_VAR(ncid, solar4_varid, solar4)
-    call check(stat)
+    call check(stat,286)
     stat = NF90_PUT_VAR(ncid, solar5_varid, solar5)
-    call check(stat)
+    call check(stat,287)
 
     stat = NF90_PUT_VAR(ncid, nuc_varid, FCDR%nuc)
-    call check(stat)
+    call check(stat,288)
     
     stat = NF90_PUT_VAR(ncid, aval_varid, FCDR%aval)
-    call check(stat)
+    call check(stat,289)
     
     stat = NF90_PUT_VAR(ncid, bval_varid, FCDR%bval)
-    call check(stat)
+    call check(stat,290)
     
 !    stat = NF90_PUT_VAR(ncid, flag_no_detection_varid, FCDR%flag_no_detection)
-!    call check(stat)
+!    call check(stat,291)
 
     stat = NF90_PUT_VAR(ncid, scan_qual_varid, &
          FCDR%quality_scanline_bitmask)
-    call check(stat)
+    call check(stat,292)
 
     stat = NF90_PUT_VAR(ncid, chan_qual_varid, &
          FCDR%quality_channel_bitmask)
-    call check(stat)
+    call check(stat,293)
 
     stat = NF90_PUT_VAR(ncid, ch3a_there_varid, AVHRR%ch3a_there)
-    call check(stat)
+    call check(stat,294)
 
     stat = NF90_PUT_VAR(ncid, scanline_varid, AVHRR%scanlinenumber)
-    call check(stat)
+    call check(stat,295)
 
     stat = NF90_PUT_VAR(ncid, oscanline_varid, AVHRR%scnline_l1b)
-    call check(stat)
+    call check(stat,296)
 
     stat = NF90_PUT_VAR(ncid, ch3b_harm_varid, FCDR%hu3)
-    call check(stat)
+    call check(stat,297)
 
     stat = NF90_PUT_VAR(ncid, ch4_harm_varid, FCDR%hu4)
-    call check(stat)
+    call check(stat,298)
 
     IF( twelve_micron_there )THEN
        stat = NF90_PUT_VAR(ncid, ch5_harm_varid, FCDR%hu5)
-       call check(stat)
+       call check(stat,299)
     ENDIF
 
     IF( monte_carlo )THEN
        stat = NF90_PUT_VAR(ncid, ch1_MC_varid, delta_bts%ch1)
-       call check(stat)
+       call check(stat,300)
        stat = NF90_PUT_VAR(ncid, ch2_MC_varid, delta_bts%ch2)
-       call check(stat)
+       call check(stat,301)
        IF( ALLOCATED(AVHRR%new_array3a) )THEN
           stat = NF90_PUT_VAR(ncid, ch3a_MC_varid, delta_bts%ch3a)
-          call check(stat)
+          call check(stat,302)
        ENDIF
        stat = NF90_PUT_VAR(ncid, ch3_MC_varid, delta_bts%ch3)
-       call check(stat)
+       call check(stat,303)
        stat = NF90_PUT_VAR(ncid, ch4_MC_varid, delta_bts%ch4)
-       call check(stat)
+       call check(stat,304)
        IF( twelve_micron_there )THEN
           stat = NF90_PUT_VAR(ncid, ch5_MC_varid, delta_bts%ch5)
-          call check(stat)
+          call check(stat,305)
        ENDIF
     ENDIF
 
     stat = NF90_CLOSE(ncid)
-    call check(stat)
+    call check(stat,306)
 
     DEALLOCATE(badNav,badCal,badTime,missingLines,solar3,solar4,solar5)
     IF( monte_carlo )THEN
@@ -5174,10 +5247,14 @@ CONTAINS
   !
   ! NetCDF check code - from Marines code
   !
-  subroutine check(status)
+  subroutine check(status,pos)
     integer, intent ( in) :: status
+    integer, optional, intent ( in) :: pos
     
-    if(status /= nf90_noerr) then 
+    if(status /= nf90_noerr) then
+       if( PRESENT(pos) )then
+          print *, 'At pos = ',pos
+       endif
        print *, trim(nf90_strerror(status))
        stop "Stopped"
     end if
