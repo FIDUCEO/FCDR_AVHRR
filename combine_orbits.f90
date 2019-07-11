@@ -361,13 +361,15 @@ CONTAINS
     outJ = -1
     FindLoop: DO K=-3,3 
        IF( J+K .gt. 0 .and. J+K .le. size )THEN
-          diff = ABS(time(I)-newtime(J+K))
-          IF( diff .gt. 2 )THEN
-             EXIT FindLoop
-          ENDIF
-          IF( diff .lt. min_diff )THEN
-             outJ = J+K
-             min_diff = diff
+          IF( time(I) .gt. 0 .and. newtime(J+K) .gt. 0 )THEN
+             diff = ABS(time(I)-newtime(J+K))
+             IF( diff .gt. 2 )THEN
+                EXIT FindLoop
+             ENDIF
+             IF( diff .lt. min_diff )THEN
+                outJ = J+K
+                min_diff = diff
+             ENDIF
           ENDIF
        ENDIF
     END DO FindLoop
@@ -380,11 +382,12 @@ CONTAINS
 
   END FUNCTION corr_diff_time
 
-  SUBROUTINE Merge_AVHRR(AVHRR,AVHRR_New)
+  SUBROUTINE Merge_AVHRR(AVHRR,AVHRR_New,test)
 
     TYPE(AVHRR_Data), INTENT(INOUT), TARGET :: AVHRR
     TYPE(AVHRR_Data), INTENT(IN) :: AVHRR_new
-    
+    INTEGER, OPTIONAL :: test
+
     ! Local variables
     INTEGER :: I
     INTEGER :: J
@@ -393,16 +396,26 @@ CONTAINS
     INTEGER :: start_pos
     INTEGER :: extra_lines
     INTEGER :: first_position
+    INTEGER :: first_position_new
     INTEGER :: last_position
+    INTEGER :: last_position_new
+    INTEGER :: temp_position
     INTEGER :: back_pos
     INTEGER :: back_pos2
     INTEGER :: offset
-    
+    INTEGER :: test_print
+
     REAL(GbcsDble) :: start_time 
 
     LOGICAL, ALLOCATABLE :: good_data(:)
 
     TYPE(AVHRR_Data), POINTER :: AVHRR_Ptr
+
+    IF( PRESENT(test) )THEN
+       test_print = test
+    ELSE
+       test_print = 0
+    ENDIF
 
     AVHRR%valid_data_there = .TRUE.
 
@@ -467,6 +480,10 @@ CONTAINS
                       ! Found same line
                       !
                       IF( Check_Scanline(AVHRR_New,outJ) )THEN
+                         IF( test_print .gt. 0 )THEN
+                            WRITE(test_print,*)I,outJ,&
+                                 AVHRR%Time(I),AVHRR_New%Time(outJ)
+                         ENDIF
                          CALL Copy_Scanline(AVHRR,I,AVHRR_New,outJ)
                       ENDIF
                       EXIT FindLoop2
@@ -544,7 +561,7 @@ CONTAINS
     !
     last_position=-1
     FindLast: DO I=AVHRR%arraySize,1,-1
-       IF( good_data(I) )THEN
+       IF( good_data(I) .and. AVHRR%Time(I) .gt. 0 )THEN
           last_position=I
           EXIT FindLast
        ENDIF
@@ -552,11 +569,6 @@ CONTAINS
     IF( -1 .eq. last_position )THEN
        CALL Gbcs_Critical(.TRUE.,'No good data found in first input structure',&
             'Merge_AVHRR','extract_l1b_data.f90')
-    ENDIF
-    IF( AVHRR%arraySize .lt. last_position )THEN
-       last_position=last_position+1
-    ELSE
-       last_position=AVHRR%arraySize
     ENDIF
 
     ! 
@@ -572,17 +584,74 @@ CONTAINS
           EXIT FindFirst
        ENDIF
     END DO FindFirst
-    IF( -1 .eq. first_position )THEN
+    !
+    ! Find first/last valid point in new data stream so we can check if 
+    ! there is a gap from previous or we are in overlap mode
+    !
+    first_position_new=-1
+    FindFirst2: DO I=1,AVHRR_New%arraySize
+       IF( .not. isNaN(AVHRR_New%time(I)) .and. AVHRR_New%time(I) .gt. 0 )THEN
+             first_position_new = I
+          EXIT FindFirst2
+       ENDIF
+    END DO FindFirst2
+    last_position_new=-1
+    FindFirst3: DO I=AVHRR_New%arraySize,1,-1
+       IF( .not. isNaN(AVHRR_New%time(I)) .and. AVHRR_New%time(I) .gt. 0 )THEN
+             last_position_new = I
+          EXIT FindFirst3
+       ENDIF
+    END DO FindFirst3
+    !
+    ! Need to check if full overlap (since we will have checked/copied all
+    ! new data) or we have a gap (need to add in new data)
+    !
+    IF( -1 .eq. first_position .and. 0 .lt. first_position_new )THEN
        !
-       ! Gap so just add first of new one as new line
+       ! Valid last position
        !
-       first_position = 1
+       IF( last_position .le. AVHRR%arraySize )THEN
+          !
+          ! Is data contained?
+          !
+          IF( corr_diff_time(AVHRR%time,last_position,AVHRR_New%arraySize,&
+               AVHRR_New%time,temp_position,outJ) )THEN
+             ! No gap
+             continue
+          ELSE
+             !
+             ! Look to see if we have a gap
+             !
+             IF( AVHRR%time(last_position) .lt. &
+                  AVHRR_New%time(first_position_new) )THEN
+                first_position = first_position_new
+             ENDIF
+          ENDIF
+       ENDIF
+    ENDIF
+
+    !
+    ! Check to see if we are full overlap (last new within AVHRR structure)
+    ! If so don't append
+    !
+    IF( last_position .gt. 0 .and. last_position_new .gt. 0 )THEN
+       IF( corr_diff_time(AVHRR%time,last_position,last_position_new,&
+            AVHRR_New%time,temp_position,outJ) )THEN
+          first_position = -1
+       ELSE IF( AVHRR%time(last_position) .ge. &
+            AVHRR_New%time(last_position_new) )THEN
+          first_position = -1
+       ENDIF
     ENDIF
 
     !
     ! Append new data to old structure
     !
     IF( first_position .gt. 0 )THEN
+!       print *,first_position,last_position
+!       print *,first_position_new,last_position_new
+!       print *,AVHRR%time(first_position),AVHRR%time(last_position)
+!       print *,AVHRR_New%time(first_position_new),AVHRR_New%time(last_position_new)
        extra_lines = AVHRR_New%arraySize - first_position - &
             (AVHRR%arraySize-last_position)
        CALL Reallocate_outData(AVHRR_Ptr,extra_lines)
@@ -3140,12 +3209,6 @@ CONTAINS
           ENDIF
           I=I+1
        END DO
-    ENDIF
-
-    IF( monte_carlo )THEN
-       CALL Deallocate_Deltarad(delta_rad)
-       CALL Copy_Delta_Rad(delta_rad_tmp,delta_rad)
-       CALL Deallocate_Deltarad(delta_rad_tmp)
     ENDIF
 
     WRITE(*,'(''  Number of missing scanlines added = '',i5)')nmissing_total
