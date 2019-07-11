@@ -579,6 +579,7 @@ CONTAINS
     ELSE
        STAT = NF90_OPEN(filename,0,ncid)
        IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''POS = 1'')')
           WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
           CALL Gbcs_Critical(.TRUE.,'Cannot open FIDUCEO_MC_HARM',&
                'Read_MC_Harmonisation','write_fcdr.f90')
@@ -586,6 +587,7 @@ CONTAINS
 
        STAT = NF90_INQ_DIMID(ncid,'noMC',dim_nmc)
        IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''POS = 2'')')
           WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
           CALL Gbcs_Critical(.TRUE.,'Cannot get noMC dimid',&
                'Read_MC_Harmonisation','write_fcdr.f90')
@@ -593,6 +595,7 @@ CONTAINS
 
        STAT = NF90_INQUIRE_DIMENSION(ncid,dim_nmc,name,noMc)
        IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''POS = 3'')')
           WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
           CALL Gbcs_Critical(.TRUE.,'Cannot get noMC',&
                'Read_MC_Harmonisation','write_fcdr.f90')
@@ -600,6 +603,7 @@ CONTAINS
 
        STAT = NF90_INQ_DIMID(ncid,'nparam3',dim_nparam)
        IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''POS = 4'')')
           WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
           CALL Gbcs_Critical(.TRUE.,'Cannot get nparam3 dimid',&
                'Read_MC_Harmonisation','write_fcdr.f90')
@@ -607,6 +611,7 @@ CONTAINS
 
        STAT = NF90_INQUIRE_DIMENSION(ncid,dim_nparam,name,nparams3)
        IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''POS = 5'')')
           WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
           CALL Gbcs_Critical(.TRUE.,'Cannot get nparam3',&
                'Read_MC_Harmonisation','write_fcdr.f90')
@@ -614,6 +619,7 @@ CONTAINS
 
        STAT = NF90_INQ_DIMID(ncid,'nparam4',dim_nparam)
        IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''POS = 6'')')
           WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
           CALL Gbcs_Critical(.TRUE.,'Cannot get nparam4 dimid',&
                'Read_MC_Harmonisation','write_fcdr.f90')
@@ -621,6 +627,7 @@ CONTAINS
 
        STAT = NF90_INQUIRE_DIMENSION(ncid,dim_nparam,name,nparams4)
        IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''POS = 7'')')
           WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
           CALL Gbcs_Critical(.TRUE.,'Cannot get nparam4',&
                'Read_MC_Harmonisation','write_fcdr.f90')
@@ -628,6 +635,7 @@ CONTAINS
 
        STAT = NF90_INQ_DIMID(ncid,'nparam5',dim_nparam)
        IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''POS = 8'')')
           WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
           CALL Gbcs_Critical(.TRUE.,'Cannot get nparam5 dimid',&
                'Read_MC_Harmonisation','write_fcdr.f90')
@@ -635,6 +643,7 @@ CONTAINS
 
        STAT = NF90_INQUIRE_DIMENSION(ncid,dim_nparam,name,nparams5)
        IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''POS = 9'')')
           WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
           CALL Gbcs_Critical(.TRUE.,'Cannot get nparam5',&
                'Read_MC_Harmonisation','write_fcdr.f90')
@@ -662,6 +671,7 @@ CONTAINS
 
        STAT = NF90_INQ_VARID(ncid,"delta_params3", VarId)
        IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''POS = 10'')')
           WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
           CALL Gbcs_Critical(.TRUE.,'Cannot get delta_params3 varid',&
                'Read_MC_Harmonisation','write_fcdr.f90')
@@ -669,6 +679,7 @@ CONTAINS
 
        STAT = NF90_GET_VAR(ncid,varID,mc_harm%delta_params3)
        IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''POS = 11'')')
           WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
           CALL Gbcs_Critical(.TRUE.,'Cannot get delta_params3',&
                'Read_MC_Harmonisation','write_fcdr.f90')
@@ -676,6 +687,7 @@ CONTAINS
 
        STAT = NF90_INQ_VARID(ncid,"delta_params4", VarId)
        IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''POS = 12'')')
           WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
           CALL Gbcs_Critical(.TRUE.,'Cannot get delta_params4 varid',&
                'Read_MC_Harmonisation','write_fcdr.f90')
@@ -683,6 +695,7 @@ CONTAINS
 
        STAT = NF90_GET_VAR(ncid,varID,mc_harm%delta_params4)
        IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''POS = 13'')')
           WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
           CALL Gbcs_Critical(.TRUE.,'Cannot get delta_params4',&
                'Read_MC_Harmonisation','write_fcdr.f90')
@@ -690,6 +703,7 @@ CONTAINS
 
        STAT = NF90_INQ_VARID(ncid,"delta_params5", VarId)
        IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''POS = 14'')')
           WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
           CALL Gbcs_Critical(.TRUE.,'Cannot get delta_params5 varid',&
                'Read_MC_Harmonisation','write_fcdr.f90')
@@ -697,6 +711,7 @@ CONTAINS
 
        STAT = NF90_GET_VAR(ncid,varID,mc_harm%delta_params5)
        IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''POS = 15'')')
           WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
           CALL Gbcs_Critical(.TRUE.,'Cannot get delta_params5',&
                'Read_MC_Harmonisation','write_fcdr.f90')
@@ -704,6 +719,7 @@ CONTAINS
 
        STAT = NF90_GET_ATT(ncid,NF90_GLOBAL,"HARM_UUID3",mc_harm%uuid3)
        IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''POS = 16'')')
           WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
           CALL Gbcs_Critical(.TRUE.,'Cannot get UUID3',&
                'Read_MC_Harmonisation','write_fcdr.f90')
@@ -711,6 +727,7 @@ CONTAINS
 
        STAT = NF90_GET_ATT(ncid,NF90_GLOBAL,"HARM_UUID4",mc_harm%uuid4)
        IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''POS = 17'')')
           WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
           CALL Gbcs_Critical(.TRUE.,'Cannot get UUID4',&
                'Read_MC_Harmonisation','write_fcdr.f90')
@@ -718,6 +735,7 @@ CONTAINS
 
        STAT = NF90_GET_ATT(ncid,NF90_GLOBAL,"HARM_UUID5",mc_harm%uuid5)
        IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''POS = 18'')')
           WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
           CALL Gbcs_Critical(.TRUE.,'Cannot get UUID5',&
                'Read_MC_Harmonisation','write_fcdr.f90')
@@ -725,6 +743,7 @@ CONTAINS
 
        STAT = NF90_CLOSE(ncid)
        IF( 0 .ne. STAT )THEN
+          WRITE(*,'(''POS = 19'')')
           WRITE(*,'(''NCDF Error : '',a)')TRIM(NF90_STRERROR(STAT))
           CALL Gbcs_Critical(.TRUE.,'Cannot close FIDUCEO_MC_HARM',&
                'Read_MC_Harmonisation','write_fcdr.f90')
