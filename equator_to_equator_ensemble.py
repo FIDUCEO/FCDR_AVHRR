@@ -201,7 +201,7 @@ class get_file_data(object):
         self.end_time = datetime.datetime.strptime(end_string,"%Y-%j:%H:%M")
 
         # Get middle time - have to use timedelta for arithmetic
-        self.time = self.start_time + (self.end_time - self.start_time)/2
+        self.time = self.start_time + (self.end_time - self.start_time)//2
 
     # Get information from filename
     def get_file_information(self,filename):
@@ -595,7 +595,8 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
                            test=False,gbcs_l1c_args='N',\
                            walton_only=False,keep_temp=False,\
                            write_fcdr=True,walton_cal=False,\
-                           get_stats=False,montecarlo=False):
+                           get_stats=False,montecarlo=False,\
+                           fiduceo_mc_harm=None):
     
     curr_dir = os.getcwd()
     # Check to see if we've already made this directory
@@ -623,7 +624,7 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
     except:
         pass
     try:
-        os.symlink('/home/users/jpdmittaz/Python/jpdm/lib/python2.7/site-packages/pygac/gac_run.py','gac_run.py')
+        os.symlink('/gws/nopw/j04/fiduceo/Users/jmittaz/Python/jpdm/lib/python2.7/site-packages/pygac/gac_run.py','gac_run.py')
     except:
         pass
     try:
@@ -635,10 +636,15 @@ def make_shell_command(filelist,instr,avhrr_dir_name,year,month,day,i,\
     file_log = 'run.{0:06d}.log'.format(i)
     with open(outfile,'w') as fp:
         fp.write('export OMP_NUM_THREADS=1\n')
-        fp.write('. /home/users/jpdmittaz/Python/jpdm/bin/activate\n')
-        fp.write('export PYGAC_CONFIG_FILE=/home/users/jpdmittaz/pygac.cfg\n')
+        fp.write('. /gws/nopw/j04/fiduceo/Users/jmittaz/Python/jpdm/bin/activate\n')
+        fp.write('export PYGAC_CONFIG_FILE=/gws/nopw/j04/fiduceo/Users/jmittaz/Python/pygac.cfg\n')
         if montecarlo:
-            fp.write('export FIDUCEO_MC_HARM=/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/Mike/FCDR_AVHRR/MC_Harmonisation.nc\n')
+            if None == fiduceo_mc_harm:
+                raise Exception('Have not defined fiduceo_mc_harm')
+            #
+            # Write to file
+            #
+            fp.write('export FIDUCEO_MC_HARM={0}\n'.format(fiduceo_mc_harm))
         outfile_stem = []
         for j in range(len(filelist)):
             # Convert listed data via pygac
@@ -857,7 +863,8 @@ def write_commands(instr,year,month,day,split_single,spawn_job,\
                        write_fcdr=True,\
                        walton_cal=False,\
                        get_stats=False,\
-                       montecarlo=False):
+                       montecarlo=False,\
+                       fiduceo_mc_harm=None):
     
     # Get equator crossing times in the day
     t = tle_data(instr,year,month,day)
@@ -887,7 +894,8 @@ def write_commands(instr,year,month,day,split_single,spawn_job,\
                                    gbcs_l1c_args=gbcs_l1c_args,\
                                    walton_only=walton_only,keep_temp=keep_temp,\
                                    write_fcdr=write_fcdr,walton_cal=walton_cal,\
-                                   get_stats=get_stats,montecarlo=montecarlo)
+                                   get_stats=get_stats,montecarlo=montecarlo,\
+                                   fiduceo_mc_harm=fiduceo_mc_harm)
             nwrites=nwrites+1
 
     print('Number of command files : ',nwrites)
@@ -895,7 +903,7 @@ def write_commands(instr,year,month,day,split_single,spawn_job,\
 #
 # Run main code from within python
 #
-def main_python(instr,year,month,day,substring):
+def main_python(instr,year,month,day,substring,fiduceo_mc_harm):
 
     args = substring.split()
 
@@ -946,7 +954,7 @@ def main_python(instr,year,month,day,substring):
                        gbcs_l1c_args=gbcs_l1c_args,walton_only=walton_only,\
                        keep_temp=keep_temp,write_fcdr=write_fcdr,\
                        walton_cal=walton_cal,get_stats=get_stats,\
-                       montecarlo=montecarlo)    
+                       montecarlo=montecarlo,fiduceo_mc_harm=fiduceo_mc_harm)
 
 if __name__ == "__main__":
 

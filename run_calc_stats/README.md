@@ -1,0 +1,1 @@
+run_calc_stats/ code is to be run on generated FCDR archive directories AVHRRxx/ in the make directory  
