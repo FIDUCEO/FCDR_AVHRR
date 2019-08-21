@@ -13,16 +13,12 @@ anaconda_env='/gws/nopw/j04/fiduceo/Users/jmittaz/Anaconda/etc/profile.d/'
 # Find if running jpdm virtual environment
 python_there=0
 anaconda_there=0
-echo "=============: "$VIRTUAL_ENV
 if [ -z $VIRTUAL_ENV ] 
 then
     # Check to see if jpdm version of anaconda is running
     if conda info > /dev/null 
     then
 	python_loc=`which python`
-	echo "=================================================="
-	echo $python_loc | grep Users/jmittaz/Anaconda
-	echo "=================================================="
 	if echo $python_loc | grep Users/jmittaz/Anaconda
 	then
 	    # jpdm version is running
