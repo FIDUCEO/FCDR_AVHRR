@@ -154,6 +154,10 @@ CONTAINS
     LOGICAL :: ok
     LOGICAL :: oceanonly
     REAL :: rad_threshold
+    LOGICAL :: noise_there_1
+    LOGICAL :: noise_there_2
+    LOGICAL :: noise_there_3
+    LOGICAL :: noise_there_4
     
     IF( PRESENT(digitize) )THEN
        digitize_data = digitize
@@ -174,20 +178,44 @@ CONTAINS
     ! Get new values with MC perturabation
     !
     ok=.FALSE.
+    noise_there_1=.FALSE.
+    noise_there_2=.FALSE.
+    noise_there_3=.FALSE.
     noiseLoop: DO I=1,AVHRR%arraySize
        !
        ! Check channels which should always be there
        !
        IF( AVHRR%noise_cnts(1,I) .gt. 0 .and. &
             AVHRR%noise_cnts(2,I) .gt. 0 .and. &
-            AVHRR%noise_cnts(4,I) .gt. 0 .and. &
             AVHRR%noise_cnts(5,I) .gt. 0 )THEN
+          noise_there_1=.TRUE.
+          noise_there_2=.TRUE.
+          noise_there_3=.TRUE.
           noise_cnts(:) = AVHRR%noise_cnts(:,I)
           ok=.TRUE.
           EXIT noiseLoop
+       ELSE
+          IF( AVHRR%noise_cnts(1,I) .gt. 0 )THEN
+             noise_there_1=.TRUE.
+          ENDIF
+          IF( AVHRR%noise_cnts(2,I) .gt. 0 )THEN
+             noise_there_2=.TRUE.
+          ENDIF
+          IF( AVHRR%noise_cnts(5,I) .gt. 0 )THEN
+             noise_there_3=.TRUE.
+          ENDIF
        ENDIF
     END DO noiseLoop
     IF( .not. ok )THEN
+       IF( .not. noise_there_1 )THEN
+          WRITE(*,'(''    Channel 0.6mu noise missing'')')
+       ENDIF
+       IF( .not. noise_there_2 )THEN
+          WRITE(*,'(''    Channel 0.8mu noise missing'')')
+       ENDIF
+       IF( .not. noise_there_3 )THEN
+          WRITE(*,'(''    Channel 11mu noise missing'')')
+       ENDIF
        CALL Gbcs_Critical(.TRUE.,'Cannot find good noise',&
             'Run_MonteCarlo','monte_carlo.f90')
     ENDIF
@@ -199,7 +227,7 @@ CONTAINS
          AVHRR_MC%spaceFilter2,AVHRR_MC%spaceFilter3a,AVHRR_MC%sp3,&
          AVHRR_MC%sp4,AVHRR_MC%sp5,&
          AVHRR_MC%spaceFilter3,AVHRR_MC%spaceFilter4,AVHRR_MC%spaceFilter5,&
-         noise_cnts,AVHRR%ch3a_there,&
+         noise_cnts,AVHRR%ch3a_there,AVHRR%twelve_micron_there,&
          Counts1,Counts2,Counts3,Counts4,Counts5,bb3,bb4,bb5,&
          sp1,sp2,sp3a,sp3,sp4,sp5,digitize_data)
     !
@@ -380,7 +408,7 @@ CONTAINS
        Inbb4,Inbb5,InbbFilter3,InbbFilter4,InbbFilter5,Inspace1,&
        Inspace2,Inspace3a,Inspace3,&
        Inspace4,Inspace5,InspaceFilter3,InspaceFilter4,InspaceFilter5,&
-       noise,ch3a_there,&
+       noise,ch3a_there,ch5_there,&
        Counts1,Counts2,Counts3,Counts4,Counts5,bb3,bb4,bb5,&
        sp1,sp2,sp3a,sp3,sp4,sp5,digitize)
 
@@ -410,6 +438,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: InspaceFIlter5(ncal,ndata)
     REAL, INTENT(IN) :: noise(6)
     INTEGER, INTENT(IN) :: ch3a_there(ndata)
+    LOGICAL, INTENT(IN) :: ch5_there
     REAL, INTENT(OUT), ALLOCATABLE :: Counts1(:,:,:)
     REAL, INTENT(OUT), ALLOCATABLE :: Counts2(:,:,:)
     REAL, INTENT(OUT), ALLOCATABLE :: Counts3(:,:,:)
@@ -487,9 +516,13 @@ CONTAINS
                 CALL Get_Random_EVEN(noMC,InCounts4(J,I),noise(5),&
                      out_real,random_array,digitize)
                 Counts4(J,I,:) = out_real
-                CALL Get_Random_EVEN(noMC,InCounts5(J,I),noise(6),&
-                     out_real,random_array,digitize)
-                Counts5(J,I,:) = out_real
+                IF( ch5_there )THEN
+                   CALL Get_Random_EVEN(noMC,InCounts5(J,I),noise(6),&
+                        out_real,random_array,digitize)
+                   Counts5(J,I,:) = out_real
+                ELSE
+                   Counts5(J,I,:) = NAN_R
+                ENDIF
              END DO
           ELSE
              DO J=1,nelem
@@ -505,9 +538,13 @@ CONTAINS
                 CALL Get_Random_EVEN(noMC,InCounts4(J,I),noise(5),&
                      out_real,random_array,digitize)
                 Counts4(J,I,:) = out_real
-                CALL Get_Random_EVEN(noMC,InCounts5(J,I),noise(6),&
-                     out_real,random_array,digitize)
-                Counts5(J,I,:) = out_real
+                IF( ch5_there )THEN
+                   CALL Get_Random_EVEN(noMC,InCounts5(J,I),noise(6),&
+                        out_real,random_array,digitize)
+                   Counts5(J,I,:) = out_real
+                ELSE
+                   Counts5(J,I,:) = NAN_R
+                ENDIF
              END DO
           ENDIF
           !
@@ -531,14 +568,18 @@ CONTAINS
                      out_real,random_array,digitize)
              ENDIF
              bb4(J,I,:) = out_real
-             IF( InBB5(I) .gt. 0 )THEN
-                CALL Get_Random_EVEN(noMC,Inbb5(I),noise(6),&
-                     out_real,random_array,digitize)
+             IF( ch5_there )THEN
+                IF( InBB5(I) .gt. 0 )THEN
+                   CALL Get_Random_EVEN(noMC,Inbb5(I),noise(6),&
+                        out_real,random_array,digitize)
+                ELSE
+                   CALL Get_Random_EVEN(noMC,InbbFilter5(J,I),noise(6),&
+                        out_real,random_array,digitize)
+                ENDIF
+                bb5(J,I,:) = out_real
              ELSE
-                CALL Get_Random_EVEN(noMC,InbbFilter5(J,I),noise(6),&
-                     out_real,random_array,digitize)
+                bb5(J,I,:) = NAN_R
              ENDIF
-             bb5(J,I,:) = out_real
           END DO
 
           !
@@ -570,14 +611,18 @@ CONTAINS
                      out_real,random_array,digitize)
              ENDIF
              sp4(J,I,:) = out_real
-             IF( 0 .lt. Inspace5(I) )THEN
-                CALL Get_Random_EVEN(noMC,Inspace5(I),noise(6),&
-                     out_real,random_array,digitize)
+             IF( ch5_there )THEN
+                IF( 0 .lt. Inspace5(I) )THEN
+                   CALL Get_Random_EVEN(noMC,Inspace5(I),noise(6),&
+                        out_real,random_array,digitize)
+                ELSE
+                   CALL Get_Random_EVEN(noMC,InspaceFilter5(J,I),noise(6),&
+                        out_real,random_array,digitize)
+                ENDIF
+                sp5(J,I,:) = out_real
              ELSE
-                CALL Get_Random_EVEN(noMC,InspaceFilter5(J,I),noise(6),&
-                     out_real,random_array,digitize)
+                sp5(J,I,:) = NAN_R
              ENDIF
-             sp5(J,I,:) = out_real
           END DO
        END DO
     ELSE
@@ -602,9 +647,13 @@ CONTAINS
                 CALL Get_Random_ODD(noMC,InCounts4(J,I),noise(5),&
                      out_real,random_array,digitize)
                 Counts4(J,I,:) = out_real
-                CALL Get_Random_ODD(noMC,InCounts5(J,I),noise(6),&
-                     out_real,random_array,digitize)
-                Counts5(J,I,:) = out_real
+                IF( ch5_there )THEN
+                   CALL Get_Random_ODD(noMC,InCounts5(J,I),noise(6),&
+                        out_real,random_array,digitize)
+                   Counts5(J,I,:) = out_real
+                ELSE
+                   Counts5(J,I,:) = NAN_R
+                ENDIF                  
              END DO
           ELSE
              DO J=1,nelem
@@ -620,9 +669,13 @@ CONTAINS
                 CALL Get_Random_ODD(noMC,InCounts4(J,I),noise(5),&
                      out_real,random_array,digitize)
                 Counts4(J,I,:) = out_real
-                CALL Get_Random_ODD(noMC,InCounts5(J,I),noise(6),&
-                     out_real,random_array,digitize)
-                Counts5(J,I,:) = out_real
+                IF( ch5_there )THEN
+                   CALL Get_Random_ODD(noMC,InCounts5(J,I),noise(6),&
+                        out_real,random_array,digitize)
+                   Counts5(J,I,:) = out_real
+                ELSE
+                   Counts5(J,I,:) = NAN_R
+                ENDIF
              END DO
           ENDIF
           !
@@ -635,9 +688,13 @@ CONTAINS
              CALL Get_Random_ODD(noMC,Inbb4(I),noise(5),&
                   out_real,random_array,digitize)
              bb4(J,I,:) = out_real
-             CALL Get_Random_ODD(noMC,Inbb5(I),noise(6),&
-                  out_real,random_array,digitize)
-             bb5(J,I,:) = out_real
+             IF( ch5_there )THEN
+                CALL Get_Random_ODD(noMC,Inbb5(I),noise(6),&
+                     out_real,random_array,digitize)
+                bb5(J,I,:) = out_real
+             ELSE
+                bb5(J,I,:) = NAN_R
+             ENDIF
           END DO
           !
           ! Space counts
@@ -658,9 +715,13 @@ CONTAINS
              CALL Get_Random_ODD(noMC,Inspace4(I),noise(5),&
                   out_real,random_array,digitize)
              sp4(J,I,:) = out_real
-             CALL Get_Random_ODD(noMC,Inspace5(I),noise(6),&
-                  out_real,random_array,digitize)
-             sp5(J,I,:) = out_real
+             IF( ch5_there )THEN
+                CALL Get_Random_ODD(noMC,Inspace5(I),noise(6),&
+                     out_real,random_array,digitize)
+                sp5(J,I,:) = out_real
+             ELSE
+                sp5(J,I,:) = NAN_R
+             ENDIF
           END DO
        END DO
     ENDIF
