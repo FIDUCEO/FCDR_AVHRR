@@ -1,3 +1,4 @@
+from __future__ import print_function,division
 # * Copyright (C) 2017 J.Mittaz University of Reading
 # * This code was developed for the EC project "Fidelity and Uncertainty in
 # * Climate Data Records from Earth Observations (FIDUCEO).
@@ -27,8 +28,6 @@
 # MT: 24-10-2017: add logic for case where start of orbit overlaps end of ECT window
 # MT: 24-10-2017: add more logic for case where end of orbit overlaps start of ECT window
 # MT: 15-11-2017: convert if to elif to fix repetition of orbit files in filelist
-
-
 
 import numpy as np
 import ephem
@@ -78,8 +77,8 @@ def get_avhrr_dir_name(avhrr_name):
     elif 'METOPB' == avhrr_name:
         avhrr_dir_name = 'AVHRRMTB_G'
     else:
-        print avhrr_name
-        raise Exception,"Cannot find avhrr_name"
+        print(avhrr_name)
+        raise Exception("Cannot find avhrr_name")
     return avhrr_dir_name
 
 # Get information from filename
@@ -143,9 +142,9 @@ class get_file_data(object):
             self.avhrr_dir_name = 'AVHRRMTB_G'
             self.instr = 'METOPB'
         else:
-            print 'get_avhrr_type'
-            print 'avhrr_name = ',avhrr_name
-            raise Exception,"Cannot find avhrr_name"
+            print('get_avhrr_type')
+            print('avhrr_name = ',avhrr_name)
+            raise Exception("Cannot find avhrr_name")
 
     # Get start/end date from filename
     def get_avhrr_time(self,filename_in):
@@ -357,12 +356,12 @@ class tle_data(object):
 #            filename = '/gws/nopw/j04/fiduceo/Users/mtaylor/FCDR/make_fcdr_code/merge_code/TLE/metop-b.txt'
             filename = '/gws/nopw/j04/fiduceo/Users/jmittaz/FCDR/make_fcdr_code/merge_code/TLE/metop-b.txt'
         else:
-            print 'instr = ',instr
-            raise Exception,"Cannot find instr"
+            print('instr = ',instr)
+            raise Exception("Cannot find instr")
 
         if not os.path.exists(filename):
-            print 'instr = ',instr
-            raise Exception,"TLE file not found : "+filename
+            print('instr = ',instr)
+            raise Exception("TLE file not found : "+filename)
 
         # Read file and get closest pair
         min_time = 1e30
@@ -428,7 +427,7 @@ class tle_data(object):
         elif 'METOPB' == self.name:
             ascending=False
         else:
-            raise Exception,"Cannot recognise self.name (equ crossing type"
+            raise Exception("Cannot recognise self.name (equ crossing type")
 
         return ascending
 
@@ -492,7 +491,7 @@ class tle_data(object):
             i=i+1
 
         if not ok:
-            raise Exception,"ERROR: Cannot find equator from TLE"
+            raise Exception("ERROR: Cannot find equator from TLE")
         return time_arr
 
     def __init__(self,instr,year,month,day):
@@ -863,7 +862,7 @@ def write_commands(instr,year,month,day,split_single,spawn_job,\
     # Get equator crossing times in the day
     t = tle_data(instr,year,month,day)
     if not t.times:
-        raise Exception,"No TLE equator crossing times found"
+        raise Exception("No TLE equator crossing times found")
 
     avhrr_dir_name = get_avhrr_dir_name(instr)
 
@@ -891,7 +890,63 @@ def write_commands(instr,year,month,day,split_single,spawn_job,\
                                    get_stats=get_stats,montecarlo=montecarlo)
             nwrites=nwrites+1
 
-    print 'Number of command files : ',nwrites
+    print('Number of command files : ',nwrites)
+
+#
+# Run main code from within python
+#
+def main_python(instr,year,month,day,substring):
+
+    args = substring.split()
+
+    split_single_file = args[0]
+    gbcs_l1c_args = args[1]
+    if args[2] == 'Y':
+        spawn_job=True
+    else:
+        spawn_job=False
+    walton_cal=True
+    montecarlo=False
+    if args[3] == 'Y':
+        walton_only=True
+    else:
+        walton_only=False
+        if args[3] == 'F':
+            walton_cal=False
+        elif args[3] == 'M':
+            walton_cal=False
+            montecarlo=True
+    if args[4] == 'Y':
+        keep_temp=True
+    else:
+        keep_temp=False
+    if args[5] == 'Y':
+        write_fcdr=True
+    else:
+        write_fcdr=False
+    if args[6] == 'Y':
+        get_stats=True
+    else:
+        get_stats=False
+
+    if len(args) == 8:
+        if args[7] == 'Y':
+            test=True
+        else:
+            test=False
+    else:
+        test=False
+
+    if 'Y' == split_single_file or 'y' == split_single_file:
+        split_single=True
+    else:
+        split_single=False
+
+    write_commands(instr,year,month,day,split_single,spawn_job,test=test,\
+                       gbcs_l1c_args=gbcs_l1c_args,walton_only=walton_only,\
+                       keep_temp=keep_temp,write_fcdr=write_fcdr,\
+                       walton_cal=walton_cal,get_stats=get_stats,\
+                       montecarlo=montecarlo)    
 
 if __name__ == "__main__":
 
@@ -948,5 +1003,6 @@ if __name__ == "__main__":
     write_commands(args[0],year,month,day,split_single,spawn_job,test=test,\
                        gbcs_l1c_args=gbcs_l1c_args,walton_only=walton_only,\
                        keep_temp=keep_temp,write_fcdr=write_fcdr,\
-                       walton_cal=walton_cal,get_stats=get_stats,montecarlo=montecarlo)
+                       walton_cal=walton_cal,get_stats=get_stats,\
+                       montecarlo=montecarlo)
 
