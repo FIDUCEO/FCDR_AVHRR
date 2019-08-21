@@ -2063,6 +2063,14 @@ CONTAINS
        CALL Deallocate_DeltaRad(delta_rad)
        CALL Copy_Delta_Rad(delta_rad_tmp,delta_rad)
        CALL Deallocate_DeltaRad(delta_rad_tmp)
+       !
+       ! Check size of delta_rad against AVHRRout
+       !
+       IF( AVHRRout%arraySize .ne. delta_rad%nscan )THEN
+          CALL Gbcs_Critical(.TRUE.,&
+               'AVHRRout and delta_rad are different sizes',&
+               'Resize_Orbit_Equator','combine_orbits.f90')
+       ENDIF
     ENDIF
 
   END SUBROUTINE Resize_Orbit_Equator
@@ -2121,7 +2129,7 @@ CONTAINS
        ENDIF
        resize = .TRUE.
     ELSE IF( PRESENT(endpos) )THEN
-       CALL Gbcs_Critical(.TRUE.,'Require endpos','Copy_Delta_Rad',&
+       CALL Gbcs_Critical(.TRUE.,'Require startpos','Copy_Delta_Rad',&
             'combine_orbits.f90')
     ELSE
        resize = .FALSE.
@@ -2224,6 +2232,14 @@ CONTAINS
        CALL Copy_Delta_Rad(delta_rad_tmp,delta_rad,startpos=startpos,&
             endpos=endpos)
        CALL Deallocate_DeltaRad(delta_rad_tmp)
+       !
+       ! Check size of delta_rad against AVHRRout
+       !
+       IF( AVHRRout%arraySize .ne. delta_rad%nscan )THEN
+          CALL Gbcs_Critical(.TRUE.,&
+               'AVHRRout and delta_rad are different sizes',&
+               'Resize_Orbit','combine_orbits.f90')
+       ENDIF
     ENDIF
 
   END SUBROUTINE Resize_Orbit
@@ -3209,6 +3225,15 @@ CONTAINS
           ENDIF
           I=I+1
        END DO
+    ENDIF
+
+    if( monte_carlo )THEN
+       !
+       ! Copy delta_rad_tmp back into delta_rad
+       !
+       CALL DeAllocate_DeltaRad(delta_rad)
+       CALL Copy_Delta_Rad(delta_rad_tmp,delta_rad)
+       CALL DeAllocate_DeltaRad(delta_rad_tmp)       
     ENDIF
 
     WRITE(*,'(''  Number of missing scanlines added = '',i5)')nmissing_total
